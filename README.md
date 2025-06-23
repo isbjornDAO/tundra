@@ -1,5 +1,3 @@
-# Snowstorm
-
 ## Web3 world gaming tournaments powered by Avalanche
 
 User
