@@ -1,16 +1,42 @@
-## Web3 world gaming tournaments powered by Avalanche
+# Tundra 
+> Brave the cold
 
-User
-Mint POAP to compete
-POAP metadata stores results (KD, placement)
-User XP calculated from metadata
-User rank by game and overall XP
+Tundra connects real-world tournaments with rewards on the web. Powering competition and collaboration. 
 
-Site overview
-Competitive games list with standings
-Active tournament list with brackets
-Featured live streams with commentary (hosted on Blaze or Arena)
-Guild list with country of origin & rank by game
-Profile to view POAP & redeem XP for rewards
+## ❄️ Overview
 
-This is a home for avax IRL gaming. We can scan POAPs with collab.land to assign clan & champion roles on avax gaming discord. Streaming user's tournament gameplay on discord would keep the server active. Imagine when it gets to the world finals and you have hundreds of clans in the server it would be a big audience
+- 🗺️ **World Map**: Watch "Snowstorms" (competitions) live worldwide
+- 🏆 **Summit**: Compete for top ranks in gaming, hackathons, and art battles
+- 🎯 **XP**: Level up for digital and physical rewards
+- 🐻‍❄️ **Arctic Profiles**: Customize your polar bear avatar and snow den
+- ⚡ **Seamless Onboarding**: Email/social signup with auto-wallet creation
+- 🔗 **Blockchain Integration**: Built on an Avalanche L1
+
+
+## 🎮 Core Concepts
+### Snowstorms
+Real-world competitions by verified organisers:
+
+- **Gaming Tournaments**: Esports competitions
+- **Hackathons**: Coding challenges and innovation contests
+- **Art Battles**: Creative competitions and showcases
+
+### Summit
+Global ranking system tracking leaderboards:
+
+- Overall ranking by XP
+- Competition-specific
+- Top regional guilds
+
+Champions for each leaderboard will be crowned once a year.
+
+### Arctic
+Personalized user spaces featuring:
+
+- Competition trophy and badge collections
+- Customizable polar bear avatars
+- Snow den decorations
+
+Arctic cosmetics can be minted with rewards earnt from XP.
+
+## Built with 🐻‍❄️ by Isbjorn
