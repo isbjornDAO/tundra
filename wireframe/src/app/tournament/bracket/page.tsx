@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AuthGuard } from '@/components/AuthGuard';
 import { Layout } from '@/components/Layout';
 import { useTeam1Auth } from '@/hooks/useTeam1Auth';
-import { type Team, type BracketMatch, GAMES, type Game } from '@/types/tournament';
+import { type Team, type BracketMatch, GAMES } from '@/types/tournament';
 
 // Mock data for different games
 const mockGameData = {
@@ -269,7 +269,7 @@ function GameSelector({ selectedGame, onGameSelect }: { selectedGame: string; on
   );
 }
 
-export default function TournamentBrackets() {
+function TournamentBracketsContent() {
   const { address } = useTeam1Auth();
   const searchParams = useSearchParams();
   const gameParam = searchParams.get('game');
@@ -346,7 +346,7 @@ export default function TournamentBrackets() {
             <ul className="space-y-2">
               <li>• Both team organizers must agree on match times</li>
               <li>• Matches are played on Avax Gaming Discord</li>
-              <li>• Click "Propose Time" to schedule your match</li>
+              <li>• Click &quot;Propose Time&quot; to schedule your match</li>
             </ul>
             <ul className="space-y-2">
               <li>• Submit results after completing matches</li>
@@ -384,5 +384,13 @@ export default function TournamentBrackets() {
         )}
       </Layout>
     </AuthGuard>
+  );
+}
+
+export default function TournamentBrackets() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <TournamentBracketsContent />
+    </Suspense>
   );
 }

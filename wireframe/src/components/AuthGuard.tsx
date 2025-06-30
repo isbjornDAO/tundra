@@ -8,7 +8,7 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
-  const { isConnected, hasTeam1NFT, isLoading, isAuthorized } = useTeam1Auth();
+  const { isConnected, hasTeam1NFT, isLoading } = useTeam1Auth();
 
   if (isLoading) {
     return (

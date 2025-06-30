@@ -30,7 +30,7 @@ export default function TournamentResults() {
     setTeamResults([...teamResults, newResult]);
   };
 
-  const updateTeamResult = (index: number, field: keyof TeamResult, value: any) => {
+  const updateTeamResult = (index: number, field: keyof TeamResult, value: string | number) => {
     const updated = [...teamResults];
     updated[index] = { ...updated[index], [field]: value };
     setTeamResults(updated);

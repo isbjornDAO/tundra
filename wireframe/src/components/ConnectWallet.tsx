@@ -9,7 +9,6 @@ export function ConnectWallet() {
         account,
         chain,
         openAccountModal,
-        openChainModal,
         openConnectModal,
         authenticationStatus,
         mounted,

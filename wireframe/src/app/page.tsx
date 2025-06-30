@@ -3,6 +3,7 @@
 import { AuthGuard } from '@/components/AuthGuard';
 import { ConnectWallet } from '@/components/ConnectWallet';
 import { Navigation } from '@/components/Navigation';
+import { SimpleTournamentMap } from '@/components/SimpleTournamentMap';
 
 export default function Home() {
   return (
@@ -38,6 +39,18 @@ export default function Home() {
                 View Brackets
               </a>
             </div>
+          </div>
+
+          {/* Globe Section */}
+          <div className="section-tight">
+            <div className="text-center mb-8">
+              <h2 className="heading-lg mb-4">Live Tournaments Worldwide</h2>
+              <p className="text-body max-w-2xl mx-auto">
+                Explore active and upcoming tournaments worldwide. 
+                Click on tournament cards to see more details.
+              </p>
+            </div>
+            <SimpleTournamentMap />
           </div>
 
           {/* Stats Section */}
