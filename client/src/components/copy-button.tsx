@@ -54,15 +54,15 @@ export const CopyButton = ({
     unchecked: { pathLength: 0 },
   };
 
-  const labelVariants = {
-    initial: { opacity: 0, y: 10 },
-    animate: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.2, ease: "easeOut" },
-    },
-    exit: { opacity: 0, y: -10, transition: { duration: 0.2, ease: "easeIn" } },
-  };
+  // const labelVariants = {
+  //   initial: { opacity: 0, y: 10 },
+  //   animate: {
+  //     opacity: 1,
+  //     y: 0,
+  //     transition: { duration: 0.2, ease: "easeOut" },
+  //   },
+  //   exit: { opacity: 0, y: -10, transition: { duration: 0.2, ease: "easeIn" } },
+  // };
 
   useEffect(() => {
     if (isChecked) {
@@ -133,43 +133,42 @@ export const CopyButton = ({
       onClick={handleCopy}
     >
       {variant !== "icon" && (
-        <motion.div 
-          layout="position"
-          transition={{ duration: 0.2, ease: "easeOut" }}
-          className="relative h-5 gap-2 flex items-center justify-center"
-        >
-          <AnimatePresence mode="wait">
-            {showCopied ? (
-              <motion.span
-                key="copied"
-                variants={labelVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className={cn(
-                  "text-sm font-medium",
-                  successColorVariants[variant]
-                )}
-              >
-                Copied!
-              </motion.span>
-            ) : (
-              <motion.span
-                key="label"
-                variants={labelVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className={cn(
-                  "text-sm font-medium transition-colors whitespace-nowrap",
-                  labelColorVariants[variant]
-                )}
-              >
-                {label}
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </motion.div>
+        <AnimatePresence mode="wait" initial={false}>
+          {showCopied || label ? (
+            <motion.div
+              layout="position"
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="relative h-5 gap-2 flex items-center justify-center"
+            >
+              {showCopied ? (
+                <motion.span
+                  key="copied"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2, ease: "easeInOut" }}
+                  className={cn("text-sm font-medium", successColorVariants[variant])}
+                >
+                  Copied!
+                </motion.span>
+              ) : (
+                <motion.span
+                  key="label"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2, ease: "easeInOut" }}
+                  className={cn(
+                    "text-sm font-medium transition-colors whitespace-nowrap",
+                    labelColorVariants[variant]
+                  )}
+                >
+                  {label}
+                </motion.span>
+              )}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       )}
       <motion.svg
         initial="idle"

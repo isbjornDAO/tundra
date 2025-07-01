@@ -2,13 +2,18 @@
 
 import { useState } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
+import { useNativeBalance } from "@/hooks/use-balance";
 import Jazzicon, { jsNumberForAddress } from "react-jazzicon";
 import { Button } from "@/components/ui/button";
+import { CopyButton } from "./copy-button";
+import { Address } from "viem";
 
 export const ConnectButton = () => {
   const [isAccountModalOpen, setAccountModalOpen] = useState(false);
   const { login, logout, ready, authenticated, user } = usePrivy();
   const { wallets } = useWallets();
+  const wallet = wallets && wallets.length > 0 ? wallets[0] : null;
+  const balanceInfo = useNativeBalance(wallet?.address as Address);
 
   // Wait for Privy to be ready
   if (!ready) {
@@ -39,8 +44,6 @@ export const ConnectButton = () => {
     );
   }
 
-  // Get the first wallet (assuming user has at least one)
-  const wallet = wallets && wallets.length > 0 ? wallets[0] : null;
   if (!wallet) {
     return (
       <Button variant="destructive" type="button">
@@ -81,13 +84,16 @@ export const ConnectButton = () => {
             onClick={e => e.stopPropagation()}
           >
             <h2 className="text-lg font-bold mb-4">Account Details</h2>
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-3 mb-4 font-mono">
               <Jazzicon seed={jsNumberForAddress(account.address)} />
               <span>{account.displayName}</span>
+              <CopyButton content={account.address}/>
             </div>
-            <div className="mb-4">
-              <span className="text-xs text-gray-500">{account.address}</span>
-            </div>
+            {!balanceInfo.isLoading && !balanceInfo.isError && (
+              <div className="mb-4 text-sm">
+                Balance: {(Number(balanceInfo.balance) / 1e18).toFixed(3)} {balanceInfo.symbol}
+              </div>
+            )}
             <Button variant="destructive" onClick={logout}>
               Disconnect
             </Button>
