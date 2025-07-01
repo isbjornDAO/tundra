@@ -4,18 +4,9 @@ import { useState } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import Jazzicon, { jsNumberForAddress } from "react-jazzicon";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ChevronDown } from "lucide-react";
 
 export const ConnectButton = () => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isAccountModalOpen, setAccountModalOpen] = useState(false);
   const { login, logout, ready, authenticated, user } = usePrivy();
   const { wallets } = useWallets();
 
@@ -38,9 +29,13 @@ export const ConnectButton = () => {
   // If not authenticated, show login button
   if (!authenticated) {
     return (
-      <Button onClick={login} type="button">
+      <button
+        onClick={login}
+        type="button"
+        className="btn btn-primary"
+      >
         Connect Wallet
-      </Button>
+      </button>
     );
   }
 
@@ -62,55 +57,41 @@ export const ConnectButton = () => {
   };
 
   return (
-    <div style={{ display: "flex", gap: 12 }}>
-      <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            className="w-full justify-between"
-          >
-            <div className="flex items-center gap-2">
-              <div className="h-6 w-6 flex items-center justify-center">
-                <Jazzicon
-                  seed={jsNumberForAddress(account.address)}
-                />
-              </div>
+    <>
+      <Button
+        variant="outline"
+        className="flex items-center gap-2 bg-black border border-white/20 rounded-full px-3 py-2 hover:border-white/30 transition-colors"
+        onClick={() => setAccountModalOpen(true)}
+      >
+        <div className="h-6 w-6 flex items-center justify-center">
+          <Jazzicon seed={jsNumberForAddress(account.address)} />
+        </div>
+        <span className="text-white text-sm font-medium">{account.displayName}</span>
+      </Button>
+      {isAccountModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-black text-white rounded-lg p-6 min-w-[300px]">
+            <h2 className="text-lg font-bold mb-4">Account Details</h2>
+            <div className="flex items-center gap-2 mb-4">
+              <Jazzicon seed={jsNumberForAddress(account.address)} />
               <span>{account.displayName}</span>
             </div>
-            <ChevronDown
-              className={`ml-2 h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""
-                }`}
-            />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel>Connected Address</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem>
-            <span>My Profile</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <span>Settings</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <span>Create NFT</span>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel>Wallet</DropdownMenuLabel>
-          <DropdownMenuItem>
-            <span>AVAX</span>
-            <span className="ml-auto">0</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <span>Wrapped AVAX</span>
-            <span className="ml-auto">0</span>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={logout}>
-            <span>Disconnect</span>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+            <div className="mb-4">
+              <span className="text-xs text-gray-500">{account.address}</span>
+            </div>
+            <Button variant="destructive" onClick={logout}>
+              Disconnect
+            </Button>
+            <Button
+              variant="ghost"
+              className="ml-2"
+              onClick={() => setAccountModalOpen(false)}
+            >
+              Close
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
   );
 };

@@ -4,8 +4,9 @@ import localFont from "next/font/local";
 import "./globals.css";
 
 import { siteConfig } from "@/lib/site";
-import { ThemeProvider } from "next-themes";
+//import { ThemeProvider } from "next-themes";
 import { Web3Provider } from "@/components/providers/web3";
+import { AuthGuard } from "@/components/providers/auth-guard";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -69,9 +70,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProvider attribute="class" defaultTheme="light">
-          <Web3Provider>{children}</Web3Provider>
-        </ThemeProvider>
+        <Web3Provider>
+          <AuthGuard>
+            {children}
+          </AuthGuard>
+        </Web3Provider>
       </body>
     </html>
   );

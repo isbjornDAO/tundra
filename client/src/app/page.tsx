@@ -1,424 +1,182 @@
-"use client";
-
-import { useState } from "react";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useAccount } from "wagmi";
+import { ConnectButton } from "@/components/connect-button";
+import { Navigation } from "@/components/navigation";
+import { SimpleTournamentMap } from "@/components/simple-tournament-map";
 
 export default function Home() {
-  const { address, isConnected } = useAccount();
-  const [currentView, setCurrentView] = useState("regions");
-
-  // Global tournament phases
-  const currentSeason = {
-    phase: "Regional Planning", // Regional Planning -> Regional Events -> World Championship
-    game: "CS2",
-    seasonNumber: 1,
-    worldChampionshipDate: "2024-12-15"
-  };
-
-  // Global organizer count and regional events
-  const totalOrganizers = 47;
-  const targetOrganizers = 50;
-  
-  const regionalEvents = [
-    {
-      id: 1,
-      name: "North America",
-      status: "Planning", // Planning -> Event Scheduled -> Event Complete
-      eventDate: null,
-      hasChampion: false,
-      winner: null
-    },
-    {
-      id: 2,
-      name: "Europe",
-      status: "Event Scheduled",
-      eventDate: "2024-10-20",
-      hasChampion: false,
-      winner: null
-    },
-    {
-      id: 3,
-      name: "Asia Pacific",
-      status: "Event Complete",
-      eventDate: "2024-09-28",
-      hasChampion: true,
-      winner: "Team Dragons"
-    },
-    {
-      id: 4,
-      name: "South America",
-      status: "Planning",
-      eventDate: null,
-      hasChampion: false,
-      winner: null
-    },
-    {
-      id: 5,
-      name: "Africa & Middle East",
-      status: "Planning", 
-      eventDate: null,
-      hasChampion: false,
-      winner: null
-    }
-  ];
-
-  const myInvolvement = [
-    {
-      role: "Global Tournament Organizer",
-      joinedDate: "2024-06-15",
-      status: "Active",
-      contributedEvents: ["North America"]
-    }
-  ];
-
-  const joinOrganizers = () => {
-    alert(`Joined Team1 global organizing team with wallet: ${address}`);
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-gray-100">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg">
-        <div className="max-w-6xl mx-auto px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className="bg-white text-red-600 px-3 py-1 rounded-lg font-bold text-xl">
-                T1
+    <div className="min-h-screen bg-black">
+      <header className="border-b border-white/[0.1]">
+        <div className="container-main py-6 flex justify-between items-center">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-red-500 transform rotate-0" style={{ clipPath: 'polygon(50% 15%, 85% 85%, 15% 85%)' }}></div>
+            <h1 className="text-xl font-bold text-white">Tundra</h1>
+          </div>
+          <ConnectButton />
+        </div>
+      </header>
+      <Navigation />
+
+      <main className="container-main py-20">
+        {/* Hero Section */}
+        <div className="text-center section">
+          <h1 className="text-5xl font-bold text-white mb-6 tracking-tight">
+            Team1 Tournament
+            <span className="text-gradient block mt-2">Platform</span>
+          </h1>
+          <p className="text-body text-lg mb-10 max-w-2xl mx-auto">
+            Organize and compete in global esports tournaments.
+            Register your team, coordinate matches, compete for glory.
+          </p>
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
+            <a href="/tournament/register" className="btn btn-primary">
+              Register Team
+            </a>
+            <a href="/tournament/bracket" className="btn btn-secondary">
+              View Brackets
+            </a>
+          </div>
+        </div>
+
+        {/* Globe Section */}
+        <div className="section-tight">
+          <div className="text-center mb-8">
+            <h2 className="heading-lg mb-4">Live Tournaments Worldwide</h2>
+            <p className="text-body max-w-2xl mx-auto">
+              Explore active and upcoming tournaments worldwide.
+              Click on tournament cards to see more details.
+            </p>
+          </div>
+          <SimpleTournamentMap />
+        </div>
+
+        {/* Stats Section */}
+        <div className="grid-3 section-tight">
+          <div className="card text-center">
+            <div className="heading-lg mb-2">6</div>
+            <div className="text-muted">Games Available</div>
+          </div>
+          <div className="card text-center">
+            <div className="heading-lg text-gradient mb-2">72</div>
+            <div className="text-muted">Total Slots</div>
+          </div>
+          <div className="card text-center">
+            <div className="heading-lg mb-2">32</div>
+            <div className="text-muted">Teams Registered</div>
+          </div>
+        </div>
+
+        {/* Features Grid */}
+        <div className="grid-2 section-tight">
+          <div className="card-interactive">
+            <div className="flex items-start gap-6">
+              <div className="w-12 h-12 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
               </div>
-              <h1 className="text-2xl font-bold">Tournament Organizers</h1>
+              <div className="min-w-0">
+                <h3 className="heading-sm mb-3">Global Tournaments</h3>
+                <p className="text-body mb-4">
+                  Compete in worldwide tournaments across multiple games.
+                  12 teams per tournament, organized by Team1 ambassadors.
+                </p>
+                <a href="/tournament/register" className="inline-flex items-center text-red-400 hover:text-red-300 text-sm font-medium">
+                  Register Now
+                  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </a>
+              </div>
             </div>
-            
-            <div className="flex items-center gap-4">
-              {isConnected && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setCurrentView("regions")}
-                    className={`px-4 py-2 rounded ${
-                      currentView === "regions" 
-                        ? "bg-red-500 text-white" 
-                        : "bg-white text-red-600"
-                    }`}
-                  >
-                    Regional Events
-                  </button>
-                  <button
-                    onClick={() => setCurrentView("my-involvement")}
-                    className={`px-4 py-2 rounded ${
-                      currentView === "my-involvement" 
-                        ? "bg-red-500 text-white" 
-                        : "bg-white text-red-600"
-                    }`}
-                  >
-                    My Involvement
-                  </button>
+          </div>
+
+          <div className="card-interactive">
+            <div className="flex items-start gap-6">
+              <div className="w-12 h-12 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <h3 className="heading-sm mb-3">Match Coordination</h3>
+                <p className="text-body mb-4">
+                  Coordinate match times with other Team1 organizers.
+                  Both parties must agree before matches are official.
+                </p>
+                <a href="/tournament/bracket" className="inline-flex items-center text-blue-400 hover:text-blue-300 text-sm font-medium">
+                  View Matches
+                  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div className="card-interactive">
+            <div className="flex items-start gap-6">
+              <div className="w-12 h-12 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <h3 className="heading-sm mb-3">Multiple Games</h3>
+                <p className="text-body mb-4">
+                  Support for CS2, Valorant, League of Legends, Dota 2,
+                  Rocket League, and Fortnite tournaments.
+                </p>
+                <a href="/tournament/register" className="inline-flex items-center text-green-400 hover:text-green-300 text-sm font-medium">
+                  Choose Game
+                  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div className="card-interactive">
+            <div className="flex items-start gap-6">
+              <div className="w-12 h-12 bg-purple-500/10 border border-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <h3 className="heading-sm mb-3">Team1 Verified</h3>
+                <p className="text-body mb-4">
+                  Only verified Team1 members can organize tournaments,
+                  ensuring quality and trust in the ecosystem.
+                </p>
+                <div className="inline-flex items-center text-purple-400 text-sm font-medium">
+                  Verified Only
+                  <svg className="w-4 h-4 ml-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
                 </div>
-              )}
-
-              <ConnectButton.Custom>
-                {({
-                  account,
-                  chain,
-                  openAccountModal,
-                  openChainModal,
-                  openConnectModal,
-                  authenticationStatus,
-                  mounted,
-                }) => {
-                  const ready = mounted && authenticationStatus !== 'loading';
-                  const connected =
-                    ready &&
-                    account &&
-                    chain &&
-                    (!authenticationStatus ||
-                      authenticationStatus === 'authenticated');
-
-                  return (
-                    <div
-                      {...(!ready && {
-                        'aria-hidden': true,
-                        'style': {
-                          opacity: 0,
-                          pointerEvents: 'none',
-                          userSelect: 'none',
-                        },
-                      })}
-                    >
-                      {(() => {
-                        if (!connected) {
-                          return (
-                            <button 
-                              onClick={openConnectModal} 
-                              className="bg-white text-red-600 px-4 py-2 rounded hover:bg-gray-100 font-semibold"
-                            >
-                              Connect Wallet
-                            </button>
-                          );
-                        }
-
-                        if (chain.unsupported) {
-                          return (
-                            <button 
-                              onClick={openChainModal}
-                              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-                            >
-                              Wrong network
-                            </button>
-                          );
-                        }
-
-                        return (
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={openChainModal}
-                              className="bg-white text-red-600 px-3 py-1 rounded text-sm hover:bg-gray-100"
-                            >
-                              {chain.hasIcon && (
-                                <div
-                                  className="w-4 h-4 rounded-full overflow-hidden mr-1 inline-block"
-                                  style={{
-                                    background: chain.iconBackground,
-                                  }}
-                                >
-                                  {chain.iconUrl && (
-                                    <img
-                                      alt={chain.name ?? 'Chain icon'}
-                                      src={chain.iconUrl}
-                                      className="w-4 h-4"
-                                    />
-                                  )}
-                                </div>
-                              )}
-                              {chain.name}
-                            </button>
-
-                            <button 
-                              onClick={openAccountModal}
-                              className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900"
-                            >
-                              {account.displayName}
-                            </button>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  );
-                }}
-              </ConnectButton.Custom>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="max-w-6xl mx-auto p-8">
-        {!isConnected && (
-          <div className="text-center py-12">
-            <div className="bg-white rounded-lg shadow-lg p-8 max-w-md mx-auto">
-              <div className="bg-red-600 text-white px-4 py-2 rounded-lg font-bold text-2xl mb-4 inline-block">
-                TEAM1
-              </div>
-              <h2 className="text-2xl font-semibold mb-4 text-gray-800">Tournament Organizer Portal</h2>
-              <p className="text-gray-600 mb-6">Connect your wallet to register as a Team1 tournament organizer</p>
-              <p className="text-sm text-gray-500">Register for regional game tournaments and compete with other organizers</p>
-            </div>
+        {/* CTA Section */}
+        <div className="card text-center">
+          <h2 className="heading-lg mb-4">Ready to Compete?</h2>
+          <p className="text-body mb-8 max-w-lg mx-auto">
+            Join the global esports tournament platform powered by Team1 and Avalanche.
+            Register your team today and start your journey to victory.
+          </p>
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
+            <a href="/tournament/register" className="btn btn-primary">
+              Get Started
+            </a>
+            <a href="/tournament/bracket" className="btn btn-outline">
+              Learn More
+            </a>
           </div>
-        )}
-
-        {/* Season Overview */}
-        {isConnected && (
-          <div className="mb-8 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg shadow-lg p-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-2xl font-bold mb-2">Team1 {currentSeason.game} World Championship Season {currentSeason.seasonNumber}</h2>
-                <p className="text-red-100">Current Phase: <span className="font-semibold">{currentSeason.phase}</span></p>
-                <p className="text-red-100">World Championship: {new Date(currentSeason.worldChampionshipDate).toLocaleDateString()}</p>
-                <div className="mt-3">
-                  <p className="text-red-100 text-sm">Global Organizers: {totalOrganizers}/{targetOrganizers}</p>
-                  <div className="bg-red-800 rounded-full h-2 mt-1">
-                    <div 
-                      className="bg-white h-2 rounded-full transition-all duration-300" 
-                      style={{width: `${(totalOrganizers / targetOrganizers) * 100}%`}}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="bg-white text-red-600 px-4 py-2 rounded-lg font-bold text-lg mb-2">
-                  {currentSeason.phase}
-                </div>
-                {totalOrganizers < targetOrganizers && (
-                  <button 
-                    onClick={joinOrganizers}
-                    className="bg-white text-red-600 px-4 py-2 rounded text-sm hover:bg-gray-100 font-medium"
-                  >
-                    Join Organizing Team
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {currentView === "regions" && isConnected && (
-          <div>
-            <div className="mb-6 bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-2xl font-semibold mb-2 text-red-600">Regional Events Status</h2>
-              <p className="text-gray-600">Track the progress of regional events being organized by our global team. Each region will crown a champion for the World Championship.</p>
-            </div>
-            
-            <div className="grid gap-4">
-              {regionalEvents.map((event) => (
-                <div key={event.id} className="bg-white rounded-lg shadow-lg border-l-4 border-red-600 p-6">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-xl font-semibold text-gray-800">{event.name}</h3>
-                        <span className="bg-red-100 text-red-600 px-2 py-1 rounded text-xs font-semibold">
-                          TEAM1
-                        </span>
-                      </div>
-                      
-                      {event.eventDate && (
-                        <p className="text-sm text-gray-600 mt-2">
-                          📅 Event Date: {new Date(event.eventDate).toLocaleDateString()}
-                        </p>
-                      )}
-                      
-                      {event.hasChampion && event.winner && (
-                        <div className="mt-3 p-3 bg-green-50 rounded">
-                          <p className="text-sm font-semibold text-green-800">🏆 Regional Champion</p>
-                          <p className="text-green-700">{event.winner}</p>
-                        </div>
-                      )}
-                      
-                      {!event.eventDate && event.status === "Planning" && (
-                        <p className="text-sm text-gray-500 mt-2">
-                          📋 Event planning in progress by global organizing team
-                        </p>
-                      )}
-                    </div>
-                    
-                    <div className="flex flex-col items-end gap-2 ml-4">
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        event.status === "Event Complete" 
-                          ? "bg-green-500 text-white"
-                          : event.status === "Event Scheduled"
-                          ? "bg-blue-500 text-white"
-                          : "bg-yellow-500 text-white"
-                      }`}>
-                        {event.status}
-                      </span>
-                      
-                      {event.hasChampion && (
-                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-semibold">
-                          ✅ Qualified for Worlds
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {currentView === "my-involvement" && isConnected && (
-          <div>
-            <div className="mb-6 bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-2xl font-semibold text-red-600">My Team1 Involvement</h2>
-              <p className="text-gray-600">Track your participation in the global organizing team and tournament coordination.</p>
-            </div>
-            
-            {myInvolvement.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="bg-white rounded-lg shadow-lg p-8">
-                  <p className="text-gray-600">Not yet part of the global organizing team</p>
-                  <p className="text-sm text-gray-500 mt-2">Join the Team1 organizing team to help coordinate regional events</p>
-                  <button 
-                    onClick={joinOrganizers}
-                    className="mt-4 bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700 font-medium"
-                  >
-                    Join Global Organizing Team
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="grid gap-4">
-                {myInvolvement.map((involvement, index) => (
-                  <div key={index} className="bg-white rounded-lg shadow-lg border-l-4 border-red-600 p-6">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-xl font-semibold text-gray-800">{involvement.role}</h3>
-                          <span className="bg-red-100 text-red-600 px-2 py-1 rounded text-xs font-semibold">
-                            TEAM1
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-500 mt-2">
-                          Joined: {new Date(involvement.joinedDate).toLocaleDateString()}
-                        </p>
-                        
-                        {involvement.contributedEvents && involvement.contributedEvents.length > 0 && (
-                          <div className="mt-3 p-3 bg-gray-50 rounded">
-                            <p className="text-sm font-medium text-gray-700">Contributing to events:</p>
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {involvement.contributedEvents.map((event, i) => (
-                                <span key={i} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
-                                  {event}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        involvement.status === "Active" 
-                          ? "bg-green-500 text-white" 
-                          : "bg-gray-500 text-white"
-                      }`}>
-                        {involvement.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* World Championship Progress */}
-            <div className="mt-8 bg-white rounded-lg shadow-lg p-6">
-              <h3 className="text-xl font-semibold mb-4 text-red-600">World Championship Progress</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center p-4 bg-gray-50 rounded">
-                  <p className="text-2xl font-bold text-gray-800">{regionalEvents.filter(e => e.status === "Event Complete").length}</p>
-                  <p className="text-sm text-gray-600">Regions Complete</p>
-                </div>
-                <div className="text-center p-4 bg-gray-50 rounded">
-                  <p className="text-2xl font-bold text-gray-800">{regionalEvents.filter(e => e.hasChampion).length}</p>
-                  <p className="text-sm text-gray-600">Champions Crowned</p>
-                </div>
-                <div className="text-center p-4 bg-gray-50 rounded">
-                  <p className="text-2xl font-bold text-gray-800">{regionalEvents.length}</p>
-                  <p className="text-sm text-gray-600">Total Regions</p>
-                </div>
-              </div>
-              
-              <div className="mt-4">
-                <p className="text-sm text-gray-600 mb-2">Overall Progress to World Championship</p>
-                <div className="bg-gray-200 rounded-full h-4">
-                  <div 
-                    className="bg-gradient-to-r from-red-500 to-red-600 h-4 rounded-full transition-all duration-500" 
-                    style={{width: `${(regionalEvents.filter(e => e.hasChampion).length / regionalEvents.length) * 100}%`}}
-                  />
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  {regionalEvents.filter(e => e.hasChampion).length} of {regionalEvents.length} regional champions qualified
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
