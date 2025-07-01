@@ -70,9 +70,16 @@ export const ConnectButton = () => {
         </div>
         <span className="text-white text-sm font-medium font-mono">{account.displayName}</span>
       </Button>
+
       {isAccountModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-black text-white border-gray-500 border-2 rounded-lg p-6 min-w-[300px]">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setAccountModalOpen(false)}
+        >
+          <div 
+            className="bg-black text-white border border-white/20 hover:border-white/30 transition-colors rounded-lg p-6 min-w-[300px]"
+            onClick={e => e.stopPropagation()}
+          >
             <h2 className="text-lg font-bold mb-4">Account Details</h2>
             <div className="flex items-center gap-2 mb-4">
               <Jazzicon seed={jsNumberForAddress(account.address)} />
