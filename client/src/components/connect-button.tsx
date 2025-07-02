@@ -101,7 +101,7 @@ export const ConnectButton = () => {
           onClick={() => setAccountModalOpen(false)}
         >
           <div 
-            className="bg-black text-white border border-white/20 hover:border-white/30 transition-colors rounded-lg p-6 min-w-[300px]"
+            className="bg-black text-white border border-white/20 hover:border-white/30 transition-colors rounded-lg p-6 min-w-[340px]"
             onClick={e => e.stopPropagation()}
           >
             <h2 className="text-lg font-bold mb-4">Account Details</h2>
