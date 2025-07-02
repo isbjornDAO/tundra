@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useNativeBalance } from "@/hooks/use-balance";
 import Jazzicon, { jsNumberForAddress } from "react-jazzicon";
@@ -9,30 +9,58 @@ import { CopyButton } from "./copy-button";
 import { Address } from "viem";
 
 export const ConnectButton = () => {
-  const [isAccountModalOpen, setAccountModalOpen] = useState(false);
   const { login, logout, ready, authenticated, user } = usePrivy();
   const { wallets } = useWallets();
   const wallet = wallets && wallets.length > 0 ? wallets[0] : null;
   const balanceInfo = useNativeBalance(wallet?.address as Address);
 
+  const [isAccountModalOpen, setAccountModalOpen] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+
+  const account = useMemo(() => ({
+    address: wallet?.address,
+    displayName: user?.wallet?.address
+      ? `${user.wallet.address.slice(0, 6)}...${user.wallet.address.slice(-4)}`
+      : wallet?.address
+        ? wallet.address.slice(0, 6) + "..." + wallet.address.slice(-4)
+        : ""
+  }), [wallet, user]);
+
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    if (ready && !authenticated) {
+      // Wait 300ms before showing login to avoid flicker
+      timeout = setTimeout(() => setShowLogin(true), 300);
+    } else {
+      setShowLogin(false);
+    }
+    return () => clearTimeout(timeout);
+  }, [ready, authenticated]);
+
+  useEffect(() => {
+    if (authenticated && !wallet) {
+      // Wait a short time to allow wallet to appear (in case of race condition)
+      const timeout = setTimeout(() => {
+        if (authenticated && !wallet) {
+          logout();
+        }
+      }, 2000);
+      return () => clearTimeout(timeout);
+    }
+  }, [authenticated, wallet, logout]);
+
   // Wait for Privy to be ready
-  if (!ready) {
+  if (!ready || (!authenticated && !showLogin)) {
     return (
-      <div
-        aria-hidden={true}
-        style={{
-          opacity: 0,
-          pointerEvents: "none",
-          userSelect: "none",
-        }}
-      >
-        <Button disabled>Loading...</Button>
+      <div className="flex flex-row gap-4 items-center justify-center min-h-[60px]">
+        <div className="loader-red mb-2"></div>
+        <span className="text-white text-sm font-medium">Connecting wallet...</span>
       </div>
     );
   }
 
   // If not authenticated, show login button
-  if (!authenticated) {
+  if (!authenticated && showLogin) {
     return (
       <button
         onClick={login}
@@ -44,20 +72,13 @@ export const ConnectButton = () => {
     );
   }
 
-  if (!wallet) {
+  if (authenticated && !wallet) {
     return (
       <Button variant="destructive" type="button">
         No wallet found
       </Button>
     );
   }
-
-  const account = {
-    address: wallet.address,
-    displayName: user?.wallet?.address
-      ? `${user.wallet.address.slice(0, 6)}...${user.wallet.address.slice(-4)}`
-      : wallet.address.slice(0, 6) + "..." + wallet.address.slice(-4)
-  };
 
   return (
     <>
@@ -85,9 +106,9 @@ export const ConnectButton = () => {
           >
             <h2 className="text-lg font-bold mb-4">Account Details</h2>
             <div className="flex items-center gap-3 mb-4 font-mono">
-              <Jazzicon seed={jsNumberForAddress(account.address)} />
+              <Jazzicon seed={jsNumberForAddress(account.address!)} />
               <span>{account.displayName}</span>
-              <CopyButton content={account.address}/>
+              <CopyButton content={account.address!}/>
             </div>
             {!balanceInfo.isLoading && !balanceInfo.isError && (
               <div className="mb-4 text-sm">

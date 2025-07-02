@@ -13,7 +13,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Checking Team1 credentials...</div>
+        <div className="text-lg animate-pulse">Checking Team1 credentials...</div>
       </div>
     );
   }

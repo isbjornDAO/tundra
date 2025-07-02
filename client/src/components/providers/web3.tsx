@@ -27,6 +27,9 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
         embeddedWallets: {
           createOnLogin: "users-without-wallets",
         },
+        appearance: {
+          theme: "dark",
+        }
       }}
     >
       <WagmiProvider config={wagmiConfig}>
