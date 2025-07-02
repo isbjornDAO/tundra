@@ -23,6 +23,13 @@ export interface GameTournament {
   createdAt: Date;
 }
 
+export interface TournamentSummary {
+  gameName: string;
+  registeredTeams: number;
+  maxTeams: number;
+  status: string;
+};
+
 export interface TournamentBracket {
   id: string;
   gameId: string;

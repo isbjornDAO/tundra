@@ -1,21 +1,23 @@
 'use client';
 
 import { useState } from 'react';
-import { RootLayout } from '@/components/root-layout';
+import { useTournaments } from '@/hooks/use-tournaments';
 import { useTeam1Auth } from '@/hooks/use-team1-auth';
-import { GAMES, REGIONS, type Game, type Region, type Player } from '@/types/tournament';
+import { RootLayout } from '@/components/root-layout';
+import { GAMES, REGIONS, type Game, type Region, type Player, type TournamentSummary } from '@/types/tournament';
 
 // Mock data for available tournaments
-const mockTournaments = [
-  { game: 'CS2', registeredTeams: 8, maxTeams: 12, status: 'open' },
-  { game: 'Valorant', registeredTeams: 12, maxTeams: 12, status: 'full' },
-  { game: 'League of Legends', registeredTeams: 5, maxTeams: 12, status: 'open' },
-  { game: 'Dota 2', registeredTeams: 3, maxTeams: 12, status: 'open' },
-  { game: 'Rocket League', registeredTeams: 12, maxTeams: 12, status: 'full' },
-  { game: 'Fortnite', registeredTeams: 1, maxTeams: 12, status: 'open' },
-];
+// const mockTournaments = [
+//   { game: 'CS2', registeredTeams: 8, maxTeams: 12, status: 'open' },
+//   { game: 'Valorant', registeredTeams: 12, maxTeams: 12, status: 'full' },
+//   { game: 'League of Legends', registeredTeams: 5, maxTeams: 12, status: 'open' },
+//   { game: 'Dota 2', registeredTeams: 3, maxTeams: 12, status: 'open' },
+//   { game: 'Rocket League', registeredTeams: 12, maxTeams: 12, status: 'full' },
+//   { game: 'Fortnite', registeredTeams: 1, maxTeams: 12, status: 'open' },
+// ];
 
 export default function RegisterTournament() {
+  const { data: tournaments = [], isLoading, error } = useTournaments();
   const { address } = useTeam1Auth();
   const [selectedGame, setSelectedGame] = useState<Game | ''>('');
   const [teamName, setTeamName] = useState('');
@@ -35,7 +37,7 @@ export default function RegisterTournament() {
     e.preventDefault();
     if (!selectedGame || !teamName || !teamRegion) return;
 
-    const selectedTournament = mockTournaments.find(t => t.game === selectedGame);
+    const selectedTournament = tournaments.find(t => t.gameName === selectedGame);
     if (!selectedTournament || selectedTournament.status !== 'open') {
       alert('Tournament is not available for registration');
       return;
@@ -59,7 +61,7 @@ export default function RegisterTournament() {
     setIsSubmitting(false);
   };
 
-  const selectedTournament = mockTournaments.find(t => t.game === selectedGame);
+  const selectedTournament = tournaments.find(t => t.gameName === selectedGame);
 
   return (
     <RootLayout title="Register for Tournament">
@@ -77,20 +79,25 @@ export default function RegisterTournament() {
       {/* Tournament Overview */}
       <div className="section">
         <h2 className="heading-md mb-6">Available Tournaments</h2>
-        <div className="grid-3">
-          {mockTournaments.map((tournament) => (
-            <div
-              key={tournament.game}
-              onClick={() => tournament.status === 'open' && setSelectedGame(tournament.game as Game)}
-              className={`card-interactive ${selectedGame === tournament.game ? 'card-selected' : ''
-                } ${tournament.status !== 'open' ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="heading-sm">{tournament.game}</h3>
-                <span className={tournament.status === 'open' ? 'status-open' : 'status-full'}>
-                  {tournament.status === 'open' ? 'OPEN' : 'FULL'}
-                </span>
-              </div>
+        {isLoading ? (
+          <div>Loading tournaments...</div>
+        ) : error ? (
+          <div>Error loading tournaments</div>
+        ) : (
+              <div className="grid-3">
+                {tournaments.map((tournament) => (
+                  <div
+                    key={tournament.gameName}
+                    onClick={() => tournament.status === 'open' && setSelectedGame(tournament.gameName as Game)}
+                    className={`card-interactive ${selectedGame === tournament.gameName ? 'card-selected' : ''
+                      } ${tournament.status !== 'open' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="heading-sm">{tournament.gameName}</h3>
+                      <span className={tournament.status === 'open' ? 'status-open' : 'status-full'}>
+                        {tournament.status === 'open' ? 'OPEN' : 'FULL'}
+                      </span>
+                    </div>
 
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
@@ -120,7 +127,7 @@ export default function RegisterTournament() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setSelectedGame(tournament.game as Game);
+                      setSelectedGame(tournament.gameName as Game);
                       document.getElementById('registration-form')?.scrollIntoView({ behavior: 'smooth' });
                     }}
                     className="btn-primary btn-sm w-full"
@@ -133,7 +140,7 @@ export default function RegisterTournament() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      window.location.href = `/tournament/bracket?game=${tournament.game}`;
+                            window.location.href = `/tournament/bracket?game=${tournament.gameName}`;
                     }}
                     className="btn-secondary btn-sm w-full"
                   >
@@ -141,10 +148,11 @@ export default function RegisterTournament() {
                   </button>
                 )}
               </div>
-            </div>
-          ))}
+                  </div>
+                ))}
+          </div>
+        )}
         </div>
-      </div>
 
       {/* Registration Form */}
       <div className="card" id="registration-form">
@@ -162,7 +170,7 @@ export default function RegisterTournament() {
               >
                 <option value="">Select game...</option>
                 {GAMES.map(game => {
-                  const tournament = mockTournaments.find(t => t.game === game);
+                  const tournament = tournaments.find(t => t.gameName === game);
                   const isAvailable = tournament?.status === 'open';
                   return (
                     <option
