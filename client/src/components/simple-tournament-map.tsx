@@ -129,7 +129,7 @@ export function SimpleTournamentMap() {
             {/* Tournament Details Modal */}
             {selectedTournament && (
                 <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-20">
-                    <div className="bg-black/90 border border-white/20 rounded-lg p-6 max-w-md w-full mx-4">
+                    <div className="bg-black/90 border border-white/20 hover:border-white/30 rounded-lg p-6 max-w-md w-full mx-4">
                         <div className="flex items-center justify-between mb-4">
                             <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusBadge(selectedTournament.status)}`}>
                                 {selectedTournament.status === 'live' ? 'LIVE NOW' : 'SCHEDULED'}

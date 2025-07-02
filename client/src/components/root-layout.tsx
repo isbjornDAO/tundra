@@ -14,7 +14,7 @@ export function RootLayout({ children, title }: RootLayoutProps) {
       <header className="border-b border-white/[0.1]">
         <div className="container-main py-6 flex justify-between items-center">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-red-500 transform rotate-0" style={{ clipPath: 'polygon(50% 15%, 85% 85%, 15% 85%)' }}></div>
+            <div className="w-6 h-6 bg-red-500" style={{ clipPath: 'polygon(50% 0%, 100% 86.6%, 0% 86.6%)' }}></div>
             <h1 className="text-xl font-bold text-white">Tundra</h1>
           </div>
           <ConnectButton />
