@@ -1,0 +1,324 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  
+  /* Color System */
+  --primary: #E84142;
+  --primary-hover: #d63031;
+  --primary-light: #ff6b6b;
+  
+  --white-opacity-03: rgba(255, 255, 255, 0.03);
+  --white-opacity-05: rgba(255, 255, 255, 0.05);
+  --white-opacity-08: rgba(255, 255, 255, 0.08);
+  --white-opacity-10: rgba(255, 255, 255, 0.1);
+  --white-opacity-12: rgba(255, 255, 255, 0.12);
+  --white-opacity-15: rgba(255, 255, 255, 0.15);
+  --white-opacity-20: rgba(255, 255, 255, 0.2);
+  --white-opacity-25: rgba(255, 255, 255, 0.25);
+  --white-opacity-30: rgba(255, 255, 255, 0.3);
+  --white-opacity-35: rgba(255, 255, 255, 0.35);
+  
+  --primary-opacity-05: rgba(232, 65, 66, 0.05);
+  --primary-opacity-10: rgba(232, 65, 66, 0.1);
+  --primary-opacity-25: rgba(232, 65, 66, 0.25);
+  --primary-opacity-30: rgba(232, 65, 66, 0.3);
+  --primary-opacity-35: rgba(232, 65, 66, 0.35);
+  --primary-opacity-50: rgba(232, 65, 66, 0.5);
+  
+  --black-opacity-20: rgba(0, 0, 0, 0.2);
+  
+  --gray-400: #9ca3af;
+  --gray-300: #d1d5db;
+  
+  --success: #22c55e;
+  --success-light: #4ade80;
+  --success-opacity-10: rgba(34, 197, 94, 0.1);
+  --success-opacity-30: rgba(34, 197, 94, 0.3);
+  
+  --error: #ef4444;
+  --error-light: #f87171;
+  --error-opacity-10: rgba(239, 68, 68, 0.1);
+  --error-opacity-30: rgba(239, 68, 68, 0.3);
+  
+  --info: #3b82f6;
+  --info-light: #60a5fa;
+  --info-opacity-10: rgba(59, 130, 246, 0.1);
+  --info-opacity-30: rgba(59, 130, 246, 0.3);
+  
+  --neutral: #9ca3af;
+  --neutral-opacity-10: rgba(156, 163, 175, 0.1);
+  --neutral-opacity-30: rgba(156, 163, 175, 0.3);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  
+  /* Custom color palette */
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-light: var(--primary-light);
+  --color-gray-400: var(--gray-400);
+  --color-gray-300: var(--gray-300);
+  --color-success: var(--success);
+  --color-success-light: var(--success-light);
+  --color-error: var(--error);
+  --color-error-light: var(--error-light);
+  --color-info: var(--info);
+  --color-info-light: var(--info-light);
+  --color-neutral: var(--neutral);
+  
+  /* Opacity color utilities */
+  --color-white-opacity-03: var(--white-opacity-03);
+  --color-white-opacity-05: var(--white-opacity-05);
+  --color-white-opacity-08: var(--white-opacity-08);
+  --color-white-opacity-10: var(--white-opacity-10);
+  --color-white-opacity-12: var(--white-opacity-12);
+  --color-white-opacity-15: var(--white-opacity-15);
+  --color-white-opacity-20: var(--white-opacity-20);
+  --color-white-opacity-25: var(--white-opacity-25);
+  --color-white-opacity-30: var(--white-opacity-30);
+  --color-white-opacity-35: var(--white-opacity-35);
+  
+  --color-primary-opacity-05: var(--primary-opacity-05);
+  --color-primary-opacity-10: var(--primary-opacity-10);
+  --color-primary-opacity-25: var(--primary-opacity-25);
+  --color-primary-opacity-30: var(--primary-opacity-30);
+  --color-primary-opacity-35: var(--primary-opacity-35);
+  --color-primary-opacity-50: var(--primary-opacity-50);
+  
+  --color-black-opacity-20: var(--black-opacity-20);
+  
+  --color-success-opacity-10: var(--success-opacity-10);
+  --color-success-opacity-30: var(--success-opacity-30);
+  --color-error-opacity-10: var(--error-opacity-10);
+  --color-error-opacity-30: var(--error-opacity-30);
+  --color-info-opacity-10: var(--info-opacity-10);
+  --color-info-opacity-30: var(--info-opacity-30);
+  --color-neutral-opacity-10: var(--neutral-opacity-10);
+  --color-neutral-opacity-30: var(--neutral-opacity-30);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  @apply bg-black text-foreground leading-6;
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+/* Layout System */
+.container-main {
+  @apply max-w-screen-xl mx-auto px-8;
+}
+
+.section {
+  @apply mb-16;
+}
+
+.section-tight {
+  @apply mb-12;
+}
+
+/* Card System */
+.card {
+  @apply bg-white-opacity-03 border border-white-opacity-10 rounded-lg p-8 transition-all duration-200;
+}
+
+.card-compact {
+  @apply bg-white-opacity-03 border border-white-opacity-10 rounded-lg p-6 transition-all duration-200;
+}
+
+.card-interactive {
+  @apply bg-white-opacity-03 border border-white-opacity-10 rounded-lg p-8 transition-all duration-200 cursor-pointer;
+}
+
+.card-interactive:hover {
+  @apply bg-white-opacity-05 border-white-opacity-15 shadow-xl;
+  box-shadow: 0 10px 15px -3px var(--black-opacity-20);
+}
+
+.card-selected {
+  @apply bg-primary-opacity-05 border-primary-opacity-50;
+  box-shadow: 0 10px 15px -3px var(--primary-opacity-10);
+}
+
+/* Button System */
+.btn {
+  @apply inline-flex items-center justify-center font-medium text-sm transition-all duration-150 outline-none rounded-lg px-6 py-3;
+}
+
+.btn:focus {
+  @apply ring-2 ring-primary-opacity-30 ring-offset-2;
+}
+
+.btn:active {
+  @apply scale-95;
+}
+
+.btn-primary {
+  @apply bg-primary text-white;
+  box-shadow: 0 4px 12px var(--primary-opacity-25);
+}
+
+.btn-primary:hover {
+  @apply bg-primary-hover;
+  box-shadow: 0 6px 16px var(--primary-opacity-35);
+}
+
+.btn-secondary {
+  @apply bg-white-opacity-08 border border-white-opacity-15 text-white;
+}
+
+.btn-secondary:hover {
+  @apply bg-white-opacity-12 border-white-opacity-25;
+}
+
+.btn-outline {
+  @apply border border-white-opacity-25 text-white;
+}
+
+.btn-outline:hover {
+  @apply bg-white-opacity-08 border-white-opacity-35;
+}
+
+.btn-sm {
+  @apply px-4 py-2 text-xs;
+}
+
+/* Input System */
+.input-field {
+  @apply w-full bg-white-opacity-05 border border-white-opacity-15 text-white rounded-lg px-4 py-3 text-sm transition-all duration-150 outline-none placeholder-gray-400;
+}
+
+.input-field:focus {
+  @apply ring-2 ring-primary-opacity-30 ring-offset-2 border-primary-opacity-50 bg-white-opacity-08;
+}
+
+.form-group {
+  @apply flex flex-col gap-3;
+}
+
+.form-label {
+  @apply block text-white text-sm font-medium mb-2;
+}
+
+/* Typography */
+.heading-xl {
+  @apply text-4xl font-bold text-white tracking-tight;
+}
+
+.heading-lg {
+  @apply text-3xl font-bold text-white tracking-tight;
+}
+
+.heading-md {
+  @apply text-2xl font-semibold text-white tracking-tight;
+}
+
+.heading-sm {
+  @apply text-xl font-semibold text-white;
+}
+
+.text-body {
+  @apply text-gray-300 leading-relaxed;
+}
+
+.text-muted {
+  @apply text-gray-400 text-sm;
+}
+
+.text-gradient {
+  @apply font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary-light;
+}
+
+/* Navigation */
+.nav-link {
+  @apply text-gray-400 font-medium text-sm px-3 py-2 rounded transition-all duration-200;
+}
+
+.nav-link:hover {
+  @apply text-white bg-white-opacity-05;
+}
+
+.nav-link-active {
+  @apply text-white bg-white-opacity-08 border border-white-opacity-15;
+}
+
+/* Status System */
+.status-badge {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border;
+}
+
+.status-open {
+  @apply bg-success-opacity-10 text-success-light border-success-opacity-30;
+}
+
+.status-full {
+  @apply bg-error-opacity-10 text-error-light border-error-opacity-30;
+}
+
+.status-active {
+  @apply bg-info-opacity-10 text-info-light border-info-opacity-30;
+}
+
+.status-pending {
+  @apply bg-neutral-opacity-10 text-neutral border-neutral-opacity-30;
+}
+
+.status-completed {
+  @apply bg-success-opacity-10 text-success-light border-success-opacity-30;
+}
+
+/* Progress System */
+.progress-bar {
+  @apply w-full bg-white-opacity-10 rounded-full h-2 overflow-hidden;
+}
+
+.progress-fill {
+  @apply h-full transition-all duration-500 bg-gradient-to-r from-primary to-primary-light;
+}
+
+/* Grid System */
+.grid-2 {
+  @apply grid gap-6 md:grid-cols-2;
+}
+
+.grid-3 {
+  @apply grid gap-6 md:grid-cols-2 lg:grid-cols-3;
+}
+
+.grid-4 {
+  @apply grid gap-6 md:grid-cols-2 lg:grid-cols-4;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  @apply w-1.5;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-white-opacity-20 rounded;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-white-opacity-30;
+}
+
+/* Loader */
+.loader-red {
+  @apply border-4 border-primary-opacity-25 border-t-primary rounded-full w-8 h-8 mx-auto animate-spin;
+}

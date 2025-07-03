@@ -1,63 +1,21 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
-
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Web3Provider } from "@/providers/Web3Provider";
 
-import { siteConfig } from "@/lib/site";
-//import { ThemeProvider } from "next-themes";
-import { Web3Provider } from "@/components/providers/web3";
-import { AuthGuard } from "@/components/providers/auth-guard";
-
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
+const geistSans = Geist({
   variable: "--font-geist-sans",
-  weight: "100 900",
+  subsets: ["latin"],
 });
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
+
+const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
-  weight: "100 900",
+  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteConfig.url.base),
-  title: {
-    default: siteConfig.name,
-    template: `%s | ${siteConfig.name}`,
-  },
-  description: siteConfig.description,
-  keywords: siteConfig.keywords,
-  authors: [
-    {
-      name: siteConfig.author,
-      url: siteConfig.url.author,
-    },
-  ],
-  creator: siteConfig.author,
-  appleWebApp: {
-    title: siteConfig.name,
-    capable: true,
-    statusBarStyle: "black-translucent",
-  },
-  openGraph: {
-    type: "website",
-    locale: "en_US",
-    url: siteConfig.url.base,
-    title: siteConfig.name,
-    description: siteConfig.description,
-    siteName: siteConfig.name,
-    images: "/opengraph-image",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: siteConfig.name,
-    description: siteConfig.description,
-    images: "/opengraph-image",
-    creator: "@gabrielrvita",
-  },
-  icons: {
-    icon: "/favicon.ico",
-  },
+  title: "Tundra - Team1 Tournament Platform",
+  description: "Global tournament platform for Team1 community events",
 };
 
 export default function RootLayout({
@@ -71,9 +29,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Web3Provider>
-          <AuthGuard>
-            {children}
-          </AuthGuard>
+          {children}
         </Web3Provider>
       </body>
     </html>
