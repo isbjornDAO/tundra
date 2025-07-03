@@ -53,6 +53,7 @@ interface MatchCardProps {
   onClick: () => void;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function MatchCard({ match, currentUserAddress, onScheduleUpdate, onSubmitResult, onClick }: MatchCardProps) {
   const isOrganizer1 = match.team1.organizer.toLowerCase() === currentUserAddress.toLowerCase();
   const isOrganizer2 = match.team2.organizer.toLowerCase() === currentUserAddress.toLowerCase();

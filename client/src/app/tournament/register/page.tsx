@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { AuthGuard } from '@/components/AuthGuard';
 import { Layout } from '@/components/Layout';
 import { useTeam1Auth } from '@/hooks/useTeam1Auth';
-import { GAMES, REGIONS, type Game, type Region, type Player } from '@/types/tournament';
+import { REGIONS, type Game, type Region, type Player } from '@/types/tournament';
 
 // Mock data for available tournaments
 const mockTournaments = [
