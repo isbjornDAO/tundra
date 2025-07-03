@@ -71,3 +71,74 @@ export const REGIONS = [
 ] as const;
 
 export type Region = typeof REGIONS[number];
+
+// Results and Stats Types
+export interface TournamentResult {
+  id: string;
+  tournament: GameTournament;
+  winner: Team;
+  runnerUp: Team;
+  participants: Team[];
+  completedAt: Date;
+  prizePool?: string;
+  region: Region;
+  game: Game;
+}
+
+export interface PlayerStats {
+  playerId: string;
+  playerName: string;
+  totalTournaments: number;
+  wins: number;
+  runnerUps: number;
+  topThrees: number;
+  totalMatches: number;
+  matchWins: number;
+  winRate: number;
+  averageScore: number;
+  bestPlacement: number;
+  favoriteGame: Game;
+  totalPrizesMoney: number;
+  recentForm: ('W' | 'L' | 'T')[];
+  achievements: Achievement[];
+}
+
+export interface TeamStats {
+  teamId: string;
+  teamName: string;
+  totalTournaments: number;
+  wins: number;
+  runnerUps: number;
+  topThrees: number;
+  totalMatches: number;
+  matchWins: number;
+  winRate: number;
+  bestPlacement: number;
+  totalPrizesMoney: number;
+  currentRanking: number;
+  members: Player[];
+  recentForm: ('W' | 'L' | 'T')[];
+  achievements: Achievement[];
+}
+
+export interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  unlockedAt: Date;
+  game?: Game;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  teamId: string;
+  teamName: string;
+  points: number;
+  wins: number;
+  totalTournaments: number;
+  winRate: number;
+  recentForm: ('W' | 'L' | 'T')[];
+  change: number; // +/- position change
+}

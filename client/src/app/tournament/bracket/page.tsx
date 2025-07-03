@@ -59,68 +59,103 @@ function MatchCard({ match, currentUserAddress, onScheduleUpdate, onSubmitResult
   const isOrganizer2 = match.team2.organizer.toLowerCase() === currentUserAddress.toLowerCase();
   const isCurrentUserOrganizer = isOrganizer1 || isOrganizer2;
   const bothApproved = match.organizer1Approved && match.organizer2Approved;
+  const userApproved = (isOrganizer1 && match.organizer1Approved) || (isOrganizer2 && match.organizer2Approved);
 
   const getStatusColor = () => {
     if (match.status === 'completed') return 'border-green-500/50 bg-green-500/10';
     if (match.status === 'scheduled') return 'border-blue-500/50 bg-blue-500/10';
+    if (isCurrentUserOrganizer && !bothApproved) return 'border-yellow-500/50 bg-yellow-500/10';
     return 'border-gray-500/30 bg-white/5';
   };
+
+  const getActionMessage = () => {
+    if (match.status === 'completed') return null;
+    if (isCurrentUserOrganizer) {
+      if (!match.scheduledTime) return 'Propose a match time';
+      if (!userApproved) return 'Approve the scheduled time';
+      if (!bothApproved) return 'Waiting for opponent approval';
+      if (match.status === 'scheduled') return 'Submit match results';
+    }
+    return null;
+  };
+
+  const actionMessage = getActionMessage();
 
   return (
     <div
       onClick={onClick}
-      className={`relative cursor-pointer transition-all duration-200 hover:scale-105 ${getStatusColor()} border-2 rounded-lg p-4 min-h-[140px] flex flex-col justify-between`}
+      className={`relative cursor-pointer transition-all duration-200 hover:scale-[1.02] ${getStatusColor()} border-2 rounded-lg p-4 min-h-[160px] flex flex-col justify-between ${isCurrentUserOrganizer ? 'ring-1 ring-white/10' : ''}`}
     >
-      {/* Match Status Indicator */}
-      <div className="absolute top-2 right-2 flex items-center gap-2">
-        {match.status === 'completed' && <span className="text-green-400 text-xs">✓ COMPLETE</span>}
-        {match.status === 'scheduled' && <span className="text-blue-400 text-xs">📅 SCHEDULED</span>}
-        {match.status === 'pending' && <span className="text-gray-400 text-xs">⏳ PENDING</span>}
+      {/* Status Badge */}
+      <div className="absolute top-3 right-3">
+        {match.status === 'completed' && (
+          <div className="bg-green-500/20 text-green-400 px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+            <span>✓</span> Complete
+          </div>
+        )}
+        {match.status === 'scheduled' && (
+          <div className="bg-blue-500/20 text-blue-400 px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+            <span>📅</span> Scheduled
+          </div>
+        )}
+        {match.status === 'pending' && (
+          <div className="bg-gray-500/20 text-gray-400 px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+            <span>⏳</span> Pending
+          </div>
+        )}
       </div>
 
       {/* Teams */}
-      <div className="space-y-2 mt-4">
-        <div className={`flex items-center justify-between p-2 rounded ${
-          match.winner?.id === match.team1.id ? 'bg-green-500/20 border border-green-500/40' : 'bg-white/5'
+      <div className="space-y-2 mt-6">
+        <div className={`flex items-center justify-between p-3 rounded-lg transition-all ${
+          match.winner?.id === match.team1.id ? 'bg-green-500/20 border border-green-500/40' : 'bg-white/5 hover:bg-white/10'
         }`}>
-          <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${match.organizer1Approved ? 'bg-green-400' : 'bg-gray-400'}`} />
-            <span className="text-white font-medium text-sm">{match.team1.name}</span>
+          <div className="flex items-center space-x-3">
+            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${match.organizer1Approved ? 'bg-green-400' : 'bg-gray-400'}`} />
+            <div className="flex flex-col">
+              <span className="text-white font-medium text-sm">{match.team1.name}</span>
+              <span className="text-gray-400 text-xs">{match.team1.region}</span>
+            </div>
           </div>
-          {match.winner?.id === match.team1.id && <span className="text-green-400">🏆</span>}
+          {match.winner?.id === match.team1.id && <span className="text-green-400 text-lg">🏆</span>}
         </div>
         
-        <div className="text-center text-gray-400 text-xs">VS</div>
+        <div className="text-center text-gray-400 text-xs font-medium">VS</div>
         
-        <div className={`flex items-center justify-between p-2 rounded ${
-          match.winner?.id === match.team2.id ? 'bg-green-500/20 border border-green-500/40' : 'bg-white/5'
+        <div className={`flex items-center justify-between p-3 rounded-lg transition-all ${
+          match.winner?.id === match.team2.id ? 'bg-green-500/20 border border-green-500/40' : 'bg-white/5 hover:bg-white/10'
         }`}>
-          <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${match.organizer2Approved ? 'bg-green-400' : 'bg-gray-400'}`} />
-            <span className="text-white font-medium text-sm">{match.team2.name}</span>
+          <div className="flex items-center space-x-3">
+            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${match.organizer2Approved ? 'bg-green-400' : 'bg-gray-400'}`} />
+            <div className="flex flex-col">
+              <span className="text-white font-medium text-sm">{match.team2.name}</span>
+              <span className="text-gray-400 text-xs">{match.team2.region}</span>
+            </div>
           </div>
-          {match.winner?.id === match.team2.id && <span className="text-green-400">🏆</span>}
+          {match.winner?.id === match.team2.id && <span className="text-green-400 text-lg">🏆</span>}
         </div>
       </div>
 
       {/* Time/Actions */}
-      <div className="mt-3">
+      <div className="mt-4 space-y-2">
         {match.scheduledTime ? (
-          <div className="text-center">
-            <div className="text-xs text-gray-400">Scheduled</div>
-            <div className="text-xs text-white">
+          <div className="text-center bg-white/5 rounded-lg p-2">
+            <div className="text-xs text-gray-400 mb-1">Scheduled for</div>
+            <div className="text-xs text-white font-medium">
               {match.scheduledTime.toLocaleDateString()} at {match.scheduledTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
             </div>
           </div>
         ) : (
-          <div className="text-center text-xs text-gray-400">
-            Time TBD
+          <div className="text-center text-xs text-gray-400 bg-white/5 rounded-lg p-2">
+            Time not set
           </div>
         )}
         
-        {isCurrentUserOrganizer && !bothApproved && (
-          <div className="text-center mt-1">
-            <span className="text-xs text-yellow-400">⚠ Action Required</span>
+        {actionMessage && (
+          <div className="text-center">
+            <div className="text-xs text-yellow-400 font-medium bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2">
+              👆 {actionMessage}
+            </div>
           </div>
         )}
       </div>
@@ -225,6 +260,9 @@ interface MatchDetailModalProps {
 function MatchDetailModal({ match, currentUserAddress, onClose, onScheduleUpdate, onSubmitResult }: MatchDetailModalProps) {
   const [proposedTime, setProposedTime] = useState('');
   const [showTimeInput, setShowTimeInput] = useState(false);
+  const [timeProposalMode, setTimeProposalMode] = useState<'quick' | 'custom'>('quick');
+  const [selectedQuickTime, setSelectedQuickTime] = useState('');
+  const [showResultModal, setShowResultModal] = useState(false);
 
   if (!match) return null;
 
@@ -235,12 +273,46 @@ function MatchDetailModal({ match, currentUserAddress, onClose, onScheduleUpdate
   const bothApproved = match.organizer1Approved && match.organizer2Approved;
 
   const handleTimeProposal = () => {
-    if (!proposedTime) return;
-    const scheduledTime = new Date(proposedTime);
+    const timeToUse = timeProposalMode === 'quick' ? selectedQuickTime : proposedTime;
+    if (!timeToUse) return;
+    const scheduledTime = new Date(timeToUse);
     onScheduleUpdate(match.id, scheduledTime, true);
     setShowTimeInput(false);
     setProposedTime('');
+    setSelectedQuickTime('');
   };
+
+  const generateQuickTimes = () => {
+    const times: Array<{label: string, value: string, date: Date}> = [];
+    const now = new Date();
+    
+    // Next few days at common times
+    for (let day = 1; day <= 7; day++) {
+      const date = new Date(now);
+      date.setDate(now.getDate() + day);
+      
+      // Common gaming times
+      const commonTimes = ['18:00', '19:00', '20:00', '21:00'];
+      
+      commonTimes.forEach(time => {
+        const [hours, minutes] = time.split(':');
+        const scheduledDate = new Date(date);
+        scheduledDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        
+        if (scheduledDate > now) {
+          times.push({
+            label: `${scheduledDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${time}`,
+            value: scheduledDate.toISOString().slice(0, 16),
+            date: scheduledDate
+          });
+        }
+      });
+    }
+    
+    return times.slice(0, 8); // Limit to 8 options
+  };
+
+  const quickTimeOptions = generateQuickTimes();
 
   const handleApproval = () => {
     if (match.scheduledTime) {
@@ -292,7 +364,7 @@ function MatchDetailModal({ match, currentUserAddress, onClose, onScheduleUpdate
         {/* Match Status & Time */}
         <div className="card-compact bg-white/5 mb-6">
           <div className="flex justify-between items-center mb-4">
-            <h4 className="text-white font-medium">Match Status</h4>
+            <h4 className="text-white font-medium">Match Scheduling</h4>
             <span className={`px-3 py-1 rounded-full text-sm ${
               match.status === 'completed' ? 'bg-green-500/20 text-green-400' :
               match.status === 'scheduled' ? 'bg-blue-500/20 text-blue-400' :
@@ -302,89 +374,274 @@ function MatchDetailModal({ match, currentUserAddress, onClose, onScheduleUpdate
             </span>
           </div>
 
-          {match.scheduledTime && (
-            <div className="mb-4">
-              <h5 className="text-gray-300 text-sm mb-2">Scheduled Time:</h5>
-              <p className="text-white">{match.scheduledTime.toLocaleString()}</p>
+          {match.scheduledTime ? (
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-blue-400">📅</span>
+                <h5 className="text-blue-400 font-medium">Proposed Match Time</h5>
+              </div>
+              <p className="text-white text-lg font-medium mb-3">
+                {match.scheduledTime.toLocaleDateString('en-US', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })} at {match.scheduledTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+              </p>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className={`p-3 rounded-lg border ${
+                  match.organizer1Approved 
+                    ? 'bg-green-500/10 border-green-500/20 text-green-400' 
+                    : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <span>{match.organizer1Approved ? '✅' : '⏳'}</span>
+                    <span className="font-medium">{match.team1.name}</span>
+                  </div>
+                  <div className="text-xs mt-1">
+                    {match.organizer1Approved ? 'Approved this time' : 'Waiting for approval'}
+                  </div>
+                </div>
+                
+                <div className={`p-3 rounded-lg border ${
+                  match.organizer2Approved 
+                    ? 'bg-green-500/10 border-green-500/20 text-green-400' 
+                    : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <span>{match.organizer2Approved ? '✅' : '⏳'}</span>
+                    <span className="font-medium">{match.team2.name}</span>
+                  </div>
+                  <div className="text-xs mt-1">
+                    {match.organizer2Approved ? 'Approved this time' : 'Waiting for approval'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-gray-500/10 border border-gray-500/20 rounded-lg p-4 mb-4 text-center">
+              <span className="text-gray-400 text-lg">⏰</span>
+              <h5 className="text-gray-400 font-medium mt-1">No Time Set</h5>
+              <p className="text-gray-500 text-sm">Match time needs to be proposed and agreed upon</p>
             </div>
           )}
-
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-gray-400">Team 1 Host:</span>
-              <span className={`ml-2 ${match.organizer1Approved ? 'text-green-400' : 'text-yellow-400'}`}>
-                {match.organizer1Approved ? '✓ Approved' : '⏳ Pending'}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-400">Team 2 Host:</span>
-              <span className={`ml-2 ${match.organizer2Approved ? 'text-green-400' : 'text-yellow-400'}`}>
-                {match.organizer2Approved ? '✓ Approved' : '⏳ Pending'}
-              </span>
-            </div>
-          </div>
         </div>
 
         {/* Actions for organizers */}
         {isCurrentUserOrganizer && match.status !== 'completed' && (
           <div className="space-y-4">
             {!showTimeInput && (
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => setShowTimeInput(true)}
-                  className="btn btn-secondary"
-                >
-                  {match.scheduledTime ? 'Update Time' : 'Propose Time'}
-                </button>
-
+              <div className="space-y-3">
+                {!match.scheduledTime && (
+                  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-yellow-400">💡</span>
+                      <h5 className="text-yellow-400 font-medium">Action Needed</h5>
+                    </div>
+                    <p className="text-gray-300 text-sm mb-3">This match needs a scheduled time. Propose a time that works for your team.</p>
+                    <button
+                      onClick={() => setShowTimeInput(true)}
+                      className="btn btn-primary w-full"
+                    >
+                      🕒 Propose Match Time
+                    </button>
+                  </div>
+                )}
+                
                 {match.scheduledTime && !userApproved && (
-                  <button
-                    onClick={handleApproval}
-                    className="btn btn-primary"
-                  >
-                    Approve Time
-                  </button>
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-blue-400">⏰</span>
+                      <h5 className="text-blue-400 font-medium">Time Approval Needed</h5>
+                    </div>
+                    <p className="text-gray-300 text-sm mb-3">Your opponent proposed this time. Do you approve?</p>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleApproval}
+                        className="btn btn-primary flex-1"
+                      >
+                        ✅ Approve Time
+                      </button>
+                      <button
+                        onClick={() => setShowTimeInput(true)}
+                        className="btn btn-secondary flex-1"
+                      >
+                        🔄 Propose Different Time
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {match.scheduledTime && userApproved && !bothApproved && (
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-green-400">✅</span>
+                      <h5 className="text-green-400 font-medium">Waiting for Opponent</h5>
+                    </div>
+                    <p className="text-gray-300 text-sm mb-3">You&apos;ve approved this time. Waiting for your opponent to approve.</p>
+                    <button
+                      onClick={() => setShowTimeInput(true)}
+                      className="btn btn-secondary"
+                    >
+                      🔄 Propose Different Time
+                    </button>
+                  </div>
                 )}
 
                 {bothApproved && match.status === 'scheduled' && (
-                  <button
-                    onClick={() => onSubmitResult(match.id, match.team1)} // This would open another modal
-                    className="btn btn-primary"
-                  >
-                    Submit Result
-                  </button>
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-green-400">🎮</span>
+                      <h5 className="text-green-400 font-medium">Match is Scheduled!</h5>
+                    </div>
+                    <p className="text-gray-300 text-sm mb-3">Both teams approved the time. Ready to play!</p>
+                    <button
+                      onClick={() => setShowResultModal(true)}
+                      className="btn btn-primary w-full"
+                    >
+                      🏆 Submit Match Result
+                    </button>
+                  </div>
                 )}
               </div>
             )}
 
             {showTimeInput && (
-              <div className="card-compact bg-white/5">
-                <h5 className="text-white font-medium mb-3">Schedule Match Time</h5>
-                <div className="space-y-4">
-                  <input
-                    type="datetime-local"
-                    value={proposedTime}
-                    onChange={(e) => setProposedTime(e.target.value)}
-                    className="input-field"
-                  />
-                  <div className="flex gap-3">
-                    <button
-                      onClick={handleTimeProposal}
-                      disabled={!proposedTime}
-                      className="btn btn-primary flex-1"
-                    >
-                      Propose Time
-                    </button>
-                    <button
-                      onClick={() => setShowTimeInput(false)}
-                      className="btn btn-secondary flex-1"
-                    >
-                      Cancel
-                    </button>
+              <div className="bg-white/5 rounded-lg p-6 border border-white/10">
+                <div className="flex items-center justify-between mb-4">
+                  <h5 className="text-white font-medium text-lg">🕒 Schedule Match Time</h5>
+                  <button 
+                    onClick={() => setShowTimeInput(false)}
+                    className="text-gray-400 hover:text-white text-xl"
+                  >
+                    ×
+                  </button>
+                </div>
+                
+                {/* Time Proposal Mode Selector */}
+                <div className="flex gap-2 mb-4">
+                  <button
+                    onClick={() => setTimeProposalMode('quick')}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      timeProposalMode === 'quick' 
+                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/20' 
+                        : 'bg-white/5 text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    🚀 Quick Options
+                  </button>
+                  <button
+                    onClick={() => setTimeProposalMode('custom')}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      timeProposalMode === 'custom' 
+                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/20' 
+                        : 'bg-white/5 text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    🎯 Custom Time
+                  </button>
+                </div>
+
+                {timeProposalMode === 'quick' ? (
+                  <div className="space-y-4">
+                    <p className="text-gray-300 text-sm">Choose from common gaming times:</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {quickTimeOptions.map((option, index) => (
+                        <button
+                          key={index}
+                          onClick={() => setSelectedQuickTime(option.value)}
+                          className={`p-3 rounded-lg border text-left transition-all ${
+                            selectedQuickTime === option.value
+                              ? 'bg-blue-500/20 border-blue-500/40 text-blue-400'
+                              : 'bg-white/5 border-white/10 text-gray-300 hover:border-white/20 hover:bg-white/10'
+                          }`}
+                        >
+                          <div className="font-medium text-sm">{option.label}</div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            {option.date.toLocaleDateString('en-US', { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })} (Local)
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-gray-300 text-sm mb-2">Select custom date and time:</label>
+                      <input
+                        type="datetime-local"
+                        value={proposedTime}
+                        onChange={(e) => setProposedTime(e.target.value)}
+                        min={new Date().toISOString().slice(0, 16)}
+                        className="input-field"
+                      />
+                    </div>
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                      <p className="text-blue-400 text-xs">
+                        💡 Tip: Choose a time that works well for both teams&apos; time zones
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={handleTimeProposal}
+                    disabled={timeProposalMode === 'quick' ? !selectedQuickTime : !proposedTime}
+                    className="btn btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    📅 Propose This Time
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowTimeInput(false);
+                      setProposedTime('');
+                      setSelectedQuickTime('');
+                    }}
+                    className="btn btn-secondary px-6"
+                  >
+                    Cancel
+                  </button>
                 </div>
               </div>
             )}
+          </div>
+        )}
+        
+        {/* Result Submission Modal */}
+        {showResultModal && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-gray-900 rounded-lg p-6 max-w-md w-full mx-4 border border-white/10">
+              <h3 className="text-white font-semibold text-lg mb-4">🏆 Submit Match Result</h3>
+              <p className="text-gray-300 text-sm mb-4">Who won this match?</p>
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    onSubmitResult(match.id, match.team1);
+                    setShowResultModal(false);
+                  }}
+                  className="w-full p-3 bg-green-500/20 border border-green-500/40 rounded-lg text-green-400 hover:bg-green-500/30 transition-colors"
+                >
+                  {match.team1.name} Won
+                </button>
+                <button
+                  onClick={() => {
+                    onSubmitResult(match.id, match.team2);
+                    setShowResultModal(false);
+                  }}
+                  className="w-full p-3 bg-green-500/20 border border-green-500/40 rounded-lg text-green-400 hover:bg-green-500/30 transition-colors"
+                >
+                  {match.team2.name} Won
+                </button>
+              </div>
+              <button
+                onClick={() => setShowResultModal(false)}
+                className="w-full mt-4 btn btn-secondary"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -400,6 +657,27 @@ function TournamentBracketsContent() {
   const [selectedGame, setSelectedGame] = useState(gameParam || 'CS2');
   const [matches, setMatches] = useState<BracketMatch[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<BracketMatch | null>(null);
+
+  // User's matches and action items
+  const userMatches = matches.filter(match => 
+    match.team1.organizer.toLowerCase() === address?.toLowerCase() || 
+    match.team2.organizer.toLowerCase() === address?.toLowerCase()
+  );
+  
+  const pendingActions = userMatches.filter(match => {
+    if (match.status === 'completed') return false;
+    const isOrganizer1 = match.team1.organizer.toLowerCase() === address?.toLowerCase();
+    const isOrganizer2 = match.team2.organizer.toLowerCase() === address?.toLowerCase();
+    const userApproved = (isOrganizer1 && match.organizer1Approved) || (isOrganizer2 && match.organizer2Approved);
+    return !userApproved || (match.status === 'scheduled' && match.organizer1Approved && match.organizer2Approved);
+  });
+
+  const tournamentStats = {
+    totalMatches: matches.length,
+    completedMatches: matches.filter(m => m.status === 'completed').length,
+    scheduledMatches: matches.filter(m => m.status === 'scheduled').length,
+    pendingMatches: matches.filter(m => m.status === 'pending').length
+  };
 
   useEffect(() => {
     if (selectedGame && mockGameData[selectedGame as keyof typeof mockGameData]) {
@@ -506,23 +784,94 @@ function TournamentBracketsContent() {
 
         {selectedGame && mockGameData[selectedGame as keyof typeof mockGameData] && (
           <div>
-            {/* Compact Tournament Info */}
-            <div className="flex items-center justify-between mb-5 p-4 bg-white/5 rounded-lg border border-white/10">
-              <div>
-                <p className="text-gray-400 text-sm font-medium">Single Elimination • 12 Teams</p>
+            {/* User Dashboard */}
+            {address && userMatches.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-white mb-3">Your Matches</h3>
+                <div className="grid gap-4">
+                  {/* Action Items */}
+                  {pendingActions.length > 0 && (
+                    <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
+                        <h4 className="text-yellow-400 font-medium">Action Required ({pendingActions.length})</h4>
+                      </div>
+                      <div className="space-y-2">
+                        {pendingActions.map(match => {
+                          const isOrganizer1 = match.team1.organizer.toLowerCase() === address.toLowerCase();
+                          const userApproved = (isOrganizer1 && match.organizer1Approved) || (!isOrganizer1 && match.organizer2Approved);
+                          const opponent = isOrganizer1 ? match.team2.name : match.team1.name;
+                          
+                          let actionText = '';
+                          if (!match.scheduledTime) actionText = 'Propose a match time';
+                          else if (!userApproved) actionText = 'Approve the scheduled time';
+                          else if (match.status === 'scheduled') actionText = 'Submit match results';
+                          else actionText = 'Waiting for opponent approval';
+                          
+                          return (
+                            <div key={match.id} className="flex items-center justify-between bg-white/5 rounded-lg p-3 cursor-pointer hover:bg-white/10 transition-colors" onClick={() => setSelectedMatch(match)}>
+                              <div className="flex items-center gap-3">
+                                <div className="text-sm text-white font-medium">vs {opponent}</div>
+                                <div className="text-xs text-gray-400">{actionText}</div>
+                              </div>
+                              <div className="text-xs text-yellow-400">Click to manage →</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* User Match Summary */}
+                  <div className="bg-white/5 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-white font-medium">Your Tournament Progress</h4>
+                      <div className="text-sm text-gray-400">{userMatches.filter(m => m.status === 'completed').length}/{userMatches.length} Complete</div>
+                    </div>
+                    <div className="flex gap-4 text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                        <span className="text-gray-300">{userMatches.filter(m => m.status === 'completed').length} Won/Lost</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                        <span className="text-gray-300">{userMatches.filter(m => m.status === 'scheduled').length} Scheduled</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                        <span className="text-gray-300">{userMatches.filter(m => m.status === 'pending').length} Pending</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="flex gap-4 text-xs">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                  <span className="text-gray-300 font-medium">Complete</span>
+            )}
+
+            {/* Tournament Overview */}
+            <div className="bg-white/5 rounded-lg p-4 mb-6 border border-white/10">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-1">Tournament Overview</h3>
+                  <p className="text-gray-400 text-sm">Single Elimination • 12 Teams • Round 1</p>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                  <span className="text-gray-300 font-medium">Scheduled</span>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-white">{Math.round((tournamentStats.completedMatches / tournamentStats.totalMatches) * 100)}%</div>
+                  <div className="text-xs text-gray-400">Complete</div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                  <span className="text-gray-300 font-medium">Pending</span>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="bg-green-500/10 rounded-lg p-3">
+                  <div className="text-lg font-semibold text-green-400">{tournamentStats.completedMatches}</div>
+                  <div className="text-xs text-green-400">Complete</div>
+                </div>
+                <div className="bg-blue-500/10 rounded-lg p-3">
+                  <div className="text-lg font-semibold text-blue-400">{tournamentStats.scheduledMatches}</div>
+                  <div className="text-xs text-blue-400">Scheduled</div>
+                </div>
+                <div className="bg-gray-500/10 rounded-lg p-3">
+                  <div className="text-lg font-semibold text-gray-400">{tournamentStats.pendingMatches}</div>
+                  <div className="text-xs text-gray-400">Pending</div>
                 </div>
               </div>
             </div>
@@ -531,7 +880,10 @@ function TournamentBracketsContent() {
             <div>
               {/* Round 1 */}
               <div>
-                <h4 className="text-lg font-semibold text-white mb-4">Round 1</h4>
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-lg font-semibold text-white">Round 1 - First Round</h4>
+                  <div className="text-sm text-gray-400">{matches.length} matches</div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {matches.map((match) => (
                     <MatchCard
