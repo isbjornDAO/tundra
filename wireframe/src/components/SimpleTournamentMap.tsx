@@ -67,7 +67,7 @@ export function SimpleTournamentMap() {
     if (status === 'live') {
       return 'bg-red-500 text-white animate-pulse';
     }
-    return 'bg-blue-500 text-white';
+    return 'bg-gray-600 text-white';
   };
 
   const getTimeUntil = (scheduledTime: Date) => {
@@ -76,12 +76,12 @@ export function SimpleTournamentMap() {
   };
 
   return (
-    <div className="relative w-full h-[500px] bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 rounded-lg overflow-hidden border border-white/10">
+    <div className="relative w-full h-[500px] bg-gradient-to-br from-black via-red-950/20 to-black rounded-lg overflow-hidden border border-white/10">
       {/* Background pattern */}
       <div className="absolute inset-0 opacity-20">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(120,119,198,0.3),transparent_50%)]"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_70%,rgba(255,119,198,0.2),transparent_50%)]"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(99,102,241,0.2),transparent_50%)]"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(239,68,68,0.2),transparent_50%)]"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_70%,rgba(127,29,29,0.3),transparent_50%)]"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(239,68,68,0.1),transparent_50%)]"></div>
       </div>
 
       {/* Tournament Cards Grid */}
@@ -90,7 +90,7 @@ export function SimpleTournamentMap() {
           {tournaments.map((tournament) => (
             <div
               key={tournament.id}
-              className="bg-black/40 backdrop-blur-sm border border-white/20 rounded-lg p-4 hover:border-white/40 transition-all cursor-pointer hover:scale-105"
+              className="bg-black/60 backdrop-blur-sm border border-white/10 rounded-lg p-4 hover:border-red-500/40 transition-all cursor-pointer hover:scale-105"
               onClick={() => setSelectedTournament(tournament)}
             >
               <div className="flex items-center justify-between mb-3">
@@ -112,19 +112,6 @@ export function SimpleTournamentMap() {
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-sm rounded-lg p-3 border border-white/10">
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-            <span className="text-white/70">Live Tournament</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-blue-500 rounded-full" />
-            <span className="text-white/70">Scheduled Tournament</span>
-          </div>
-        </div>
-      </div>
 
       {/* Tournament Details Modal */}
       {selectedTournament && (

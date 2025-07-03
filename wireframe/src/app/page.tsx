@@ -1,37 +1,86 @@
 'use client';
 
+import Link from 'next/link';
 import { AuthGuard } from '@/components/AuthGuard';
 import { ConnectWallet } from '@/components/ConnectWallet';
 import { Navigation } from '@/components/Navigation';
 import { SimpleTournamentMap } from '@/components/SimpleTournamentMap';
+import { InteractiveGlobe } from '@/components/InteractiveGlobe';
 
 export default function Home() {
+  // Generate snow properties once on component mount
+  const snowflakes = Array.from({ length: 80 }, (_, i) => ({
+    id: i,
+    size: Math.random() * 3 + 1,
+    duration: Math.random() * 15 + 10,
+    delay: Math.random() * 20,
+    opacity: Math.random() * 0.4 + 0.1,
+    drift: Math.random() * 100 - 50,
+    left: Math.random() * 100,
+  }));
+
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-black">
-        <header className="border-b border-white/[0.1]">
+      <div className="min-h-screen bg-black relative overflow-hidden">
+        {/* Falling Snow Background */}
+        <div className="fixed inset-0 pointer-events-none z-10 overflow-hidden">
+          {snowflakes.map((flake) => (
+            <div
+              key={`snowflake-${flake.id}`}
+              className="absolute bg-white rounded-full"
+              style={{
+                width: `${flake.size}px`,
+                height: `${flake.size}px`,
+                left: `${flake.left}%`,
+                top: '-20px',
+                opacity: flake.opacity,
+                animation: `snowfall ${flake.duration}s linear infinite`,
+                animationDelay: `${flake.delay}s`,
+                transform: `translateX(${flake.drift}px)`,
+              }}
+            />
+          ))}
+        </div>
+        
+        <header className="border-b border-white/[0.1] relative z-20">
           <div className="container-main py-6 flex justify-between items-center">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-red-500 transform rotate-0" style={{clipPath: 'polygon(50% 15%, 85% 85%, 15% 85%)'}}></div>
-              <h1 className="text-xl font-bold text-white">Tundra</h1>
+            <div className="flex items-center space-x-8">
+              <Link href="/" className="text-xl font-bold text-white hover:text-gray-300 transition-colors">
+                Tundra
+              </Link>
+              <Navigation />
             </div>
-            <ConnectWallet />
+            <div className="flex items-center space-x-4">
+              <a
+                href="https://docs.tundra.co.nz"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </a>
+              <ConnectWallet />
+            </div>
           </div>
         </header>
-        <Navigation />
         
-        <main className="container-main py-20">
+        <main className="container-main py-4 relative z-20">
           {/* Hero Section */}
-          <div className="text-center section">
-            <h1 className="text-5xl font-bold text-white mb-6 tracking-tight">
+          <div className="text-center">
+            <div className="h-[280px] mb-6">
+              <InteractiveGlobe />
+            </div>
+            <h1 className="text-4xl md:text-5xl font-bold text-white mb-3 tracking-tight">
               Team1 Tournament
-              <span className="text-gradient block mt-2">Platform</span>
+              <span className="text-gradient block mt-1">Platform</span>
             </h1>
-            <p className="text-body text-lg mb-10 max-w-2xl mx-auto">
+            <p className="text-body text-sm md:text-base mb-4 max-w-2xl mx-auto">
               Organize and compete in global esports tournaments. 
               Register your team, coordinate matches, compete for glory.
             </p>
-            <div className="flex flex-col sm:flex-row justify-center gap-4">
+            <div className="flex flex-col sm:flex-row justify-center gap-3 mb-6">
               <a href="/tournament/register" className="btn btn-primary">
                 Register Team
               </a>
@@ -41,20 +90,8 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Globe Section */}
-          <div className="section-tight">
-            <div className="text-center mb-8">
-              <h2 className="heading-lg mb-4">Live Tournaments Worldwide</h2>
-              <p className="text-body max-w-2xl mx-auto">
-                Explore active and upcoming tournaments worldwide. 
-                Click on tournament cards to see more details.
-              </p>
-            </div>
-            <SimpleTournamentMap />
-          </div>
-
           {/* Stats Section */}
-          <div className="grid-3 section-tight">
+          <div className="grid-3 mb-8">
             <div className="card text-center">
               <div className="heading-lg mb-2">6</div>
               <div className="text-muted">Games Available</div>
@@ -67,6 +104,11 @@ export default function Home() {
               <div className="heading-lg mb-2">32</div>
               <div className="text-muted">Teams Registered</div>
             </div>
+          </div>
+
+          {/* Globe Section */}
+          <div className="mb-8">
+            <SimpleTournamentMap />
           </div>
 
           {/* Features Grid */}
@@ -181,6 +223,17 @@ export default function Home() {
             </div>
           </div>
         </main>
+        
+        <style jsx global>{`
+          @keyframes snowfall {
+            0% {
+              transform: translateY(0px);
+            }
+            100% {
+              transform: translateY(calc(100vh + 40px));
+            }
+          }
+        `}</style>
       </div>
     </AuthGuard>
   );
