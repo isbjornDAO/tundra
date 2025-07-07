@@ -3,22 +3,15 @@
 import { useState } from 'react';
 import { AuthGuard } from '@/components/AuthGuard';
 import { Layout } from '@/components/Layout';
+import { useTournaments } from '@/hooks/useTournaments';
 import { useTeam1Auth } from '@/hooks/useTeam1Auth';
 import { REGIONS, type Game, type Region, type Player } from '@/types/tournament';
-
-// Mock data for available tournaments
-const mockTournaments = [
-  { game: 'CS2', registeredTeams: 8, maxTeams: 12, status: 'open', prize: '$5,000' },
-  { game: 'Valorant', registeredTeams: 12, maxTeams: 12, status: 'full', prize: '$3,000' },
-  { game: 'League of Legends', registeredTeams: 5, maxTeams: 12, status: 'open', prize: '$4,000' },
-  { game: 'Dota 2', registeredTeams: 3, maxTeams: 12, status: 'open', prize: '$6,000' },
-  { game: 'Rocket League', registeredTeams: 12, maxTeams: 12, status: 'full', prize: '$2,000' },
-  { game: 'Fortnite', registeredTeams: 1, maxTeams: 12, status: 'open', prize: '$3,500' },
-];
 
 type Step = 'game' | 'team' | 'players' | 'confirm';
 
 export default function RegisterTournament() {
+  const { data: tournamentsData, isLoading, error } = useTournaments();
+  const tournaments = tournamentsData?.tournaments || [];
   const { address } = useTeam1Auth();
   const [currentStep, setCurrentStep] = useState<Step>('game');
   const [selectedGame, setSelectedGame] = useState<Game | ''>('');
@@ -48,26 +41,55 @@ export default function RegisterTournament() {
   };
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
-    
-    // TODO: Implement actual submission to backend/smart contract
-    console.log('Registering team:', {
-      game: selectedGame,
-      teamName,
-      region: teamRegion,
-      organizer: address,
-      players: players.filter(p => p.name.trim() !== '')
-    });
+    const selectedTournament = tournaments.find(t => t.game === selectedGame);
+    if (!selectedTournament || selectedTournament.status !== 'open') {
+      alert('Tournament is not available for registration');
+      return;
+    }
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    alert(`Team "${teamName}" successfully registered for ${selectedGame} tournament!`);
-    setIsSubmitting(false);
-    setCurrentStep('game');
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch('/api/tournaments/teams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tournamentId: selectedTournament._id,
+          team: {
+            name: teamName,
+            region: teamRegion,
+            organizer: address,
+            players: players.filter(p => p.name.trim() !== '').map((p, i) => ({
+              id: `${selectedTournament._id}-${address}-${i}`,
+              name: p.name,
+              steamId: p.steamId || undefined,
+            })),
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to register team');
+      }
+
+      alert(`Team "${teamName}" successfully registered for ${selectedGame} tournament!`);
+      
+      // Reset form
+      setTeamName('');
+      setTeamRegion('');
+      setSelectedGame('');
+      setPlayers(Array(5).fill(null).map((_, i) => ({ id: `${Date.now()}-${i}`, name: '', steamId: '' })));
+      setCurrentStep('game');
+      
+    } catch (error) {
+      console.error('Registration failed:', error);
+      alert('Registration failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const selectedTournament = mockTournaments.find(t => t.game === selectedGame);
+  const selectedTournament = tournaments.find(t => t.game === selectedGame);
   const canProceedFromGame = selectedGame && selectedTournament?.status === 'open';
   const canProceedFromTeam = teamName && teamRegion;
   const canProceedFromPlayers = players.filter(p => p.name.trim() !== '').length >= 3;
@@ -117,7 +139,7 @@ export default function RegisterTournament() {
                   <h4 className="text-white font-medium mb-2">🏆 Tournament Rules</h4>
                   <ul className="space-y-1 text-gray-300">
                     <li>• Single elimination format</li>
-                    <li>• 12 teams maximum per tournament</li>
+                    <li>• 16 teams maximum per tournament</li>
                     <li>• Matches played on Team1 Discord</li>
                     <li>• Winners advance to next round</li>
                   </ul>
@@ -165,6 +187,9 @@ export default function RegisterTournament() {
     </div>
   );
 
+  if (isLoading) return <Layout><div className="text-white text-center py-8">Loading tournaments...</div></Layout>;
+  if (error) return <Layout><div className="text-red-400 text-center py-8">Error loading tournaments</div></Layout>;
+
   return (
     <AuthGuard>
       <Layout>
@@ -180,7 +205,7 @@ export default function RegisterTournament() {
               </div>
               
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
-                {mockTournaments.map((tournament) => (
+                {tournaments.map((tournament) => (
                   <div
                     key={tournament.game}
                     onClick={() => tournament.status === 'open' && setSelectedGame(tournament.game as Game)}
@@ -218,7 +243,7 @@ export default function RegisterTournament() {
                         
                         {/* Prize Pool - Fixed height */}
                         <div className="text-center mb-4 h-12 flex flex-col justify-center">
-                          <div className="text-lg font-bold text-white mb-1">{tournament.prize}</div>
+                          <div className="text-lg font-bold text-white mb-1">$5,000</div>
                           <div className="text-xs text-gray-400">Prize Pool</div>
                         </div>
 
@@ -387,7 +412,7 @@ export default function RegisterTournament() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Prize Pool:</span>
-                      <span className="text-white">{selectedTournament?.prize}</span>
+                      <span className="text-white">$5,000</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Teams Registered:</span>

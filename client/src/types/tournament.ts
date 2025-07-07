@@ -38,10 +38,29 @@ export interface BracketMatch {
   team2: Team;
   round: 'first' | 'quarter' | 'semi' | 'final';
   scheduledTime?: Date;
+  proposedTimes?: Date[];
   organizer1Approved: boolean;
   organizer2Approved: boolean;
   winner?: Team;
-  status: 'pending' | 'scheduled' | 'completed';
+  status: 'pending' | 'time_proposed' | 'scheduled' | 'completed';
+}
+
+export interface TimeSlot {
+  id: string;
+  proposedBy: string;
+  matchId: string;
+  proposedTime: Date;
+  status: "pending" | "accepted" | "rejected";
+  createdAt: Date;
+}
+
+export interface TournamentSummary {
+  game: string;
+  registeredTeams: number;
+  maxTeams: number;
+  status: string;
+  _id: string;
+  createdAt: Date;
 }
 
 export const GAMES = [

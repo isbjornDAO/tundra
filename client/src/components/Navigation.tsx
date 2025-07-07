@@ -9,7 +9,8 @@ export function Navigation() {
   const navItems = [
     { href: '/tournament/register', label: 'Register' },
     { href: '/tournament/bracket', label: 'Brackets' },
-    { href: '/tournament/results', label: 'Results' },
+    { href: '/results', label: 'Results' },
+    { href: '/admin', label: 'Admin' },
   ];
 
   return (
