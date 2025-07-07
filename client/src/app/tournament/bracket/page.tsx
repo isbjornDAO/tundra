@@ -1,8 +1,13 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
+
+// Prevent SSR for this page since it uses wagmi hooks
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 import { useSearchParams } from 'next/navigation';
 import { AuthGuard } from '@/components/AuthGuard';
+import { WagmiGuard } from '@/components/WagmiGuard';
 import { Layout } from '@/components/Layout';
 import { useTeam1Auth } from '@/hooks/useTeam1Auth';
 import { useTournaments, useBracket, useMatches, useProposeTime, useRespondToTime, useReportResult } from '@/hooks/useTournaments';
@@ -11,12 +16,10 @@ import { type Team, type BracketMatch, GAMES } from '@/types/tournament';
 interface MatchCardProps {
   match: BracketMatch;
   currentUserAddress: string;
-  onScheduleUpdate: (matchId: string, scheduledTime: Date, organizerApproval: boolean) => void;
-  onSubmitResult: (matchId: string, winner: Team) => void;
   onClick: () => void;
 }
 
-function MatchCard({ match, currentUserAddress, onScheduleUpdate, onSubmitResult, onClick }: MatchCardProps) {
+function MatchCard({ match, currentUserAddress, onClick }: MatchCardProps) {
   const isOrganizer1 = match.team1.organizer.toLowerCase() === currentUserAddress.toLowerCase();
   const isOrganizer2 = match.team2.organizer.toLowerCase() === currentUserAddress.toLowerCase();
   const isCurrentUserOrganizer = isOrganizer1 || isOrganizer2;
@@ -126,12 +129,12 @@ function MatchCard({ match, currentUserAddress, onScheduleUpdate, onSubmitResult
 }
 
 function TournamentBracketsContent() {
+  const [mounted, setMounted] = useState(false);
   const { address } = useTeam1Auth();
   const searchParams = useSearchParams();
   const gameParam = searchParams.get('game');
   
   const [selectedGame, setSelectedGame] = useState(gameParam || 'CS2');
-  const [selectedTournamentId, setSelectedTournamentId] = useState<string | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<BracketMatch | null>(null);
   
   // Fetch tournaments
@@ -148,11 +151,27 @@ function TournamentBracketsContent() {
   const { data: matchesData } = useMatches(bracketData?.bracket?._id || '');
   
   const matches = matchesData?.matches || [];
-  const bracket = bracketData?.bracket;
   
   const proposeTimeMutation = useProposeTime();
-  const respondToTimeMutation = useRespondToTime();
   const reportResultMutation = useReportResult();
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
+  if (!mounted) {
+    return (
+      <WagmiGuard>
+        <AuthGuard>
+          <Layout>
+            <div className="flex items-center justify-center min-h-screen">
+              <div className="text-lg text-white">Loading...</div>
+            </div>
+          </Layout>
+        </AuthGuard>
+      </WagmiGuard>
+    );
+  }
 
   // User's matches and action items
   const userMatches = matches.filter(match => 
@@ -241,34 +260,37 @@ function TournamentBracketsContent() {
 
   if (!activeTournament) {
     return (
-      <AuthGuard>
-        <Layout>
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-2xl font-bold text-white">Tournament Brackets</h2>
-            <GameSelector />
-          </div>
-          
-          <div className="text-center py-12">
-            <div className="text-gray-400 mb-4 text-4xl">🏆</div>
-            <h3 className="text-white font-medium mb-2">No Active Tournament</h3>
-            <p className="text-gray-400 text-sm mb-4">
-              There's no active tournament for {selectedGame} at the moment.
-            </p>
-            <button 
-              onClick={() => window.location.href = '/tournament/register'}
-              className="btn btn-primary"
-            >
-              Register for Next Tournament
-            </button>
-          </div>
-        </Layout>
-      </AuthGuard>
+      <WagmiGuard>
+        <AuthGuard>
+          <Layout>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-2xl font-bold text-white">Tournament Brackets</h2>
+              <GameSelector />
+            </div>
+            
+            <div className="text-center py-12">
+              <div className="text-gray-400 mb-4 text-4xl">🏆</div>
+              <h3 className="text-white font-medium mb-2">No Active Tournament</h3>
+              <p className="text-gray-400 text-sm mb-4">
+                There's no active tournament for {selectedGame} at the moment.
+              </p>
+              <button 
+                onClick={() => window.location.href = '/tournament/register'}
+                className="btn btn-primary"
+              >
+                Register for Next Tournament
+              </button>
+            </div>
+          </Layout>
+        </AuthGuard>
+      </WagmiGuard>
     );
   }
 
   return (
-    <AuthGuard>
-      <Layout>
+    <WagmiGuard>
+      <AuthGuard>
+        <Layout>
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-2xl font-bold text-white">{selectedGame} Tournament</h2>
@@ -415,6 +437,7 @@ function TournamentBracketsContent() {
         )}
       </Layout>
     </AuthGuard>
+  </WagmiGuard>
   );
 }
 

@@ -1,13 +1,33 @@
 'use client';
 
 import Link from 'next/link';
-import { AuthGuard } from '@/components/AuthGuard';
-import { ConnectWallet } from '@/components/ConnectWallet';
+// import { AuthGuard } from '@/components/AuthGuard';
+import dynamic from 'next/dynamic';
 import { Navigation } from '@/components/Navigation';
 import { SimpleTournamentMap } from '@/components/SimpleTournamentMap';
-import { InteractiveGlobe } from '@/components/InteractiveGlobe';
+
+// Make ConnectWallet client-side only to prevent wagmi SSR issues
+const ConnectWallet = dynamic(() => import('@/components/ConnectWallet').then(mod => ({ default: mod.ConnectWallet })), {
+  ssr: false,
+  loading: () => <button className="btn btn-primary">Connect Wallet</button>
+});
+
+// Make InteractiveGlobe client-side only to prevent SSR issues with Three.js
+const InteractiveGlobe = dynamic(() => import('@/components/InteractiveGlobe').then(mod => ({ default: mod.InteractiveGlobe })), {
+  ssr: false,
+  loading: () => <div className="h-[400px] flex items-center justify-center text-white">Loading globe...</div>
+});
+import { PageRouter } from '@/components/PageRouter';
+import { useEffect, useState } from 'react';
 
 export default function Home() {
+  const [stats, setStats] = useState({
+    totalGames: 0,
+    totalSlots: 0,
+    totalTeams: 0,
+    loading: true
+  });
+
   // Generate snow properties once on component mount
   const snowflakes = Array.from({ length: 80 }, (_, i) => ({
     id: i,
@@ -19,9 +39,30 @@ export default function Home() {
     left: Math.random() * 100,
   }));
 
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const response = await fetch('/api/tournaments/stats');
+        if (response.ok) {
+          const data = await response.json();
+          setStats({
+            totalGames: data.gameBreakdown?.length || 0,
+            totalSlots: data.global?.totalTournaments * 12 || 0, // Assuming 12 teams per tournament
+            totalTeams: data.global?.totalTeams || 0,
+            loading: false
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+        setStats(prev => ({ ...prev, loading: false }));
+      }
+    }
+    fetchStats();
+  }, []);
+
   return (
-    <AuthGuard>
-      <div className="min-h-screen bg-black relative overflow-hidden">
+    <PageRouter>
+        <div className="min-h-screen bg-black relative overflow-hidden">
         {/* Falling Snow Background */}
         <div className="fixed inset-0 pointer-events-none z-10 overflow-hidden">
           {snowflakes.map((flake) => (
@@ -66,21 +107,19 @@ export default function Home() {
           </div>
         </header>
         
-        <main className="container-main py-4 relative z-20">
+        <main className="container-main py-8 relative z-20">
           {/* Hero Section */}
           <div className="text-center">
-            <div className="h-[280px] mb-6">
+            <div className="h-[400px] mb-12">
               <InteractiveGlobe />
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-3 tracking-tight">
-              Team1 Tournament
-              <span className="text-gradient block mt-1">Platform</span>
+            <h1 className="text-4xl md:text-5xl font-bold text-white mb-6 tracking-tight">
+              Brave the Cold
             </h1>
-            <p className="text-body text-sm md:text-base mb-4 max-w-2xl mx-auto">
-              Organize and compete in global esports tournaments. 
-              Register your team, coordinate matches, compete for glory.
+            <p className="text-body text-sm md:text-base mb-10 max-w-2xl mx-auto">
+              The rewards platform for IRL events and tournaments. Powered by Team1
             </p>
-            <div className="flex flex-col sm:flex-row justify-center gap-3 mb-6">
+            <div className="flex flex-col sm:flex-row justify-center gap-4 mb-12">
               <a href="/tournament/register" className="btn btn-primary">
                 Register Team
               </a>
@@ -91,28 +130,28 @@ export default function Home() {
           </div>
 
           {/* Stats Section */}
-          <div className="grid-3 mb-8">
+          <div className="grid-3 mb-16">
             <div className="card text-center">
-              <div className="heading-lg mb-2">6</div>
+              <div className="heading-lg mb-2">{stats.loading ? '...' : stats.totalGames}</div>
               <div className="text-muted">Games Available</div>
             </div>
             <div className="card text-center">
-              <div className="heading-lg text-gradient mb-2">72</div>
+              <div className="heading-lg text-gradient mb-2">{stats.loading ? '...' : stats.totalSlots}</div>
               <div className="text-muted">Total Slots</div>
             </div>
             <div className="card text-center">
-              <div className="heading-lg mb-2">32</div>
+              <div className="heading-lg mb-2">{stats.loading ? '...' : stats.totalTeams}</div>
               <div className="text-muted">Teams Registered</div>
             </div>
           </div>
 
           {/* Globe Section */}
-          <div className="mb-8">
+          <div className="mb-16">
             <SimpleTournamentMap />
           </div>
 
           {/* Features Grid */}
-          <div className="grid-2 section-tight">
+          <div className="grid-2 section-tight mb-16">
             <div className="card-interactive">
               <div className="flex items-start gap-6">
                 <div className="w-12 h-12 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -207,7 +246,7 @@ export default function Home() {
           </div>
 
           {/* CTA Section */}
-          <div className="card text-center">
+          <div className="card text-center mb-16">
             <h2 className="heading-lg mb-4">Ready to Compete?</h2>
             <p className="text-body mb-8 max-w-lg mx-auto">
               Join the global esports tournament platform powered by Team1 and Avalanche. 
@@ -234,7 +273,7 @@ export default function Home() {
             }
           }
         `}</style>
-      </div>
-    </AuthGuard>
+        </div>
+      </PageRouter>
   );
 }

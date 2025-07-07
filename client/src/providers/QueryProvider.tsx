@@ -16,6 +16,7 @@ export function QueryProvider({ children }: QueryProviderProps) {
             staleTime: 60 * 1000, // 1 minute
             retry: 3,
             retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+            refetchOnWindowFocus: false,
           },
           mutations: {
             retry: 1,

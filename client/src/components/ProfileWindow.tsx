@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePlayerProfile } from '@/hooks/usePlayerProfile';
 import { useProfile } from '@/hooks/useProfile';
@@ -11,7 +11,7 @@ interface ProfileWindowProps {
   walletAddress?: string;
   displayName?: string;
   openAccountModal?: () => void;
-  onProfileUpdate?: (displayName: string) => void;
+  onProfileUpdate?: (displayName: string, photo?: string) => void;
 }
 
 // Mock user data - replace with actual API calls
@@ -92,6 +92,8 @@ export function ProfileWindow({ isOpen, onClose, walletAddress, displayName, ope
     isSaving,
     saveError
   } = useProfile(walletAddress);
+  const [profilePhoto, setProfilePhoto] = useState<string>('');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   
   // Use mock data if no wallet address or while loading
   const profileData = userData || mockUserData;
@@ -103,11 +105,26 @@ export function ProfileWindow({ isOpen, onClose, walletAddress, displayName, ope
     try {
       await saveEdit();
       // Notify parent component of profile update
-      if (onProfileUpdate && editData.displayName) {
-        onProfileUpdate(editData.displayName);
+      if (onProfileUpdate) {
+        onProfileUpdate(editData.displayName || '', profilePhoto);
       }
     } catch (error) {
       console.error('Error saving profile:', error);
+    }
+  };
+
+  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setUploadingPhoto(true);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setProfilePhoto(result);
+        setUploadingPhoto(false);
+        // TODO: Upload to backend storage
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -133,113 +150,182 @@ export function ProfileWindow({ isOpen, onClose, walletAddress, displayName, ope
 
   if (!isOpen) return null;
 
+  console.log('ProfileWindow rendering with isOpen:', isOpen, 'walletAddress:', walletAddress);
+
   const modalContent = (
     <div 
-      className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/90 backdrop-blur-sm overflow-auto"
       style={{ zIndex: 99999 }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
     >
-      <div className="bg-gray-900 rounded-lg max-w-md w-full max-h-[90vh] overflow-hidden border border-white/10">
+      <div className="min-h-screen py-8 px-4">
+        <div className="max-w-4xl mx-auto bg-gray-900 rounded-xl border border-white/10">
         {/* Header */}
-        <div className="p-6 border-b border-white/10">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center text-white font-bold text-2xl">
-                {(profile?.displayName || displayName)?.charAt(0) || walletAddress?.slice(2, 3) || '?'}
-              </div>
+        <div className="p-8 border-b border-white/10 bg-gradient-to-r from-orange-600/20 to-red-600/20">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-3xl font-bold text-white">Edit Profile</h1>
+            <button 
+              onClick={onClose}
+              className="text-gray-400 hover:text-white text-3xl leading-none"
+            >
+              ×
+            </button>
+          </div>
+          <div className="flex items-start gap-6">
+            <div className="relative">
+              {profilePhoto || profile?.avatar ? (
+                <img 
+                  src={profilePhoto || profile?.avatar} 
+                  alt="Profile" 
+                  className="w-32 h-32 rounded-full object-cover border-4 border-orange-500"
+                />
+              ) : (
+                <div className="w-32 h-32 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center text-white font-bold text-4xl border-4 border-orange-500">
+                  {(profile?.displayName || displayName)?.charAt(0) || walletAddress?.slice(2, 3) || '?'}
+                </div>
+              )}
+              {isEditing && (
+                <label className="absolute bottom-0 right-0 bg-orange-500 hover:bg-orange-600 rounded-full p-2 cursor-pointer transition-colors">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={handlePhotoUpload}
+                    className="hidden" 
+                  />
+                </label>
+              )}
+              {uploadingPhoto && (
+                <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                  <div className="text-white">Uploading...</div>
+                </div>
+              )}
+            </div>
               <div className="flex-1">
                 {isEditing ? (
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      value={editData.displayName || ''}
-                      onChange={(e) => updateEditData('displayName', e.target.value)}
-                      className="bg-gray-800 border border-gray-600 rounded px-3 py-1 text-white text-xl font-bold w-full"
-                      placeholder="Display Name"
-                      maxLength={50}
-                    />
-                    <textarea
-                      value={editData.bio || ''}
-                      onChange={(e) => updateEditData('bio', e.target.value)}
-                      className="bg-gray-800 border border-gray-600 rounded px-3 py-1 text-gray-400 text-sm w-full resize-none"
-                      placeholder="Bio (optional)"
-                      rows={2}
-                      maxLength={500}
-                    />
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-1">Display Name</label>
+                      <input
+                        type="text"
+                        value={editData.displayName || ''}
+                        onChange={(e) => updateEditData('displayName', e.target.value)}
+                        className="bg-gray-800 border border-gray-600 rounded px-4 py-2 text-white text-xl font-bold w-full"
+                        placeholder="Display Name"
+                        maxLength={50}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-1">Bio</label>
+                      <textarea
+                        value={editData.bio || ''}
+                        onChange={(e) => updateEditData('bio', e.target.value)}
+                        className="bg-gray-800 border border-gray-600 rounded px-4 py-2 text-gray-300 w-full resize-none"
+                        placeholder="Tell us about yourself..."
+                        rows={3}
+                        maxLength={500}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-gray-400 text-sm mb-1">Clan</label>
+                        <input
+                          type="text"
+                          value={editData.clan || ''}
+                          onChange={(e) => updateEditData('clan', e.target.value)}
+                          className="bg-gray-800 border border-gray-600 rounded px-4 py-2 text-white w-full"
+                          placeholder="Your clan name"
+                          maxLength={50}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-400 text-sm mb-1">Country</label>
+                        <input
+                          type="text"
+                          value={editData.country || ''}
+                          onChange={(e) => updateEditData('country', e.target.value)}
+                          className="bg-gray-800 border border-gray-600 rounded px-4 py-2 text-white w-full"
+                          placeholder="e.g. United States"
+                          maxLength={50}
+                        />
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <>
-                    <h2 className="text-xl font-bold text-white">
+                    <h2 className="text-2xl font-bold text-white">
                       {profile?.displayName || displayName || profileData.playerName}
                     </h2>
                     {profile?.bio && (
-                      <p className="text-gray-400 text-sm mt-1">{profile.bio}</p>
+                      <p className="text-gray-300 mt-2">{profile.bio}</p>
                     )}
+                    <div className="flex items-center gap-4 mt-3 text-sm">
+                      {profile?.clan && (
+                        <span className="text-orange-400 font-medium">{profile.clan}</span>
+                      )}
+                      {profile?.country && (
+                        <span className="text-gray-400">{profile.country}</span>
+                      )}
+                    </div>
                   </>
                 )}
-                <p className="text-gray-500 text-xs mt-1">
-                  {walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : 'No wallet connected'}
-                </p>
-                <div className="mt-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-blue-400">Level {profileData.level}</span>
-                    <span className="text-gray-400">•</span>
-                    <span className="text-green-400">{profileData.xp} XP</span>
+                <div className="mt-4">
+                  <p className="text-gray-500 text-sm">
+                    {walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : 'No wallet connected'}
+                  </p>
+                  <div className="mt-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-blue-400">Level {profileData.level}</span>
+                      <span className="text-gray-400">•</span>
+                      <span className="text-green-400">{profileData.xp} XP</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2 mt-1">
+                      <div 
+                        className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${xpProgress}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full bg-gray-700 rounded-full h-2 mt-1">
-                    <div 
-                      className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${xpProgress}%` }}
-                    />
+                  
+                  <div className="flex items-center gap-3 mt-4">
+                    {isEditing ? (
+                      <>
+                        <button 
+                          onClick={handleSave}
+                          disabled={isSaving}
+                          className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                        >
+                          {isSaving ? 'Saving...' : 'Save Changes'}
+                        </button>
+                        <button 
+                          onClick={cancelEdit}
+                          disabled={isSaving}
+                          className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-500 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      walletAddress && (
+                        <button 
+                          onClick={startEdit}
+                          className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                        >
+                          Edit Profile
+                        </button>
+                      )
+                    )}
                   </div>
                 </div>
               </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              {isEditing ? (
-                <>
-                  <button 
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
-                  >
-                    {isSaving ? 'Saving...' : 'Save'}
-                  </button>
-                  <button 
-                    onClick={cancelEdit}
-                    disabled={isSaving}
-                    className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-500 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </>
-              ) : (
-                walletAddress && (
-                  <button 
-                    onClick={startEdit}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
-                  >
-                    Edit Profile
-                  </button>
-                )
-              )}
-              <button 
-                onClick={onClose}
-                className="text-gray-400 hover:text-white text-2xl"
-              >
-                ×
-              </button>
             </div>
           </div>
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)] space-y-6">
+        <div className="p-8 space-y-8">
           {isLoading && walletAddress && (
             <div className="flex items-center justify-center py-8">
               <div className="text-white">Loading player data...</div>
@@ -258,18 +344,18 @@ export function ProfileWindow({ isOpen, onClose, walletAddress, displayName, ope
             </div>
           )}
 
-          {/* Profile Details */}
+          {/* Additional Profile Details */}
           {isEditing && (
             <div>
-              <h3 className="text-lg font-semibold text-white mb-4">Profile Details</h3>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <h3 className="text-xl font-semibold text-white mb-4">Gaming Preferences</h3>
+              <div className="bg-gray-800/50 rounded-lg p-6 border border-white/10">
+                <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-gray-400 text-sm mb-1">Favorite Game</label>
+                    <label className="block text-gray-400 text-sm mb-2">Favorite Game</label>
                     <select
                       value={editData.favoriteGame || ''}
                       onChange={(e) => updateEditData('favoriteGame', e.target.value)}
-                      className="bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white w-full"
+                      className="bg-gray-800 border border-gray-600 rounded px-4 py-2 text-white w-full"
                     >
                       <option value="">Select Game</option>
                       <option value="CS2">Counter-Strike 2</option>
@@ -280,19 +366,22 @@ export function ProfileWindow({ isOpen, onClose, walletAddress, displayName, ope
                     </select>
                   </div>
                   <div>
-                    <label className="block text-gray-400 text-sm mb-1">Country</label>
-                    <input
-                      type="text"
-                      value={editData.country || ''}
-                      onChange={(e) => updateEditData('country', e.target.value)}
-                      className="bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white w-full"
-                      placeholder="e.g. United States"
-                      maxLength={50}
-                    />
+                    <label className="block text-gray-400 text-sm mb-2">Play Style</label>
+                    <select
+                      value={editData.playStyle || ''}
+                      onChange={(e) => updateEditData('playStyle', e.target.value)}
+                      className="bg-gray-800 border border-gray-600 rounded px-4 py-2 text-white w-full"
+                    >
+                      <option value="">Select Style</option>
+                      <option value="Aggressive">Aggressive</option>
+                      <option value="Strategic">Strategic</option>
+                      <option value="Support">Support</option>
+                      <option value="Flex">Flex</option>
+                    </select>
                   </div>
                 </div>
 
-                <div>
+                <div className="mt-6">
                   <h4 className="text-white font-medium mb-3">Social Media</h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div>

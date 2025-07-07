@@ -2,79 +2,22 @@
 
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
-import { useRef, useState, useMemo, Suspense } from 'react';
+import { useRef, useState, useMemo, Suspense, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import * as THREE from 'three';
 
-// Tournament data with coordinates
-const tournaments = [
-  {
-    id: '1',
-    name: 'CS2 NA Championship',
-    game: 'CS2',
-    region: 'North America',
-    scheduledTime: new Date('2025-07-05T20:00:00Z'),
-    status: 'scheduled',
-    lat: 40.7128,
-    lng: -74.0060, // New York
-    teams: 12
-  },
-  {
-    id: '2',
-    name: 'Valorant EU Masters',
-    game: 'Valorant',
-    region: 'Europe',
-    scheduledTime: new Date('2025-07-08T18:00:00Z'),
-    status: 'scheduled',
-    lat: 52.5200,
-    lng: 13.4050, // Berlin
-    teams: 12
-  },
-  {
-    id: '3',
-    name: 'League APAC Finals',
-    game: 'League of Legends',
-    region: 'Asia Pacific',
-    scheduledTime: new Date('2025-07-12T14:00:00Z'),
-    status: 'live',
-    lat: 35.6762,
-    lng: 139.6503, // Tokyo
-    teams: 8
-  },
-  {
-    id: '4',
-    name: 'Dota 2 SA Cup',
-    game: 'Dota 2',
-    region: 'South America',
-    scheduledTime: new Date('2025-07-15T22:00:00Z'),
-    status: 'scheduled',
-    lat: -23.5505,
-    lng: -46.6333, // São Paulo
-    teams: 12
-  },
-  {
-    id: '5',
-    name: 'Rocket League OCE',
-    game: 'Rocket League',
-    region: 'Oceania',
-    scheduledTime: new Date('2025-07-18T10:00:00Z'),
-    status: 'scheduled',
-    lat: -33.8688,
-    lng: 151.2093, // Sydney
-    teams: 8
-  },
-  {
-    id: '6',
-    name: 'Fortnite ME Clash',
-    game: 'Fortnite',
-    region: 'Middle East',
-    scheduledTime: new Date('2025-07-20T16:00:00Z'),
-    status: 'scheduled',
-    lat: 25.2048,
-    lng: 55.2708, // Dubai
-    teams: 16
-  }
-];
+interface Tournament {
+  id: string;
+  name: string;
+  game: string;
+  region: string;
+  city: string;
+  scheduledTime: Date;
+  status: string;
+  lat: number;
+  lng: number;
+  teamCount: number;
+}
 
 // Convert lat/lng to 3D coordinates on sphere
 function latLngToVector3(lat: number, lng: number, radius: number = 2.5) {
@@ -161,7 +104,7 @@ function Globe() {
 }
 
 interface TournamentTooltipProps {
-  tournament: typeof tournaments[0] | null;
+  tournament: Tournament | null;
   position: { x: number; y: number };
 }
 
@@ -182,34 +125,36 @@ function TournamentTooltip({ tournament, position }: TournamentTooltipProps) {
       <div className="flex items-center gap-2 mb-2">
         <div 
           className={`w-3 h-3 rounded-full ${
-            tournament.status === 'live' 
+            tournament.status === 'active' 
               ? 'bg-red-500 animate-pulse' 
+              : tournament.status === 'open'
+              ? 'bg-green-500'
               : 'bg-blue-500'
           }`}
         />
         <span className="text-xs font-medium text-white/60 uppercase tracking-wide">
-          {tournament.status === 'live' ? 'LIVE NOW' : 'SCHEDULED'}
+          {tournament.status === 'active' ? 'ACTIVE NOW' : tournament.status === 'open' ? 'OPEN' : 'COMPLETED'}
         </span>
       </div>
       
       <h3 className="text-white font-semibold mb-1">{tournament.name}</h3>
-      <p className="text-white/70 text-sm mb-2">{tournament.game} • {tournament.region}</p>
+      <p className="text-white/70 text-sm mb-2">{tournament.game} • {tournament.city}, {tournament.region}</p>
       
       <div className="space-y-1 text-sm">
         <div className="flex justify-between">
           <span className="text-white/60">Teams:</span>
-          <span className="text-white">{tournament.teams}</span>
+          <span className="text-white">{tournament.teamCount}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-white/60">
-            {tournament.status === 'live' ? 'Started:' : 'Starts in:'}
+            {tournament.status === 'active' ? 'Started:' : 'Created:'}
           </span>
           <span className="text-white">
-            {tournament.status === 'live' 
+            {tournament.status === 'active' 
               ? 'Now' 
               : timeUntil > 0 
-                ? `${timeUntil} days`
-                : 'Soon'
+                ? `${timeUntil} days ago`
+                : 'Recently'
             }
           </span>
         </div>
@@ -219,8 +164,27 @@ function TournamentTooltip({ tournament, position }: TournamentTooltipProps) {
 }
 
 function TournamentGlobeClient() {
-  const [hoveredTournament, setHoveredTournament] = useState<typeof tournaments[0] | null>(null);
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [hoveredTournament, setHoveredTournament] = useState<Tournament | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchTournaments() {
+      try {
+        const response = await fetch('/api/tournaments/locations');
+        if (response.ok) {
+          const data = await response.json();
+          setTournaments(data);
+        }
+      } catch (error) {
+        console.error('Error fetching tournaments:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchTournaments();
+  }, []);
 
   const handleMouseMove = (event: React.MouseEvent) => {
     setMousePosition({ x: event.clientX, y: event.clientY });
@@ -231,7 +195,10 @@ function TournamentGlobeClient() {
       className="relative w-full h-[500px] bg-black rounded-lg overflow-hidden"
       onMouseMove={handleMouseMove}
     >
-      <Suspense fallback={<div className="flex items-center justify-center h-full text-white">Loading Globe...</div>}>
+      {loading ? (
+        <div className="flex items-center justify-center h-full text-white">Loading tournaments...</div>
+      ) : (
+        <Suspense fallback={<div className="flex items-center justify-center h-full text-white">Loading Globe...</div>}>
         <Canvas camera={{ position: [0, 0, 8], fov: 45 }}>
           <ambientLight intensity={0.5} />
           <pointLight position={[10, 10, 10]} />
@@ -261,7 +228,8 @@ function TournamentGlobeClient() {
             autoRotateSpeed={0.5}
           />
         </Canvas>
-      </Suspense>
+        </Suspense>
+      )}
       
       {/* Tooltip */}
       <TournamentTooltip 
@@ -274,11 +242,15 @@ function TournamentGlobeClient() {
         <div className="space-y-2 text-sm">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-            <span className="text-white/70">Live Tournament</span>
+            <span className="text-white/70">Active Tournament</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-green-500 rounded-full" />
+            <span className="text-white/70">Open Tournament</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-blue-500 rounded-full" />
-            <span className="text-white/70">Scheduled Tournament</span>
+            <span className="text-white/70">Completed Tournament</span>
           </div>
         </div>
       </div>

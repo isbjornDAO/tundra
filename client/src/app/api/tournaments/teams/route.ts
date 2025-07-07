@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
+import { inMemoryDB } from "@/lib/in-memory-db";
+// import clientPromise from "@/lib/mongodb";
+// import { ObjectId } from "mongodb";
 
 export async function POST(request: Request) {
   try {
@@ -10,13 +11,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const client = await clientPromise;
-    const db = client.db("tundra");
-    const tournamentsCol = db.collection("tournaments");
-    const teamsCol = db.collection("teams");
-
     // Check if tournament exists and has space
-    const tournament = await tournamentsCol.findOne({ _id: new ObjectId(tournamentId) });
+    const tournaments = await inMemoryDB.findTournaments();
+    const tournament = tournaments.find(t => t._id === tournamentId);
     if (!tournament) {
       return NextResponse.json({ error: "Tournament not found" }, { status: 404 });
     }
@@ -28,22 +25,11 @@ export async function POST(request: Request) {
     // Insert team
     const teamDoc = {
       ...team,
-      tournamentId: new ObjectId(tournamentId),
+      tournamentId,
       registeredAt: new Date(),
     };
     
-    const teamResult = await teamsCol.insertOne(teamDoc);
-
-    // Update tournament
-    await tournamentsCol.updateOne(
-      { _id: new ObjectId(tournamentId) },
-      { 
-        $inc: { registeredTeams: 1 },
-        $set: { 
-          status: tournament.registeredTeams + 1 >= tournament.maxTeams ? "full" : "open" 
-        }
-      }
-    );
+    const teamResult = await inMemoryDB.insertTeam(teamDoc);
 
     return NextResponse.json({ 
       success: true, 
@@ -65,13 +51,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Tournament ID required" }, { status: 400 });
     }
 
-    const client = await clientPromise;
-    const db = client.db("tundra");
-    const teamsCol = db.collection("teams");
-
-    const teams = await teamsCol.find({ 
-      tournamentId: new ObjectId(tournamentId) 
-    }).toArray();
+    const teams = await inMemoryDB.findTeams({ tournamentId });
 
     return NextResponse.json({ teams });
   } catch (error) {

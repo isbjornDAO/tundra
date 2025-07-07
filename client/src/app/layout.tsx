@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Web3Provider } from "@/providers/Web3Provider";
 import { QueryProvider } from "@/providers/QueryProvider";
+import { PageProvider } from "@/contexts/PageContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,7 +32,9 @@ export default function RootLayout({
       >
         <QueryProvider>
           <Web3Provider>
-            {children}
+            <PageProvider>
+              {children}
+            </PageProvider>
           </Web3Provider>
         </QueryProvider>
       </body>

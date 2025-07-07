@@ -9,6 +9,9 @@ export interface UserProfile {
   bio: string;
   favoriteGame: string;
   country: string;
+  clan: string;
+  avatar: string;
+  playStyle: string;
   discord: string;
   steam: string;
   twitter: string;

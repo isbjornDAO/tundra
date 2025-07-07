@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useTeam1Auth } from '@/hooks/useTeam1Auth';
 import { ConnectWallet } from './ConnectWallet';
 
@@ -8,6 +9,24 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg text-white">Loading...</div>
+      </div>
+    );
+  }
+
+  return <AuthGuardInner>{children}</AuthGuardInner>;
+}
+
+function AuthGuardInner({ children }: AuthGuardProps) {
   const { isConnected, hasTeam1NFT, isLoading } = useTeam1Auth();
 
   if (isLoading) {

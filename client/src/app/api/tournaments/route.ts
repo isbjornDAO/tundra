@@ -1,22 +1,13 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
+import { inMemoryDB } from "@/lib/in-memory-db";
+// import clientPromise from "@/lib/mongodb";
+// import { ObjectId } from "mongodb";
 
 export async function GET() {
   try {
-    const client = await clientPromise;
-    const db = client.db("tundra");
-
-    const tournaments = await db
-      .collection("tournaments")
-      .find(
-        {},
-        {
-          projection: { registeredTeams: 1, maxTeams: 1, status: 1, game: 1, createdAt: 1 },
-        }
-      )
-      .toArray();
-
+    console.log("GET /api/tournaments called");
+    const tournaments = await inMemoryDB.findTournaments();
+    console.log("Found tournaments:", tournaments.length);
     return NextResponse.json({ tournaments });
   } catch (error) {
     console.error("Error fetching tournaments:", error);
@@ -26,18 +17,16 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    console.log("POST /api/tournaments called");
     const { game, maxTeams = 16 } = await request.json();
+    console.log("Request data:", { game, maxTeams });
     
     if (!game) {
       return NextResponse.json({ error: "Game is required" }, { status: 400 });
     }
 
-    const client = await clientPromise;
-    const db = client.db("tundra");
-    const tournamentsCol = db.collection("tournaments");
-
     // Check if tournament already exists for this game
-    const existingTournament = await tournamentsCol.findOne({ 
+    const existingTournament = await inMemoryDB.findOneTournament({ 
       game, 
       status: { $in: ["open", "full", "active"] } 
     });
@@ -50,11 +39,13 @@ export async function POST(request: Request) {
       game,
       maxTeams,
       registeredTeams: 0,
-      status: "open",
+      status: "open" as const,
       createdAt: new Date(),
     };
 
-    const result = await tournamentsCol.insertOne(tournamentDoc);
+    console.log("Creating tournament:", tournamentDoc);
+    const result = await inMemoryDB.insertTournament(tournamentDoc);
+    console.log("Tournament created with ID:", result.insertedId);
 
     return NextResponse.json({ 
       success: true, 
@@ -63,6 +54,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Error creating tournament:", error);
+    console.error("Error details:", error instanceof Error ? error.message : String(error));
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

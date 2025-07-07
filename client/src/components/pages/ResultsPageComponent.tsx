@@ -1,18 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-
-// Prevent SSR for this page since it uses wagmi hooks
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+import { AuthGuard } from '@/components/AuthGuard';
 import { Layout } from '@/components/Layout';
 import { useTeam1Auth } from '@/hooks/useTeam1Auth';
 import { useResults, useStats } from '@/hooks/useTournaments';
 import { GAMES, type Game } from '@/types/tournament';
-import { WagmiGuard } from '@/components/WagmiGuard';
-import { AuthGuard } from '@/components/AuthGuard';
 
-export default function ResultsPage() {
+export default function ResultsPageComponent() {
   const { address } = useTeam1Auth();
   const [selectedGame, setSelectedGame] = useState<Game | 'all'>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
@@ -79,18 +74,15 @@ export default function ResultsPage() {
 
   if (resultsLoading) {
     return (
-      <WagmiGuard>
-        <AuthGuard>
-          <Layout>
-            <div className="text-white text-center py-8">Loading results...</div>
-          </Layout>
-        </AuthGuard>
-      </WagmiGuard>
+      <AuthGuard>
+        <Layout>
+          <div className="text-white text-center py-8">Loading results...</div>
+        </Layout>
+      </AuthGuard>
     );
   }
 
   return (
-    <WagmiGuard>
     <AuthGuard>
       <Layout>
         <div className="max-w-6xl mx-auto">
@@ -329,6 +321,5 @@ export default function ResultsPage() {
         </div>
       </Layout>
     </AuthGuard>
-    </WagmiGuard>
   );
 }
