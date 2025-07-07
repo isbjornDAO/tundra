@@ -6,7 +6,6 @@ import { useState, useEffect, Suspense } from 'react';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 import { useSearchParams } from 'next/navigation';
-import { AuthGuard } from '@/components/AuthGuard';
 import { WagmiGuard } from '@/components/WagmiGuard';
 import { Layout } from '@/components/Layout';
 import { useTeam1Auth } from '@/hooks/useTeam1Auth';
@@ -162,13 +161,11 @@ function TournamentBracketsContent() {
   if (!mounted) {
     return (
       <WagmiGuard>
-        <AuthGuard>
-          <Layout>
-            <div className="flex items-center justify-center min-h-screen">
-              <div className="text-lg text-white">Loading...</div>
-            </div>
-          </Layout>
-        </AuthGuard>
+        <Layout>
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="text-lg text-white">Loading...</div>
+          </div>
+        </Layout>
       </WagmiGuard>
     );
   }
@@ -261,36 +258,33 @@ function TournamentBracketsContent() {
   if (!activeTournament) {
     return (
       <WagmiGuard>
-        <AuthGuard>
-          <Layout>
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-2xl font-bold text-white">Tournament Brackets</h2>
-              <GameSelector />
-            </div>
-            
-            <div className="text-center py-12">
-              <div className="text-gray-400 mb-4 text-4xl">🏆</div>
-              <h3 className="text-white font-medium mb-2">No Active Tournament</h3>
-              <p className="text-gray-400 text-sm mb-4">
-                There's no active tournament for {selectedGame} at the moment.
-              </p>
-              <button 
-                onClick={() => window.location.href = '/tournaments/register'}
-                className="btn btn-primary"
-              >
-                Register for Next Tournament
-              </button>
-            </div>
-          </Layout>
-        </AuthGuard>
+        <Layout>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-2xl font-bold text-white">Tournament Brackets</h2>
+            <GameSelector />
+          </div>
+          
+          <div className="text-center py-12">
+            <div className="text-gray-400 mb-4 text-4xl">🏆</div>
+            <h3 className="text-white font-medium mb-2">No Active Tournament</h3>
+            <p className="text-gray-400 text-sm mb-4">
+              There's no active tournament for {selectedGame} at the moment.
+            </p>
+            <button 
+              onClick={() => window.location.href = '/tournaments/register'}
+              className="btn btn-primary"
+            >
+              Register for Next Tournament
+            </button>
+          </div>
+        </Layout>
       </WagmiGuard>
     );
   }
 
   return (
     <WagmiGuard>
-      <AuthGuard>
-        <Layout>
+      <Layout>
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-2xl font-bold text-white">{selectedGame} Tournament</h2>
@@ -436,8 +430,7 @@ function TournamentBracketsContent() {
           </div>
         )}
       </Layout>
-    </AuthGuard>
-  </WagmiGuard>
+    </WagmiGuard>
   );
 }
 

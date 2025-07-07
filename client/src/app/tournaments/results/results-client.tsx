@@ -6,7 +6,6 @@ import { useTeam1Auth } from '@/hooks/useTeam1Auth';
 import { useResults, useStats } from '@/hooks/useTournaments';
 import { GAMES, type Game } from '@/types/tournament';
 import { WagmiGuard } from '@/components/WagmiGuard';
-import { AuthGuard } from '@/components/AuthGuard';
 
 export default function ResultsClient() {
   const [mounted, setMounted] = useState(false);
@@ -31,11 +30,9 @@ export default function ResultsClient() {
   if (!mounted) {
     return (
       <WagmiGuard>
-        <AuthGuard>
-          <Layout>
-            <div className="text-white text-center py-8">Loading results...</div>
-          </Layout>
-        </AuthGuard>
+        <Layout>
+          <div className="text-white text-center py-8">Loading results...</div>
+        </Layout>
       </WagmiGuard>
     );
   }
@@ -93,18 +90,15 @@ export default function ResultsClient() {
   if (resultsLoading) {
     return (
       <WagmiGuard>
-        <AuthGuard>
-          <Layout>
-            <div className="text-white text-center py-8">Loading results...</div>
-          </Layout>
-        </AuthGuard>
+        <Layout>
+          <div className="text-white text-center py-8">Loading results...</div>
+        </Layout>
       </WagmiGuard>
     );
   }
 
   return (
     <WagmiGuard>
-    <AuthGuard>
       <Layout>
         <div className="max-w-6xl mx-auto">
           {/* Header */}
@@ -341,7 +335,6 @@ export default function ResultsClient() {
           )}
         </div>
       </Layout>
-    </AuthGuard>
     </WagmiGuard>
   );
 }

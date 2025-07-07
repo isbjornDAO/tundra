@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { AuthGuard } from '@/components/AuthGuard';
+import { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { useTournaments } from '@/hooks/useTournaments';
 import { useTeam1Auth } from '@/hooks/useTeam1Auth';
@@ -10,9 +9,7 @@ import { REGIONS, type Game, type Region, type Player } from '@/types/tournament
 type Step = 'game' | 'team' | 'players' | 'confirm';
 
 export default function RegisterTournamentPage() {
-  const { data: tournamentsData, isLoading, error } = useTournaments();
-  const tournaments = tournamentsData?.tournaments || [];
-  const { address } = useTeam1Auth();
+  const [mounted, setMounted] = useState(false);
   const [currentStep, setCurrentStep] = useState<Step>('game');
   const [selectedGame, setSelectedGame] = useState<Game | ''>('');
   const [teamName, setTeamName] = useState('');
@@ -21,6 +18,22 @@ export default function RegisterTournamentPage() {
     Array(5).fill(null).map((_, i) => ({ id: `${Date.now()}-${i}`, name: '', steamId: '' }))
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const { data: tournamentsData, isLoading, error } = useTournaments();
+  const tournaments = tournamentsData?.tournaments || [];
+  const { address } = useTeam1Auth();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <Layout>
+        <div className="text-white text-center py-8">Loading...</div>
+      </Layout>
+    );
+  }
 
   const updatePlayer = (playerIndex: number, field: 'name' | 'steamId', value: string) => {
     const updatedPlayers = [...players];
@@ -191,8 +204,7 @@ export default function RegisterTournamentPage() {
   if (error) return <Layout><div className="text-red-400 text-center py-8">Error loading tournaments</div></Layout>;
 
   return (
-    <AuthGuard>
-      <Layout>
+    <Layout>
         <div className="max-w-6xl mx-auto">
           <StepIndicator />
 
@@ -464,6 +476,5 @@ export default function RegisterTournamentPage() {
           )}
         </div>
       </Layout>
-    </AuthGuard>
   );
 }
