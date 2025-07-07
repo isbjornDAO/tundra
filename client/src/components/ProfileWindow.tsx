@@ -157,18 +157,52 @@ export function ProfileWindow({ isOpen, onClose, walletAddress, displayName, ope
       className="fixed inset-0 bg-black/90 backdrop-blur-sm overflow-auto"
       style={{ zIndex: 99999 }}
     >
+      {/* Tundra Navbar */}
+      <header className="border-b border-white/[0.1] bg-black/50 backdrop-blur-sm">
+        <div className="container-main py-6 flex justify-between items-center">
+          <div className="flex items-center space-x-8">
+            <button 
+              onClick={onClose}
+              className="text-xl font-bold text-white hover:text-gray-300 transition-colors"
+            >
+              Tundra
+            </button>
+            <nav className="flex space-x-6">
+              <button
+                onClick={onClose}
+                className="nav-link"
+              >
+                Back to Home
+              </button>
+            </nav>
+          </div>
+          <div className="flex items-center space-x-4">
+            <a
+              href="https://docs.tundra.co.nz"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </a>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-white text-2xl leading-none"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      </header>
+      
       <div className="min-h-screen py-8 px-4">
         <div className="max-w-4xl mx-auto bg-gray-900 rounded-xl border border-white/10">
         {/* Header */}
         <div className="p-8 border-b border-white/10 bg-gradient-to-r from-orange-600/20 to-red-600/20">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-3xl font-bold text-white">Edit Profile</h1>
-            <button 
-              onClick={onClose}
-              className="text-gray-400 hover:text-white text-3xl leading-none"
-            >
-              ×
-            </button>
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-white">Profile</h1>
           </div>
           <div className="flex items-start gap-6">
             <div className="relative">

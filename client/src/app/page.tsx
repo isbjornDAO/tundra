@@ -64,7 +64,7 @@ export default function Home() {
     <PageRouter>
         <div className="min-h-screen bg-black relative overflow-hidden">
         {/* Falling Snow Background */}
-        <div className="fixed inset-0 pointer-events-none z-10 overflow-hidden">
+        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
           {snowflakes.map((flake) => (
             <div
               key={`snowflake-${flake.id}`}
@@ -83,7 +83,7 @@ export default function Home() {
           ))}
         </div>
         
-        <header className="border-b border-white/[0.1] relative z-20">
+        <header className="border-b border-white/[0.1] relative z-30">
           <div className="container-main py-6 flex justify-between items-center">
             <div className="flex items-center space-x-8">
               <Link href="/" className="text-xl font-bold text-white hover:text-gray-300 transition-colors">
@@ -110,7 +110,7 @@ export default function Home() {
         <main className="container-main py-8 relative z-20">
           {/* Hero Section */}
           <div className="text-center">
-            <div className="h-[400px] mb-12">
+            <div className="h-[300px] mb-8">
               <InteractiveGlobe />
             </div>
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-6 tracking-tight">
@@ -120,10 +120,10 @@ export default function Home() {
               The rewards platform for IRL events and tournaments. Powered by Team1
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-4 mb-12">
-              <a href="/tournament/register" className="btn btn-primary">
+              <a href="/tournaments/register" className="btn btn-primary">
                 Register Team
               </a>
-              <a href="/tournament/bracket" className="btn btn-secondary">
+              <a href="/tournaments/bracket" className="btn btn-secondary">
                 View Brackets
               </a>
             </div>
@@ -165,7 +165,7 @@ export default function Home() {
                     Compete in worldwide tournaments across multiple games. 
                     12 teams per tournament, organized by Team1 ambassadors.
                   </p>
-                  <a href="/tournament/register" className="inline-flex items-center text-red-400 hover:text-red-300 text-sm font-medium">
+                  <a href="/tournaments/register" className="inline-flex items-center text-red-400 hover:text-red-300 text-sm font-medium">
                     Register Now
                     <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -188,7 +188,7 @@ export default function Home() {
                     Coordinate match times with other Team1 organizers. 
                     Both parties must agree before matches are official.
                   </p>
-                  <a href="/tournament/bracket" className="inline-flex items-center text-blue-400 hover:text-blue-300 text-sm font-medium">
+                  <a href="/tournaments/bracket" className="inline-flex items-center text-blue-400 hover:text-blue-300 text-sm font-medium">
                     View Matches
                     <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -211,7 +211,7 @@ export default function Home() {
                     Support for CS2, Valorant, League of Legends, Dota 2, 
                     Rocket League, and Fortnite tournaments.
                   </p>
-                  <a href="/tournament/register" className="inline-flex items-center text-green-400 hover:text-green-300 text-sm font-medium">
+                  <a href="/tournaments/register" className="inline-flex items-center text-green-400 hover:text-green-300 text-sm font-medium">
                     Choose Game
                     <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -253,10 +253,10 @@ export default function Home() {
               Register your team today and start your journey to victory.
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <a href="/tournament/register" className="btn btn-primary">
+              <a href="/tournaments/register" className="btn btn-primary">
                 Get Started
               </a>
-              <a href="/tournament/bracket" className="btn btn-outline">
+              <a href="/tournaments/bracket" className="btn btn-outline">
                 Learn More
               </a>
             </div>

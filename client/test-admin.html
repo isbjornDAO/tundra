@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Admin Tournament Creation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #000;
+            color: #fff;
+        }
+        .form-group {
+            margin: 20px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        select, input, button {
+            padding: 10px;
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 5px;
+        }
+        button {
+            background: #4CAF50;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .result {
+            margin: 20px 0;
+            padding: 10px;
+            background: #333;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Tournament Admin Test</h1>
+    
+    <div class="form-group">
+        <label for="game">Game:</label>
+        <select id="game">
+            <option value="">Select Game</option>
+            <option value="CS2">CS2</option>
+            <option value="Valorant">Valorant</option>
+            <option value="League of Legends">League of Legends</option>
+            <option value="Dota 2">Dota 2</option>
+            <option value="Rocket League">Rocket League</option>
+            <option value="Fortnite">Fortnite</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label for="maxTeams">Max Teams:</label>
+        <input type="number" id="maxTeams" value="16" min="4" max="32">
+    </div>
+    
+    <button onclick="createTournament()">Create Tournament</button>
+    <button onclick="fetchTournaments()">Fetch Tournaments</button>
+    
+    <div id="result" class="result"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001/api';
+        
+        async function createTournament() {
+            const game = document.getElementById('game').value;
+            const maxTeams = parseInt(document.getElementById('maxTeams').value);
+            
+            if (!game) {
+                alert('Please select a game');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/tournaments`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ game, maxTeams })
+                });
+                
+                const result = await response.json();
+                document.getElementById('result').innerHTML = 
+                    `<h3>Create Tournament Result:</h3><pre>${JSON.stringify(result, null, 2)}</pre>`;
+                    
+                if (result.success) {
+                    alert('Tournament created successfully!');
+                    fetchTournaments();
+                }
+            } catch (error) {
+                document.getElementById('result').innerHTML = 
+                    `<h3>Error:</h3><pre>${error.message}</pre>`;
+            }
+        }
+        
+        async function fetchTournaments() {
+            try {
+                const response = await fetch(`${API_BASE}/tournaments`);
+                const result = await response.json();
+                document.getElementById('result').innerHTML = 
+                    `<h3>Tournaments:</h3><pre>${JSON.stringify(result, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('result').innerHTML = 
+                    `<h3>Error:</h3><pre>${error.message}</pre>`;
+            }
+        }
+        
+        // Auto-fetch tournaments on load
+        fetchTournaments();
+    </script>
+</body>
+</html>

@@ -2,8 +2,8 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-import ClanClient from './clan-client';
+import ResultsClient from './results-client';
 
-export default function Clan() {
-  return <ClanClient />;
+export default function ResultsPage() {
+  return <ResultsClient />;
 }
