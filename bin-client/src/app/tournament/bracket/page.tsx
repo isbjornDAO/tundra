@@ -4,6 +4,8 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { RootLayout } from '@/components/root-layout';
 import { useTeam1Auth } from '@/hooks/use-team1-auth';
+import { TournamentBracket } from '@/components/tournament-bracket';
+import { useTournaments } from '@/hooks/use-tournaments';
 import { type Team, type BracketMatch, GAMES } from '@/types/tournament';
 
 // Mock data for different games
@@ -270,10 +272,23 @@ function GameSelector({ selectedGame, onGameSelect }: { selectedGame: string; on
 function TournamentBracketsContent() {
   const { address } = useTeam1Auth();
   const searchParams = useSearchParams();
+  const tournamentId = searchParams.get('tournamentId');
   const gameParam = searchParams.get('game');
+  
+  const { data: tournamentsData } = useTournaments();
+  const tournaments = tournamentsData?.tournaments || [];
 
   const [selectedGame, setSelectedGame] = useState(gameParam || 'CS2');
   const [matches, setMatches] = useState<BracketMatch[]>([]);
+
+  // If tournamentId is provided, use the real bracket component
+  if (tournamentId) {
+    return (
+      <RootLayout title="Tournament Bracket">
+        <TournamentBracket tournamentId={tournamentId} />
+      </RootLayout>
+    );
+  }
 
   useEffect(() => {
     if (selectedGame && mockGameData[selectedGame as keyof typeof mockGameData]) {

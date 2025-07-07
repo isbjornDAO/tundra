@@ -10,6 +10,7 @@ export function Navigation() {
         { href: '/', label: 'Home' },
         { href: '/tournament/register', label: 'Register' },
         { href: '/tournament/bracket', label: 'Brackets' },
+        { href: '/admin', label: 'Admin' },
     ];
 
     return (

@@ -17,7 +17,8 @@ import { GAMES, REGIONS, type Game, type Region, type Player, type TournamentSum
 // ];
 
 export default function RegisterTournament() {
-  const { data: tournaments = [], isLoading, error } = useTournaments();
+  const { data: tournamentsData, isLoading, error } = useTournaments();
+  const tournaments = tournamentsData?.tournaments || [];
   const { address } = useTeam1Auth();
   const [selectedGame, setSelectedGame] = useState<Game | ''>('');
   const [teamName, setTeamName] = useState('');
@@ -37,7 +38,7 @@ export default function RegisterTournament() {
     e.preventDefault();
     if (!selectedGame || !teamName || !teamRegion) return;
 
-    const selectedTournament = tournaments.find(t => t.gameName === selectedGame);
+    const selectedTournament = tournaments.find(t => t.game === selectedGame);
     if (!selectedTournament || selectedTournament.status !== 'open') {
       alert('Tournament is not available for registration');
       return;
@@ -45,23 +46,46 @@ export default function RegisterTournament() {
 
     setIsSubmitting(true);
 
-    // TODO: Implement actual submission to backend/smart contract
-    console.log('Registering team:', {
-      game: selectedGame,
-      teamName,
-      region: teamRegion,
-      organizer: address,
-      players: players.filter(p => p.name.trim() !== '')
-    });
+    try {
+      const response = await fetch('/api/tournaments/teams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tournamentId: selectedTournament._id,
+          team: {
+            name: teamName,
+            region: teamRegion,
+            organizer: address,
+            players: players.filter(p => p.name.trim() !== '').map((p, i) => ({
+              id: `${selectedTournament._id}-${address}-${i}`,
+              name: p.name,
+              steamId: p.steamId || undefined,
+            })),
+          },
+        }),
+      });
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
+      if (!response.ok) {
+        throw new Error('Failed to register team');
+      }
 
-    alert(`Team "${teamName}" successfully registered for ${selectedGame} tournament!`);
-    setIsSubmitting(false);
+      alert(`Team "${teamName}" successfully registered for ${selectedGame} tournament!`);
+      
+      // Reset form
+      setTeamName('');
+      setTeamRegion('');
+      setSelectedGame('');
+      setPlayers(Array(5).fill(null).map((_, i) => ({ id: `${Date.now()}-${i}`, name: '', steamId: '' })));
+      
+    } catch (error) {
+      console.error('Registration failed:', error);
+      alert('Registration failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const selectedTournament = tournaments.find(t => t.gameName === selectedGame);
+  const selectedTournament = tournaments.find(t => t.game === selectedGame);
 
   return (
     <RootLayout title="Register for Tournament">
@@ -87,13 +111,13 @@ export default function RegisterTournament() {
               <div className="grid-3">
                 {tournaments.map((tournament) => (
                   <div
-                    key={tournament.gameName}
-                    onClick={() => tournament.status === 'open' && setSelectedGame(tournament.gameName as Game)}
-                    className={`card-interactive ${selectedGame === tournament.gameName ? 'card-selected' : ''
+                    key={tournament.game}
+                    onClick={() => tournament.status === 'open' && setSelectedGame(tournament.game as Game)}
+                    className={`card-interactive ${selectedGame === tournament.game ? 'card-selected' : ''
                       } ${tournament.status !== 'open' ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <div className="flex justify-between items-start mb-4">
-                      <h3 className="heading-sm">{tournament.gameName}</h3>
+                      <h3 className="heading-sm">{tournament.game}</h3>
                       <span className={tournament.status === 'open' ? 'status-open' : 'status-full'}>
                         {tournament.status === 'open' ? 'OPEN' : 'FULL'}
                       </span>
@@ -127,7 +151,7 @@ export default function RegisterTournament() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setSelectedGame(tournament.gameName as Game);
+                      setSelectedGame(tournament.game as Game);
                       document.getElementById('registration-form')?.scrollIntoView({ behavior: 'smooth' });
                     }}
                     className="btn-primary btn-sm w-full"
@@ -140,7 +164,7 @@ export default function RegisterTournament() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                            window.location.href = `/tournament/bracket?game=${tournament.gameName}`;
+                            window.location.href = `/tournament/bracket?game=${tournament.game}`;
                     }}
                     className="btn-secondary btn-sm w-full"
                   >
@@ -170,7 +194,7 @@ export default function RegisterTournament() {
               >
                 <option value="">Select game...</option>
                 {GAMES.map(game => {
-                  const tournament = tournaments.find(t => t.gameName === game);
+                  const tournament = tournaments.find(t => t.game === game);
                   const isAvailable = tournament?.status === 'open';
                   return (
                     <option

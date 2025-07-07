@@ -7,6 +7,7 @@ import { siteConfig } from "@/lib/site";
 //import { ThemeProvider } from "next-themes";
 import { Web3Provider } from "@/components/providers/web3";
 import { AuthGuard } from "@/components/providers/auth-guard";
+import { QueryProvider } from "@/components/providers/query";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -70,11 +71,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Web3Provider>
-          <AuthGuard>
-            {children}
-          </AuthGuard>
-        </Web3Provider>
+        <QueryProvider>
+          <Web3Provider>
+            <AuthGuard>
+              {children}
+            </AuthGuard>
+          </Web3Provider>
+        </QueryProvider>
       </body>
     </html>
   );
