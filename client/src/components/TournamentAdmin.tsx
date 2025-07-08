@@ -1,29 +1,72 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAccount } from 'wagmi';
 import { useTournaments, useCreateTournament, useGenerateBracket, useTeams } from "@/hooks/useTournaments";
-import { GAMES, type Game } from "@/types/tournament";
+import { GAMES, REGIONS, type Game, type Region } from "@/types/tournament";
+
+interface AdminData {
+  isAdmin: boolean;
+  isClanLeader: boolean;
+  isTeam1Host: boolean;
+  role: 'super_admin' | 'regional_admin' | 'team1_host' | null;
+  regions: string[];
+}
 
 export function TournamentAdmin() {
+  const { address } = useAccount();
   const { data: tournamentsData, refetch } = useTournaments();
   const createTournament = useCreateTournament();
   const generateBracket = useGenerateBracket();
   
   const [selectedGame, setSelectedGame] = useState<Game | "">("");
+  const [selectedRegion, setSelectedRegion] = useState<Region | "">("");
   const [maxTeams, setMaxTeams] = useState(16);
+  const [adminData, setAdminData] = useState<AdminData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const tournaments = tournamentsData?.tournaments || [];
+  
+  useEffect(() => {
+    if (address) {
+      fetchAdminData();
+    }
+  }, [address]);
+
+  const fetchAdminData = async () => {
+    try {
+      const response = await fetch(`/api/admin/check?walletAddress=${address}`);
+      const data = await response.json();
+      setAdminData(data);
+    } catch (error) {
+      console.error('Error fetching admin data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter tournaments by admin regions - Team1 hosts see all tournaments
+  const filteredTournaments = adminData?.role === 'super_admin' || adminData?.isTeam1Host
+    ? tournaments 
+    : tournaments.filter(t => adminData?.regions.includes(t.region));
+
+  // Get available regions for this admin - Team1 hosts can create in all regions
+  const availableRegions = adminData?.role === 'super_admin' || adminData?.isTeam1Host
+    ? REGIONS 
+    : (adminData?.regions || []);
 
   const handleCreateTournament = async () => {
-    if (!selectedGame) return;
+    if (!selectedGame || !selectedRegion) return;
 
     try {
       await createTournament.mutateAsync({
         game: selectedGame,
+        region: selectedRegion,
         maxTeams,
       });
       alert("Tournament created successfully!");
       setSelectedGame("");
+      setSelectedRegion("");
       setMaxTeams(16);
     } catch (error) {
       console.error("Failed to create tournament:", error);
@@ -42,15 +85,43 @@ export function TournamentAdmin() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="text-white text-center">Loading admin permissions...</div>
+      </div>
+    );
+  }
+
+  // Check if user has permissions to access this page
+  if (!adminData?.isAdmin && !adminData?.isTeam1Host) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-white mb-4">Access Denied</h2>
+          <p className="text-gray-400">You need admin or Team1 Host permissions to access this page.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-8">
-      <h1 className="text-3xl font-bold text-white">Tournament Administration</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-white">Tournament Hosting</h1>
+        <div className="text-sm text-gray-400">
+          Role: {adminData?.role === 'super_admin' ? 'Super Admin' : adminData?.role === 'regional_admin' ? 'Regional Admin' : adminData?.role === 'team1_host' ? 'Team1 Host' : 'User'}
+          {adminData?.role === 'regional_admin' && (
+            <div>Regions: {adminData.regions.join(', ')}</div>
+          )}
+        </div>
+      </div>
 
       {/* Create Tournament */}
       <div className="bg-black/20 rounded-lg border border-white/10 p-6">
         <h2 className="text-xl font-bold mb-4 text-white">Create New Tournament</h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium mb-2 text-white">Game</label>
             <select
@@ -62,6 +133,22 @@ export function TournamentAdmin() {
               {GAMES.map((game) => (
                 <option key={game} value={game} className="text-black">
                   {game}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2 text-white">Region</label>
+            <select
+              value={selectedRegion}
+              onChange={(e) => setSelectedRegion(e.target.value as Region)}
+              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="" className="text-black">Select Region</option>
+              {availableRegions.map((region) => (
+                <option key={region} value={region} className="text-black">
+                  {region}
                 </option>
               ))}
             </select>
@@ -82,7 +169,7 @@ export function TournamentAdmin() {
           <div className="flex items-end">
             <button
               onClick={handleCreateTournament}
-              disabled={!selectedGame || createTournament.isPending}
+              disabled={!selectedGame || !selectedRegion || createTournament.isPending}
               className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:cursor-not-allowed text-white font-medium rounded-md transition-colors"
             >
               {createTournament.isPending ? "Creating..." : "Create Tournament"}
@@ -96,7 +183,7 @@ export function TournamentAdmin() {
         <h2 className="text-xl font-bold mb-4 text-white">Active Tournaments</h2>
         
         <div className="space-y-4">
-          {tournaments.map((tournament: any) => (
+          {filteredTournaments.map((tournament: any) => (
             <TournamentCard
               key={tournament._id}
               tournament={tournament}
@@ -105,8 +192,13 @@ export function TournamentAdmin() {
             />
           ))}
           
-          {tournaments.length === 0 && (
-            <p className="text-gray-400 text-center py-8">No tournaments found</p>
+          {filteredTournaments.length === 0 && (
+            <p className="text-gray-400 text-center py-8">
+              {adminData?.role === 'regional_admin' 
+                ? `No tournaments found in your regions: ${adminData.regions.join(', ')}` 
+                : 'No tournaments found'
+              }
+            </p>
           )}
         </div>
       </div>
@@ -142,6 +234,7 @@ function TournamentCard({ tournament, onGenerateBracket, generateBracketPending 
           <p className="text-gray-300">
             {tournament.registeredTeams}/{tournament.maxTeams} teams registered
           </p>
+          <p className="text-gray-400 text-sm">Region: {tournament.region}</p>
         </div>
         <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(tournament.status)}`}>
           {tournament.status.toUpperCase()}

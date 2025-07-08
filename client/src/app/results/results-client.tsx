@@ -259,7 +259,9 @@ export default function ResultsClient() {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-400">Prize Pool:</span>
-                          <span className="text-yellow-400">$5,000</span>
+                          <span className="text-yellow-400">
+                            ${tournament.prizePool?.toLocaleString() || 'TBD'}
+                          </span>
                         </div>
                       </div>
                     </div>

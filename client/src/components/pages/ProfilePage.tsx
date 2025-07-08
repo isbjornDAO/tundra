@@ -1,52 +1,45 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePlayerProfile } from '@/hooks/usePlayerProfile';
-import { useProfile } from '@/hooks/useProfile';
 
 interface ProfilePageProps {
   walletAddress?: string;
   displayName?: string;
   onProfileUpdate?: (displayName: string, photo?: string) => void;
+  user?: any; // Pass user data from parent component
+  updateUser?: (updates: any) => Promise<any>; // Pass updateUser function from parent
 }
 
-const mockUserData = {
-  playerName: 'Anonymous Player',
-  level: 12,
-  xp: 2340,
-  xpToNextLevel: 3000,
-  totalPrizesMoney: 1850,
-  wins: 3,
-  totalTournaments: 8,
-  winRate: 38,
-  joinDate: '2024-01-15',
-  lastActive: '2 hours ago',
-  trophies: [
-    { id: '1', name: 'First Win', icon: '🥇', date: '2024-01-15', description: 'Won your first tournament match' },
-    { id: '2', name: 'Top 3 Finish', icon: '🥉', date: '2024-01-20', description: 'Finished in top 3 of a tournament' },
-    { id: '3', name: 'Prize Money', icon: '💰', date: '2024-02-01', description: 'Earned your first prize money' },
-    { id: '4', name: 'Team Player', icon: '🤝', date: '2024-02-05', description: 'Completed 5 team matches' },
-    { id: '5', name: 'Consistent', icon: '⚡', date: '2024-02-10', description: 'Played 10 matches in a row' },
-    { id: '6', name: 'Rising Star', icon: '🌟', date: '2024-02-15', description: 'Reached level 10' }
-  ],
-  badges: [
-    { id: '1', name: 'Early Adopter', icon: '🚀', rarity: 'rare' as const },
-    { id: '2', name: 'Team Player', icon: '🤝', rarity: 'common' as const },
-    { id: '3', name: 'Consistent', icon: '⚡', rarity: 'epic' as const },
-    { id: '4', name: 'Champion', icon: '👑', rarity: 'legendary' as const },
-    { id: '5', name: 'Strategist', icon: '🧠', rarity: 'rare' as const },
-    { id: '6', name: 'Social', icon: '👥', rarity: 'common' as const }
-  ],
-  recentActivity: [
-    { id: '1', type: 'match', description: 'Won match vs Shadow Clan', timestamp: '2 hours ago' },
-    { id: '2', type: 'achievement', description: 'Earned "Team Player" badge', timestamp: '1 day ago' },
-    { id: '3', type: 'tournament', description: 'Registered for CS2 Tournament', timestamp: '2 days ago' },
-    { id: '4', type: 'match', description: 'Lost match vs Thunder Squad', timestamp: '3 days ago' }
-  ]
+// Default/fallback data structure for new users
+const defaultUserData = {
+  playerName: 'New Player',
+  level: 1,
+  xp: 0,
+  xpToNextLevel: 1000,
+  totalPrizesMoney: 0,
+  wins: 0,
+  totalTournaments: 0,
+  winRate: 0,
+  joinDate: new Date().toISOString(),
+  lastActive: 'Online',
+  trophies: [],
+  badges: [],
+  recentActivity: []
 };
 
+function StatCard({ label, value, icon }: { label: string; value: string | number; icon: string }) {
+  return (
+    <div className="card-compact text-center">
+      <div className="text-3xl mb-2">{icon}</div>
+      <div className="heading-sm mb-1">{value}</div>
+      <div className="text-muted text-sm">{label}</div>
+    </div>
+  );
+}
+
 function BadgeItem({ badge }: { badge: { id: string; name: string; icon: string; rarity: 'common' | 'rare' | 'epic' | 'legendary' } }) {
-  const getRarityColor = (rarity: typeof badge.rarity) => {
+  const getRarityClass = (rarity: typeof badge.rarity) => {
     switch (rarity) {
       case 'common': return 'border-gray-500/40 bg-gray-500/10';
       case 'rare': return 'border-blue-500/40 bg-blue-500/10';
@@ -56,42 +49,112 @@ function BadgeItem({ badge }: { badge: { id: string; name: string; icon: string;
   };
 
   return (
-    <div className={`p-4 rounded-lg border ${getRarityColor(badge.rarity)} text-center hover:scale-105 transition-transform`}>
+    <div className={`card-compact text-center hover:scale-105 transition-transform ${getRarityClass(badge.rarity)}`}>
       <div className="text-3xl mb-2">{badge.icon}</div>
       <div className="text-white text-sm font-medium">{badge.name}</div>
-      <div className="text-gray-400 text-xs mt-1 capitalize">{badge.rarity}</div>
+      <div className="text-muted text-xs mt-1 capitalize">{badge.rarity}</div>
     </div>
   );
 }
 
-export function ProfilePage({ walletAddress, displayName, onProfileUpdate }: ProfilePageProps) {
+export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user, updateUser }: ProfilePageProps) {
   const { data: userData, error } = usePlayerProfile(walletAddress, displayName);
-  const {
-    profile,
-    isEditing,
-    editData,
-    startEdit,
-    cancelEdit,
-    saveEdit,
-    updateEditData,
-    isSaving,
-    saveError
-  } = useProfile(walletAddress);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({
+    displayName: '',
+    email: '',
+    bio: '',
+    clan: ''
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [profilePhoto, setProfilePhoto] = useState<string>('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'achievements' | 'activity'>('overview');
 
-  const profileData = userData || mockUserData;
-  const xpProgress = (profileData.xp / profileData.xpToNextLevel) * 100;
+  const profileData = user || userData || defaultUserData;
+  const xpProgress = profileData.stats ? (profileData.stats.xp / (profileData.stats.level * 1000)) * 100 : (profileData.xp / profileData.xpToNextLevel) * 100;
+
+  useEffect(() => {
+    if (user) {
+      setEditData({
+        displayName: user.displayName || '',
+        email: user.email || '',
+        bio: user.bio || '',
+        clan: user.clan?.name || ''
+      });
+      setProfilePhoto(user.avatar || '');
+    }
+  }, [user]);
+
+  const startEdit = () => {
+    setIsEditing(true);
+    setSaveError('');
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(false);
+    if (user) {
+      setEditData({
+        displayName: user.displayName || '',
+        email: user.email || '',
+        bio: user.bio || '',
+        clan: user.clan?.name || ''
+      });
+      setProfilePhoto(user.avatar || '');
+    }
+    setSaveError('');
+  };
+
+  const updateEditData = (field: string, value: string) => {
+    setEditData(prev => ({ ...prev, [field]: value }));
+  };
 
   const handleSave = async () => {
+    if (!updateUser) {
+      setSaveError('Update function not available');
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveError('');
+    
     try {
-      await saveEdit();
+      const updates: any = {
+        displayName: editData.displayName,
+        email: editData.email,
+        bio: editData.bio
+      };
+
+      if (profilePhoto) {
+        updates.avatar = profilePhoto;
+      }
+
+      await updateUser(updates);
+      setIsEditing(false);
+      
+      // Save to localStorage for ConnectWallet to use
+      if (walletAddress && (editData.displayName || profilePhoto)) {
+        const profileData = {
+          displayName: editData.displayName,
+          avatar: profilePhoto
+        };
+        const storageKey = `profile_${walletAddress}`;
+        localStorage.setItem(storageKey, JSON.stringify(profileData));
+        
+        // Dispatch custom event to update ConnectWallet immediately
+        window.dispatchEvent(new CustomEvent('profileUpdated', { 
+          detail: { address: walletAddress, profileData } 
+        }));
+      }
+      
       if (onProfileUpdate) {
         onProfileUpdate(editData.displayName || '', profilePhoto);
       }
-    } catch (error) {
-      console.error('Error saving profile:', error);
+    } catch (error: any) {
+      setSaveError(error.message || 'Failed to save profile');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -114,16 +177,16 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate }: Pro
       case 'achievements':
         return (
           <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-white">Achievements</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {profileData.trophies.map((trophy) => (
-                <div key={trophy.id} className="bg-gray-800/50 rounded-lg p-4 border border-gray-700 hover:border-gray-600 transition-colors">
-                  <div className="flex items-start gap-3">
-                    <div className="text-3xl">{trophy.icon}</div>
+            <h3 className="heading-md">Achievements</h3>
+            <div className="grid-2">
+              {(profileData.trophies || []).map((trophy) => (
+                <div key={trophy.id} className="card-interactive">
+                  <div className="flex items-start gap-4">
+                    <div className="text-4xl">{trophy.icon}</div>
                     <div className="flex-1">
-                      <h4 className="text-white font-medium">{trophy.name}</h4>
-                      <p className="text-gray-400 text-sm mt-1">{trophy.description}</p>
-                      <p className="text-gray-500 text-xs mt-2">{new Date(trophy.date).toLocaleDateString()}</p>
+                      <h4 className="text-white font-semibold text-lg">{trophy.name}</h4>
+                      <p className="text-muted mt-1">{trophy.description}</p>
+                      <p className="text-muted text-sm mt-2">{new Date(trophy.date).toLocaleDateString()}</p>
                     </div>
                   </div>
                 </div>
@@ -135,15 +198,15 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate }: Pro
       case 'activity':
         return (
           <div className="space-y-6">
-            <h3 className="text-xl font-semibold text-white">Recent Activity</h3>
+            <h3 className="heading-md">Recent Activity</h3>
             <div className="space-y-3">
-              {profileData.recentActivity.map((activity) => (
-                <div key={activity.id} className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+              {(profileData.recentActivity || []).map((activity) => (
+                <div key={activity.id} className="card-compact">
                   <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <div className="w-3 h-3 bg-red-500 rounded-full flex-shrink-0"></div>
                     <div className="flex-1">
-                      <p className="text-gray-300">{activity.description}</p>
-                      <p className="text-gray-500 text-sm mt-1">{activity.timestamp}</p>
+                      <p className="text-white">{activity.description}</p>
+                      <p className="text-muted text-sm mt-1">{activity.timestamp}</p>
                     </div>
                   </div>
                 </div>
@@ -154,48 +217,37 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate }: Pro
       
       default: // overview
         return (
-          <div className="space-y-6">
+          <div className="space-y-8">
             {/* Stats Grid */}
             <div>
-              <h3 className="text-xl font-semibold text-white mb-4">Statistics</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-gray-800/50 rounded-lg p-4 text-center border border-gray-700">
-                  <div className="text-2xl font-bold text-white">{profileData.totalTournaments}</div>
-                  <div className="text-gray-400 text-sm">Tournaments</div>
-                </div>
-                <div className="bg-gray-800/50 rounded-lg p-4 text-center border border-gray-700">
-                  <div className="text-2xl font-bold text-green-400">{profileData.wins}</div>
-                  <div className="text-gray-400 text-sm">Wins</div>
-                </div>
-                <div className="bg-gray-800/50 rounded-lg p-4 text-center border border-gray-700">
-                  <div className="text-2xl font-bold text-blue-400">{profileData.winRate}%</div>
-                  <div className="text-gray-400 text-sm">Win Rate</div>
-                </div>
-                <div className="bg-gray-800/50 rounded-lg p-4 text-center border border-gray-700">
-                  <div className="text-2xl font-bold text-yellow-400">${profileData.totalPrizesMoney}</div>
-                  <div className="text-gray-400 text-sm">Earnings</div>
-                </div>
+              <h3 className="heading-md mb-6">Statistics</h3>
+              <div className="grid-4">
+                <StatCard label="Tournaments" value={profileData.totalTournaments} icon="🎮" />
+                <StatCard label="Wins" value={profileData.wins} icon="🏆" />
+                <StatCard label="Win Rate" value={`${profileData.winRate}%`} icon="📈" />
+                <StatCard label="Earnings" value={`$${profileData.totalPrizesMoney}`} icon="💰" />
               </div>
             </div>
 
             {/* Recent Achievements */}
             <div>
-              <h3 className="text-xl font-semibold text-white mb-4">Recent Achievements</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {profileData.trophies.slice(0, 3).map((trophy) => (
-                  <div key={trophy.id} className="bg-gray-800/50 rounded-lg p-3 border border-gray-700 text-center">
-                    <div className="text-2xl mb-2">{trophy.icon}</div>
-                    <div className="text-white text-sm font-medium">{trophy.name}</div>
+              <h3 className="heading-md mb-6">Recent Achievements</h3>
+              <div className="grid-3">
+                {(profileData.trophies || []).slice(0, 3).map((trophy) => (
+                  <div key={trophy.id} className="card-compact text-center">
+                    <div className="text-3xl mb-3">{trophy.icon}</div>
+                    <div className="text-white font-medium">{trophy.name}</div>
+                    <div className="text-muted text-sm mt-1">{new Date(trophy.date).toLocaleDateString()}</div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Badges Preview */}
+            {/* Badges */}
             <div>
-              <h3 className="text-xl font-semibold text-white mb-4">Badges</h3>
-              <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-                {profileData.badges.map((badge) => (
+              <h3 className="heading-md mb-6">Badges</h3>
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+                {(profileData.badges || []).map((badge) => (
                   <BadgeItem key={badge.id} badge={badge} />
                 ))}
               </div>
@@ -206,218 +258,229 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate }: Pro
   };
 
   return (
-    <div className="min-h-screen bg-gray-900">
-      {/* Cover Photo & Profile Section */}
-      <div className="relative">
-        {/* Cover Photo */}
-        <div className="h-64 bg-gradient-to-r from-orange-600/80 to-red-600/80 relative">
-          <div className="absolute inset-0 bg-black/20"></div>
-        </div>
-        
-        {/* Profile Info Overlay */}
-        <div className="relative -mt-20 px-6">
-          <div className="max-w-6xl mx-auto">
-            <div className="flex flex-col md:flex-row items-start md:items-end gap-6">
-              {/* Profile Picture */}
-              <div className="relative">
-                {profilePhoto || profile?.avatar ? (
-                  <img 
-                    src={profilePhoto || profile?.avatar} 
-                    alt="Profile" 
-                    className="w-40 h-40 rounded-full object-cover border-4 border-white shadow-xl"
-                  />
-                ) : (
-                  <div className="w-40 h-40 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center text-white font-bold text-6xl border-4 border-white shadow-xl">
-                    {(profile?.displayName || displayName)?.charAt(0) || walletAddress?.slice(2, 3) || '?'}
-                  </div>
-                )}
-                {isEditing && (
-                  <label className="absolute bottom-2 right-2 bg-orange-500 hover:bg-orange-600 rounded-full p-3 cursor-pointer transition-colors shadow-lg">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      onChange={handlePhotoUpload}
-                      className="hidden" 
-                    />
-                  </label>
-                )}
-                {uploadingPhoto && (
-                  <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
-                    <div className="text-white">Uploading...</div>
-                  </div>
-                )}
+    <div className="space-y-8">
+      {/* Profile Header */}
+      <div className="card">
+        <div className="flex flex-col md:flex-row items-start gap-6">
+          {/* Profile Picture */}
+          <div className="relative flex-shrink-0">
+            {profilePhoto || user?.avatar ? (
+              <img 
+                src={profilePhoto || user?.avatar} 
+                alt="Profile" 
+                className="w-32 h-32 rounded-full object-cover border-4 border-red-500 shadow-lg"
+              />
+            ) : (
+              <div className="w-32 h-32 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center text-white font-bold text-4xl border-4 border-red-500 shadow-lg">
+                {(user?.displayName || displayName)?.charAt(0) || walletAddress?.slice(2, 3) || '?'}
               </div>
+            )}
+            {isEditing && (
+              <label className="absolute bottom-0 right-0 bg-red-500 hover:bg-red-600 rounded-full p-2 cursor-pointer transition-colors shadow-lg">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handlePhotoUpload}
+                  className="hidden" 
+                />
+              </label>
+            )}
+            {uploadingPhoto && (
+              <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                <div className="text-white text-sm">Uploading...</div>
+              </div>
+            )}
+          </div>
 
-              {/* Profile Details */}
-              <div className="flex-1 bg-gray-800/80 backdrop-blur-sm rounded-lg p-6 border border-gray-700 shadow-xl">
-                {isEditing ? (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-gray-400 text-sm mb-1">Display Name</label>
-                      <input
-                        type="text"
-                        value={editData.displayName || ''}
-                        onChange={(e) => updateEditData('displayName', e.target.value)}
-                        className="bg-gray-700 border border-gray-600 rounded px-4 py-2 text-white text-xl font-bold w-full"
-                        placeholder="Display Name"
-                        maxLength={50}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-gray-400 text-sm mb-1">Bio</label>
-                      <textarea
-                        value={editData.bio || ''}
-                        onChange={(e) => updateEditData('bio', e.target.value)}
-                        className="bg-gray-700 border border-gray-600 rounded px-4 py-2 text-gray-300 w-full resize-none"
-                        placeholder="Tell us about yourself..."
-                        rows={3}
-                        maxLength={500}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-gray-400 text-sm mb-1">Clan</label>
-                        <input
-                          type="text"
-                          value={editData.clan || ''}
-                          onChange={(e) => updateEditData('clan', e.target.value)}
-                          className="bg-gray-700 border border-gray-600 rounded px-4 py-2 text-white w-full"
-                          placeholder="Your clan name"
-                          maxLength={50}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-gray-400 text-sm mb-1">Country</label>
-                        <input
-                          type="text"
-                          value={editData.country || ''}
-                          onChange={(e) => updateEditData('country', e.target.value)}
-                          className="bg-gray-700 border border-gray-600 rounded px-4 py-2 text-white w-full"
-                          placeholder="e.g. United States"
-                          maxLength={50}
-                        />
-                      </div>
-                    </div>
+          {/* Profile Details */}
+          <div className="flex-1">
+            {isEditing ? (
+              <div className="space-y-4">
+                <div className="form-group">
+                  <label className="form-label">Display Name</label>
+                  <input
+                    type="text"
+                    value={editData.displayName || ''}
+                    onChange={(e) => updateEditData('displayName', e.target.value)}
+                    className="input-field"
+                    placeholder="Display Name"
+                    maxLength={50}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Email</label>
+                  <input
+                    type="email"
+                    value={editData.email || ''}
+                    onChange={(e) => updateEditData('email', e.target.value)}
+                    className="input-field"
+                    placeholder="your.email@example.com"
+                    maxLength={100}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Bio</label>
+                  <textarea
+                    value={editData.bio || ''}
+                    onChange={(e) => updateEditData('bio', e.target.value)}
+                    className="input-field resize-none"
+                    placeholder="Tell us about yourself..."
+                    rows={3}
+                    maxLength={500}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="form-group">
+                    <label className="form-label">Country</label>
+                    <input
+                      type="text"
+                      value={user?.country || ''}
+                      className="input-field bg-gray-700 cursor-not-allowed"
+                      placeholder="Not set"
+                      disabled
+                      readOnly
+                    />
+                    <p className="text-xs text-muted mt-1">Country cannot be changed</p>
                   </div>
-                ) : (
-                  <>
-                    <h1 className="text-3xl font-bold text-white">
-                      {profile?.displayName || displayName || profileData.playerName}
-                    </h1>
-                    {profile?.bio && (
-                      <p className="text-gray-300 mt-2">{profile.bio}</p>
-                    )}
-                    <div className="flex items-center gap-4 mt-4 text-sm">
-                      {profile?.clan && (
-                        <span className="text-orange-400 font-medium">{profile.clan}</span>
-                      )}
-                      {profile?.country && (
-                        <span className="text-gray-400">{profile.country}</span>
-                      )}
-                      <span className="text-gray-500">Joined {new Date(profileData.joinDate).toLocaleDateString()}</span>
-                      <span className="text-gray-500">Active {profileData.lastActive}</span>
-                    </div>
-                    <div className="mt-4">
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="text-blue-400">Level {profileData.level}</span>
-                        <span className="text-gray-400">•</span>
-                        <span className="text-green-400">{profileData.xp} XP</span>
-                      </div>
-                      <div className="w-full bg-gray-700 rounded-full h-2 mt-2">
-                        <div 
-                          className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${xpProgress}%` }}
-                        />
-                      </div>
-                    </div>
-                  </>
-                )}
-                
-                <div className="flex items-center gap-3 mt-6">
-                  {isEditing ? (
-                    <>
-                      <button 
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-                      >
-                        {isSaving ? 'Saving...' : 'Save Changes'}
-                      </button>
-                      <button 
-                        onClick={cancelEdit}
-                        disabled={isSaving}
-                        className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-500 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    walletAddress && (
-                      <button 
-                        onClick={startEdit}
-                        className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-                      >
-                        Edit Profile
-                      </button>
-                    )
-                  )}
+                  <div className="form-group">
+                    <label className="form-label">Username</label>
+                    <input
+                      type="text"
+                      value={user?.username || ''}
+                      className="input-field bg-gray-700 cursor-not-allowed"
+                      placeholder="Not set"
+                      disabled
+                      readOnly
+                    />
+                    <p className="text-xs text-muted mt-1">Username cannot be changed</p>
+                  </div>
                 </div>
               </div>
+            ) : (
+              <>
+                <h1 className="heading-lg">
+                  {user?.displayName || displayName || profileData.playerName}
+                </h1>
+                {user?.bio && (
+                  <p className="text-body mt-2">{user.bio}</p>
+                )}
+                <div className="flex flex-wrap items-center gap-4 mt-4 text-sm">
+                  {user?.username && (
+                    <span className="text-blue-400 font-medium">@{user.username}</span>
+                  )}
+                  {user?.clan && (
+                    <span className="text-red-400 font-medium">{user.clan.name}</span>
+                  )}
+                  {user?.country && (
+                    <span className="text-muted">{user.country}</span>
+                  )}
+                  <span className="text-muted">Joined {new Date(user?.createdAt || profileData.joinDate).toLocaleDateString()}</span>
+                </div>
+                {user?.email && (
+                  <div className="mt-2">
+                    <span className="text-muted text-sm">{user.email}</span>
+                  </div>
+                )}
+              </>
+            )}
+
+            <div className="mt-6">
+              <p className="text-muted text-sm">
+                {walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : 'No wallet connected'}
+              </p>
+              <div className="mt-3">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-blue-400">Level {user?.stats?.level || profileData.level}</span>
+                  <span className="text-muted">•</span>
+                  <span className="text-green-400">{user?.stats?.xp || profileData.xp} XP</span>
+                </div>
+                <div className="w-full max-w-sm bg-white/10 rounded-full h-2 mt-2">
+                  <div 
+                    className="bg-gradient-to-r from-red-500 to-orange-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${xpProgress}%` }}
+                  />
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3 mt-6">
+                {isEditing ? (
+                  <>
+                    <button 
+                      onClick={handleSave}
+                      disabled={isSaving}
+                      className="btn btn-primary"
+                    >
+                      {isSaving ? 'Saving...' : 'Save Changes'}
+                    </button>
+                    <button 
+                      onClick={cancelEdit}
+                      disabled={isSaving}
+                      className="btn btn-secondary"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  walletAddress && (
+                    <button 
+                      onClick={startEdit}
+                      className="btn btn-primary"
+                    >
+                      Edit Profile
+                    </button>
+                  )
+                )}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Content Area */}
-      <div className="px-6 py-8">
-        <div className="max-w-6xl mx-auto">
-          {/* Tab Navigation */}
-          <div className="border-b border-gray-700 mb-6">
-            <nav className="flex space-x-8">
-              {[
-                { id: 'overview', label: 'Overview', icon: '📊' },
-                { id: 'achievements', label: 'Achievements', icon: '🏆' },
-                { id: 'activity', label: 'Activity', icon: '📈' }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                    activeTab === tab.id
-                      ? 'border-orange-500 text-orange-400'
-                      : 'border-transparent text-gray-400 hover:text-gray-300'
-                  }`}
-                >
-                  <span>{tab.icon}</span>
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
-          </div>
-
-          {/* Tab Content */}
-          <div className="bg-gray-800/30 rounded-lg p-6 border border-gray-700">
-            {renderTabContent()}
-          </div>
-
-          {/* Error Messages */}
-          {error && (
-            <div className="mt-6 bg-red-500/20 border border-red-500/40 rounded-lg p-4 text-red-400 text-sm">
-              Failed to load player data. Showing offline data.
-            </div>
-          )}
-
-          {saveError && (
-            <div className="mt-6 bg-red-500/20 border border-red-500/40 rounded-lg p-4 text-red-400 text-sm">
-              Error saving profile: {saveError}
-            </div>
-          )}
-        </div>
+      {/* Tab Navigation */}
+      <div className="border-b border-white/10">
+        <nav className="flex space-x-8">
+          {[
+            { id: 'overview', label: 'Overview', icon: '📊' },
+            { id: 'achievements', label: 'Achievements', icon: '🏆' },
+            { id: 'activity', label: 'Activity', icon: '📈' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === tab.id
+                  ? 'border-red-500 text-red-400'
+                  : 'border-transparent text-muted hover:text-white'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
+        </nav>
       </div>
+
+      {/* Tab Content */}
+      <div>
+        {renderTabContent()}
+      </div>
+
+      {/* Error Messages */}
+      {error && (
+        <div className="card bg-red-500/10 border-red-500/30 text-red-400">
+          Failed to load player data. Showing offline data.
+        </div>
+      )}
+
+      {saveError && (
+        <div className="card bg-red-500/10 border-red-500/30 text-red-400">
+          Error saving profile: {saveError}
+        </div>
+      )}
     </div>
   );
 }

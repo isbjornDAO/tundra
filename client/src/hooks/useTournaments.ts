@@ -5,7 +5,7 @@ export function useTournaments() {
   return useQuery<{ tournaments: TournamentSummary[] }>({
     queryKey: ["tournaments"],
     queryFn: async () => {
-      const res = await fetch("/api/tournaments");
+      const res = await fetch("/api/tournaments/mongo");
       if (!res.ok) throw new Error("Failed to fetch tournaments");
       return res.json();
     },
@@ -16,8 +16,8 @@ export const useCreateTournament = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (data: { game: string; maxTeams?: number }) => {
-      const response = await fetch("/api/tournaments", {
+    mutationFn: async (data: { game: string; region: string; maxTeams?: number }) => {
+      const response = await fetch("/api/tournaments/mongo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),

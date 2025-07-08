@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 
 // Prevent SSR for this page since it uses wagmi hooks
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 import { AuthGuard } from '@/components/AuthGuard';
 import { WagmiGuard } from '@/components/WagmiGuard';
 import { Layout } from '@/components/Layout';

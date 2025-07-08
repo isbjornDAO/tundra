@@ -2,14 +2,19 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useDisconnect } from 'wagmi';
+import { useDisconnect, useAccount } from 'wagmi';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
 
-export function ConnectWallet() {
+function ConnectWalletContent() {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { disconnect } = useDisconnect();
+  const { address } = useAccount();
   const router = useRouter();
+  const { user } = useAuth();
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -26,6 +31,22 @@ export function ConnectWallet() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showDropdown]);
+
+  useEffect(() => {
+    if (address) {
+      checkAdminStatus();
+    }
+  }, [address]);
+
+  const checkAdminStatus = async () => {
+    try {
+      const response = await fetch(`/api/admin/check?walletAddress=${address}`);
+      const data = await response.json();
+      setIsSuperAdmin(data.role === 'super_admin');
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+    }
+  };
 
   return (
     <>
@@ -44,6 +65,7 @@ export function ConnectWallet() {
           chain &&
           (!authenticationStatus ||
             authenticationStatus === 'authenticated');
+
 
         return (
           <div
@@ -79,14 +101,29 @@ export function ConnectWallet() {
                     type="button"
                     className="flex items-center gap-2 bg-black border border-white/20 rounded-full px-3 py-2 hover:border-white/30 transition-colors"
                   >
-                    <div className="w-6 h-6 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-xs font-bold">
-                        {account.displayName?.[0] || account.address?.[2] || '?'}
+                    {user?.avatar ? (
+                      <img 
+                        src={user.avatar} 
+                        alt="Profile" 
+                        className="w-6 h-6 rounded-full object-cover border border-white/20"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs font-bold">
+                          {(user?.displayName?.[0] || account.address?.[2])?.toUpperCase() || '?'}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex flex-col items-start min-w-0">
+                      <span className="text-white text-sm font-medium truncate">
+                        {user?.displayName || (account.address ? `${account.address.slice(0, 6)}...${account.address.slice(-4)}` : 'Unknown')}
                       </span>
+                      {user?.username && (
+                        <span className="text-gray-400 text-xs truncate">
+                          @{user.username}
+                        </span>
+                      )}
                     </div>
-                    <span className="text-white text-sm font-medium">
-                      {account.displayName}
-                    </span>
                     <svg className="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
@@ -124,6 +161,24 @@ export function ConnectWallet() {
                         </svg>
                         Clan
                       </button>
+                      {isSuperAdmin && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('Admin clicked!');
+                            setShowDropdown(false);
+                            setTimeout(() => router.push('/admin/general'), 50);
+                          }}
+                          className="w-full px-4 py-3 text-left text-gray-300 hover:text-white hover:bg-white/10 transition-all duration-200 flex items-center gap-3 cursor-pointer"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          Admin
+                        </button>
+                      )}
                       <div className="border-t border-white/10 my-1"></div>
                       <button
                         onClick={(e) => {
@@ -151,4 +206,22 @@ export function ConnectWallet() {
     
   </>
   );
+}
+
+export function ConnectWallet() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <button className="btn btn-primary opacity-50">
+        Connect Wallet
+      </button>
+    );
+  }
+
+  return <ConnectWalletContent />;
 }

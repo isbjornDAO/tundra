@@ -20,6 +20,7 @@ export interface GameTournament {
   maxTeams: number;
   status: 'open' | 'full' | 'active' | 'completed';
   bracket?: TournamentBracket;
+  region: Region;
   createdAt: Date;
 }
 
@@ -59,6 +60,7 @@ export interface TournamentSummary {
   registeredTeams: number;
   maxTeams: number;
   status: string;
+  region: string;
   _id: string;
   createdAt: Date;
 }

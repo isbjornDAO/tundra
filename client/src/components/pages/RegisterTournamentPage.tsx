@@ -1,10 +1,30 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAccount } from 'wagmi';
 import { Layout } from '@/components/Layout';
 import { useTournaments } from '@/hooks/useTournaments';
-import { useTeam1Auth } from '@/hooks/useTeam1Auth';
 import { REGIONS, type Game, type Region, type Player } from '@/types/tournament';
+
+interface User {
+  _id: string;
+  walletAddress: string;
+  displayName: string;
+  isClanLeader: boolean;
+  clan?: {
+    _id: string;
+    name: string;
+    tag: string;
+    members: User[];
+  };
+}
+
+interface ClanMember {
+  _id: string;
+  walletAddress: string;
+  displayName: string;
+  selected: boolean;
+}
 
 type Step = 'game' | 'team' | 'players' | 'confirm';
 
@@ -18,22 +38,140 @@ export default function RegisterTournamentPage() {
     Array(5).fill(null).map((_, i) => ({ id: `${Date.now()}-${i}`, name: '', steamId: '' }))
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [clanMembers, setClanMembers] = useState<ClanMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Save form data to localStorage whenever it changes
+  useEffect(() => {
+    if (mounted) {
+      const formData = {
+        currentStep,
+        selectedGame,
+        teamName,
+        teamRegion,
+        players
+      };
+      localStorage.setItem('tournamentRegistration', JSON.stringify(formData));
+    }
+  }, [currentStep, selectedGame, teamName, teamRegion, players, mounted]);
+
+  // Load form data from localStorage on mount
+  useEffect(() => {
+    if (mounted) {
+      const savedData = localStorage.getItem('tournamentRegistration');
+      if (savedData) {
+        try {
+          const parsedData = JSON.parse(savedData);
+          setCurrentStep(parsedData.currentStep || 'game');
+          setSelectedGame(parsedData.selectedGame || '');
+          setTeamName(parsedData.teamName || '');
+          setTeamRegion(parsedData.teamRegion || '');
+          if (parsedData.players && Array.isArray(parsedData.players)) {
+            setPlayers(parsedData.players);
+          }
+        } catch (error) {
+          console.error('Error loading saved form data:', error);
+        }
+      }
+    }
+  }, [mounted]);
   
-  const { data: tournamentsData, isLoading, error } = useTournaments();
+  const { data: tournamentsData, isLoading } = useTournaments();
   const tournaments = tournamentsData?.tournaments || [];
-  const { address } = useTeam1Auth();
+  const { address } = useAccount();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  if (!mounted) {
+  useEffect(() => {
+    if (address) {
+      fetchUserData();
+    }
+  }, [address]);
+
+  const fetchUserData = async () => {
+    try {
+      const response = await fetch(`/api/users?walletAddress=${address}`);
+      if (!response.ok) {
+        throw new Error('User not found');
+      }
+      const userData = await response.json();
+      setUser(userData);
+      
+      if (userData.clan && userData.isClanLeader) {
+        const clanResponse = await fetch(`/api/clans?id=${userData.clan._id}`);
+        if (clanResponse.ok) {
+          const clanData = await clanResponse.json();
+          setClanMembers(
+            clanData.members.map((member: User) => ({
+              ...member,
+              selected: false
+            }))
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      setError('Failed to load user data. Please ensure you have registered an account.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleMemberSelection = (memberId: string) => {
+    setClanMembers(prev => 
+      prev.map(member => 
+        member._id === memberId 
+          ? { ...member, selected: !member.selected }
+          : member
+      )
+    );
+  };
+
+  if (!mounted || loading) {
     return (
       <Layout>
         <div className="text-white text-center py-8">Loading...</div>
       </Layout>
     );
   }
+
+  if (error) {
+    return (
+      <Layout>
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="card p-8">
+            <h2 className="text-2xl font-bold text-white mb-4">Registration Unavailable</h2>
+            <p className="text-gray-400 mb-4">{error}</p>
+            <p className="text-gray-400">Please create an account first or contact an admin to be granted clan leader permissions.</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Layout>
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="card p-8">
+            <h2 className="text-2xl font-bold text-white mb-4">Account Required</h2>
+            <p className="text-gray-400">You need to create an account to register for tournaments.</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Show tournaments to all users, but disable registration for non-clan leaders
+  const canRegister = user && user.isClanLeader && user.clan;
+  const restrictionMessage = !user ? 'You need to create an account to register for tournaments.' 
+    : !user.isClanLeader ? 'Only clan leaders can register teams for tournaments. Contact an admin to be granted clan leader permissions.'
+    : !user.clan ? 'You need to be part of a clan to register for tournaments. Create or join a clan first.'
+    : null;
 
   const updatePlayer = (playerIndex: number, field: 'name' | 'steamId', value: string) => {
     const updatedPlayers = [...players];
@@ -60,6 +198,12 @@ export default function RegisterTournamentPage() {
       return;
     }
 
+    const selectedMembers = clanMembers.filter(m => m.selected);
+    if (selectedMembers.length < 3) {
+      alert('You must select at least 3 clan members');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -69,13 +213,15 @@ export default function RegisterTournamentPage() {
         body: JSON.stringify({
           tournamentId: selectedTournament._id,
           team: {
-            name: teamName,
+            name: teamName || `[${user.clan?.tag}] ${user.clan?.name}`,
             region: teamRegion,
             organizer: address,
-            players: players.filter(p => p.name.trim() !== '').map((p, i) => ({
-              id: `${selectedTournament._id}-${address}-${i}`,
-              name: p.name,
-              steamId: p.steamId || undefined,
+            clanId: user.clan?._id,
+            players: selectedMembers.map((member, i) => ({
+              id: member._id,
+              name: member.displayName,
+              walletAddress: member.walletAddress,
+              steamId: '', // Can be added later if needed
             })),
           },
         }),
@@ -85,13 +231,14 @@ export default function RegisterTournamentPage() {
         throw new Error('Failed to register team');
       }
 
-      alert(`Team "${teamName}" successfully registered for ${selectedGame} tournament!`);
+      alert(`Team "${teamName || user.clan?.name}" successfully registered for ${selectedGame} tournament!`);
       
-      // Reset form
+      // Clear localStorage and reset form
+      localStorage.removeItem('tournamentRegistration');
       setTeamName('');
       setTeamRegion('');
       setSelectedGame('');
-      setPlayers(Array(5).fill(null).map((_, i) => ({ id: `${Date.now()}-${i}`, name: '', steamId: '' })));
+      setClanMembers(prev => prev.map(m => ({ ...m, selected: false })));
       setCurrentStep('game');
       
     } catch (error) {
@@ -105,7 +252,7 @@ export default function RegisterTournamentPage() {
   const selectedTournament = tournaments.find(t => t.game === selectedGame);
   const canProceedFromGame = selectedGame && selectedTournament?.status === 'open';
   const canProceedFromTeam = teamName && teamRegion;
-  const canProceedFromPlayers = players.filter(p => p.name.trim() !== '').length >= 3;
+  const canProceedFromPlayers = clanMembers.filter(m => m.selected).length >= 3;
 
   const InfoModal = () => {
     const [showInfo, setShowInfo] = useState(false);
@@ -206,22 +353,40 @@ export default function RegisterTournamentPage() {
   return (
     <Layout>
         <div className="max-w-6xl mx-auto">
-          <StepIndicator />
+          {canRegister && <StepIndicator />}
+
+          {/* Restriction Message */}
+          {!canRegister && restrictionMessage && (
+            <div className="card mb-6 bg-amber-500/10 border-amber-500/20">
+              <div className="flex items-center gap-3">
+                <div className="text-amber-400 text-xl">⚠️</div>
+                <div>
+                  <h3 className="text-amber-400 font-semibold mb-1">Registration Restricted</h3>
+                  <p className="text-amber-300 text-sm">{restrictionMessage}</p>
+                  <p className="text-amber-300/70 text-xs mt-1">You can still view all open tournaments below.</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Step 1: Choose Game */}
           {currentStep === 'game' && (
             <div className="card">
               <div className="text-center mb-4">
-                <h2 className="text-xl font-bold mb-2">Choose Your Game</h2>
-                <p className="text-body text-sm">Select which tournament you want to join</p>
+                <h2 className="text-xl font-bold mb-2">{canRegister ? 'Choose Your Game' : 'Browse Open Tournaments'}</h2>
+                <p className="text-body text-sm">{canRegister ? 'Select which tournament you want to join' : 'View all available tournaments'}</p>
               </div>
               
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
                 {tournaments.map((tournament) => (
                   <div
                     key={tournament.game}
-                    onClick={() => tournament.status === 'open' && setSelectedGame(tournament.game as Game)}
-                    className={`cursor-pointer transition-all duration-200 ${tournament.status !== 'open' ? 'opacity-50 cursor-not-allowed' : 'hover:scale-102'}`}
+                    onClick={() => canRegister && tournament.status === 'open' && setSelectedGame(tournament.game as Game)}
+                    className={`transition-all duration-200 ${
+                      !canRegister ? 'opacity-70 cursor-not-allowed' 
+                      : tournament.status !== 'open' ? 'opacity-50 cursor-not-allowed' 
+                      : 'cursor-pointer hover:scale-102'
+                    }`}
                   >
                     <div className={`card-compact h-56 flex flex-col transition-all duration-200 ${
                       selectedGame === tournament.game 
@@ -232,11 +397,15 @@ export default function RegisterTournamentPage() {
                         {/* Status Badge - Fixed height */}
                         <div className="flex justify-center mb-3 h-6 items-center">
                           <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            tournament.status === 'open' 
+                            !canRegister && tournament.status === 'open'
+                              ? 'bg-amber-500/20 text-amber-400'
+                              : tournament.status === 'open' 
                               ? 'bg-green-500/20 text-green-400' 
                               : 'bg-red-500/20 text-red-400'
                           }`}>
-                            {tournament.status === 'open' ? 'OPEN' : 'FULL'}
+                            {!canRegister && tournament.status === 'open' 
+                              ? 'VIEW ONLY' 
+                              : tournament.status === 'open' ? 'OPEN' : 'FULL'}
                           </span>
                         </div>
                         
@@ -255,7 +424,9 @@ export default function RegisterTournamentPage() {
                         
                         {/* Prize Pool - Fixed height */}
                         <div className="text-center mb-4 h-12 flex flex-col justify-center">
-                          <div className="text-lg font-bold text-white mb-1">$5,000</div>
+                          <div className="text-lg font-bold text-white mb-1">
+                            ${tournament.prizePool?.toLocaleString() || '5,000'}
+                          </div>
                           <div className="text-xs text-gray-400">Prize Pool</div>
                         </div>
 
@@ -283,18 +454,20 @@ export default function RegisterTournamentPage() {
 
               <div className="flex justify-center">
                 <button
-                  onClick={nextStep}
-                  disabled={!canProceedFromGame}
-                  className={`btn ${canProceedFromGame ? 'btn-primary' : 'btn-secondary opacity-50 cursor-not-allowed'}`}
+                  onClick={canRegister ? nextStep : undefined}
+                  disabled={!canRegister || !canProceedFromGame}
+                  className={`btn ${canRegister && canProceedFromGame ? 'btn-primary' : 'btn-secondary opacity-50 cursor-not-allowed'}`}
                 >
-                  {selectedGame ? `Continue with ${selectedGame}` : 'Select a Game'}
+                  {!canRegister 
+                    ? 'Registration Restricted' 
+                    : selectedGame ? `Continue with ${selectedGame}` : 'Select a Game'}
                 </button>
               </div>
             </div>
           )}
 
           {/* Step 2: Team Details */}
-          {currentStep === 'team' && (
+          {canRegister && currentStep === 'team' && (
             <div className="card">
               <h2 className="heading-lg text-center mb-2">Team Information</h2>
               <p className="text-body text-center mb-8">Tell us about your team</p>
@@ -304,12 +477,14 @@ export default function RegisterTournamentPage() {
                   <label className="form-label">Team Name</label>
                   <input
                     type="text"
-                    placeholder="Enter your team name"
+                    placeholder={`Leave empty to use: [${user.clan?.tag}] ${user.clan?.name}`}
                     value={teamName}
                     onChange={(e) => setTeamName(e.target.value)}
                     className="input-field text-center text-xl"
-                    required
                   />
+                  <p className="text-sm text-gray-400 mt-1">
+                    Default: [{user.clan?.tag}] {user.clan?.name}
+                  </p>
                 </div>
 
                 <div className="form-group">
@@ -356,41 +531,53 @@ export default function RegisterTournamentPage() {
             </div>
           )}
 
-          {/* Step 3: Players */}
-          {currentStep === 'players' && (
+          {/* Step 3: Select Clan Members */}
+          {canRegister && currentStep === 'players' && (
             <div className="card">
-              <h2 className="heading-lg text-center mb-2">Team Roster</h2>
-              <p className="text-body text-center mb-8">Add your team members (minimum 3 players)</p>
+              <h2 className="heading-lg text-center mb-2">Select Team Members</h2>
+              <p className="text-body text-center mb-4">Choose clan members for your team (minimum 3 players)</p>
+              <p className="text-center text-sm text-gray-400 mb-8">
+                Clan: [{user.clan?.tag}] {user.clan?.name}
+              </p>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {players.map((player, playerIndex) => (
-                  <div key={player.id} className="card-compact">
-                    <div className="text-center mb-4">
-                      <div className="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center mx-auto mb-2">
-                        <span className="text-white font-medium">{playerIndex + 1}</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {clanMembers.map((member) => (
+                  <div 
+                    key={member._id} 
+                    onClick={() => toggleMemberSelection(member._id)}
+                    className={`card-compact cursor-pointer transition-all ${
+                      member.selected 
+                        ? 'ring-2 ring-red-500 bg-red-500/10' 
+                        : 'hover:bg-white/5'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
+                        member.selected 
+                          ? 'border-red-500 bg-red-500' 
+                          : 'border-gray-400'
+                      }`}>
+                        {member.selected && (
+                          <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
                       </div>
-                      <h4 className="text-white font-medium">Player {playerIndex + 1}</h4>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <input
-                        type="text"
-                        placeholder="Player name"
-                        value={player.name}
-                        onChange={(e) => updatePlayer(playerIndex, 'name', e.target.value)}
-                        className="input-field"
-                        required={playerIndex < 3}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Steam ID (optional)"
-                        value={player.steamId}
-                        onChange={(e) => updatePlayer(playerIndex, 'steamId', e.target.value)}
-                        className="input-field"
-                      />
+                      <div className="flex-1">
+                        <h4 className="text-white font-medium">{member.displayName}</h4>
+                        <p className="text-gray-400 text-sm">
+                          {member.walletAddress.slice(0, 6)}...{member.walletAddress.slice(-4)}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 ))}
+              </div>
+
+              <div className="text-center mt-6">
+                <p className="text-sm text-gray-400">
+                  Selected: {clanMembers.filter(m => m.selected).length} / {clanMembers.length} members
+                </p>
               </div>
 
               <div className="flex justify-center space-x-4 mt-8">
@@ -409,7 +596,7 @@ export default function RegisterTournamentPage() {
           )}
 
           {/* Step 4: Confirmation */}
-          {currentStep === 'confirm' && (
+          {canRegister && currentStep === 'confirm' && (
             <div className="card">
               <h2 className="heading-lg text-center mb-2">Confirm Registration</h2>
               <p className="text-body text-center mb-8">Review your details before submitting</p>
@@ -424,7 +611,9 @@ export default function RegisterTournamentPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Prize Pool:</span>
-                      <span className="text-white">$5,000</span>
+                      <span className="text-white">
+                        ${selectedTournament?.prizePool?.toLocaleString() || '5,000'}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Teams Registered:</span>
@@ -448,12 +637,12 @@ export default function RegisterTournamentPage() {
                 </div>
 
                 <div className="card-compact bg-gray-500/10">
-                  <h3 className="text-white font-medium mb-4">Players</h3>
+                  <h3 className="text-white font-medium mb-4">Selected Players</h3>
                   <div className="space-y-2">
-                    {players.filter(p => p.name.trim() !== '').map((player, index) => (
-                      <div key={player.id} className="flex justify-between text-sm">
+                    {clanMembers.filter(m => m.selected).map((member, index) => (
+                      <div key={member._id} className="flex justify-between text-sm">
                         <span className="text-gray-400">Player {index + 1}:</span>
-                        <span className="text-white">{player.name}</span>
+                        <span className="text-white">{member.displayName}</span>
                       </div>
                     ))}
                   </div>

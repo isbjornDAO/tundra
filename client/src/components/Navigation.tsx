@@ -3,17 +3,23 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
+import { useAccount } from 'wagmi';
 
 export function Navigation() {
   const pathname = usePathname();
   const [showTournamentDropdown, setShowTournamentDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { address } = useAccount();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isClanLeader, setIsClanLeader] = useState(false);
+  const [isTeam1Host, setIsTeam1Host] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   
   const tournamentItems = [
     { href: '/tournaments/register', label: 'Register', icon: '📝' },
     { href: '/tournaments/bracket', label: 'Brackets', icon: '🏆' },
     { href: '/tournaments/results', label: 'Results', icon: '📊' },
-    { href: '/tournaments/admin', label: 'Admin', icon: '⚙️' },
+    ...(isTeam1Host || isAdmin ? [{ href: '/tournaments/admin', label: 'Host', icon: '🎯' }] : []),
   ];
 
   // Check if current path is tournament-related
@@ -34,6 +40,25 @@ export function Navigation() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showTournamentDropdown]);
+
+  useEffect(() => {
+    if (address) {
+      checkAdminStatus();
+    }
+  }, [address]);
+
+  const checkAdminStatus = async () => {
+    try {
+      const response = await fetch(`/api/admin/check?walletAddress=${address}`);
+      const data = await response.json();
+      setIsAdmin(data.isAdmin);
+      setIsClanLeader(data.isClanLeader);
+      setIsTeam1Host(data.isTeam1Host);
+      setIsSuperAdmin(data.role === 'super_admin');
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+    }
+  };
 
   return (
     <nav className="flex space-x-6">

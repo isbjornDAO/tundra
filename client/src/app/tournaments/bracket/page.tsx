@@ -4,7 +4,6 @@ import { useState, useEffect, Suspense } from 'react';
 
 // Prevent SSR for this page since it uses wagmi hooks
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 import { useSearchParams } from 'next/navigation';
 import { WagmiGuard } from '@/components/WagmiGuard';
 import { Layout } from '@/components/Layout';
@@ -406,8 +405,6 @@ function TournamentBracketsContent() {
                       key={match.id}
                       match={match}
                       currentUserAddress={address || ''}
-                      onScheduleUpdate={handleScheduleUpdate}
-                      onSubmitResult={handleResultSubmission}
                       onClick={() => setSelectedMatch(match)}
                     />
                   ))}

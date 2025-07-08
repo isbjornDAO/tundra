@@ -26,15 +26,8 @@ interface TournamentEntry {
   region: string;
 }
 
-// Mock tournament history for demo
-const mockTournamentHistory: TournamentEntry[] = [
-  { id: '1', game: 'CS2', placement: 1, teamName: 'Team Alpha', prizePool: '$5,000', date: new Date('2024-01-15'), region: 'North America' },
-  { id: '2', game: 'CS2', placement: 3, teamName: 'Team Alpha', prizePool: '$3,000', date: new Date('2024-01-01'), region: 'Europe West' },
-  { id: '3', game: 'Valorant', placement: 2, teamName: 'Storm Squad', prizePool: '$4,000', date: new Date('2023-12-20'), region: 'Asia Pacific' },
-  { id: '4', game: 'CS2', placement: 1, teamName: 'Team Alpha', prizePool: '$2,500', date: new Date('2023-12-10'), region: 'North America' },
-  { id: '5', game: 'Valorant', placement: 4, teamName: 'Phoenix Team', prizePool: '$1,500', date: new Date('2023-11-25'), region: 'Europe West' },
-  { id: '6', game: 'CS2', placement: 2, teamName: 'Team Alpha', prizePool: '$3,500', date: new Date('2023-11-15'), region: 'Asia Pacific' }
-];
+// Default empty tournament history for new players
+const defaultTournamentHistory: TournamentEntry[] = [];
 
 function StatCard({ title, value, subtitle, icon, color = 'text-white' }: {
   title: string;
