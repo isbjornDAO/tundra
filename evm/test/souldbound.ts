@@ -13,7 +13,7 @@ import { hardhat } from "viem/chains";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
 // Import compiled contract artifacts
-import StatTrackerArtifact from "../artifacts/contracts/StatTracker.sol/StatTracker.json";
+import POAPArtifact from "../artifacts/contracts/POAP.sol/POAP.json";
 
 describe("StatTracker Soulbound NFT Tests", () => {
   let testClient: any;
@@ -25,7 +25,8 @@ describe("StatTracker Soulbound NFT Tests", () => {
   let thirdParty: any;
 
   // Use ABI directly from the compiled artifact
-  const statTrackerAbi = StatTrackerArtifact.abi;
+  const POAPAbi = POAPArtifact.abi;
+  const POAPBytecode = POAPArtifact.bytecode;
 
   before(async () => {
     // Create test accounts
@@ -74,8 +75,8 @@ describe("StatTracker Soulbound NFT Tests", () => {
 
     // Deploy StatTracker contract once using the compiled bytecode
     const deployHash = await testClient.deployContract({
-      abi: StatTrackerArtifact.abi,
-      bytecode: StatTrackerArtifact.bytecode as `0x${string}`,
+      abi: POAPAbi,
+      bytecode: POAPBytecode as `0x${string}`,
       args: [owner.address],
       account: owner,
     });
@@ -91,13 +92,13 @@ describe("StatTracker Soulbound NFT Tests", () => {
     it("should deploy with correct name and symbol", async () => {
       const name = await publicClient.readContract({
         address: contractAddress,
-        abi: statTrackerAbi,
+        abi: POAPAbi,
         functionName: "name",
       });
 
       const symbol = await publicClient.readContract({
         address: contractAddress,
-        abi: statTrackerAbi,
+        abi: POAPAbi,
         functionName: "symbol",
       });
 
@@ -108,7 +109,7 @@ describe("StatTracker Soulbound NFT Tests", () => {
     it("should set the correct owner", async () => {
       const contractOwner = await publicClient.readContract({
         address: contractAddress,
-        abi: statTrackerAbi,
+        abi: POAPAbi,
         functionName: "owner",
       });
 
@@ -123,7 +124,7 @@ describe("StatTracker Soulbound NFT Tests", () => {
       // Get current nextTokenId before minting
       const currentTokenId = await publicClient.readContract({
         address: contractAddress,
-        abi: statTrackerAbi,
+        abi: POAPAbi,
         functionName: "nextTokenId",
       });
 
@@ -132,7 +133,7 @@ describe("StatTracker Soulbound NFT Tests", () => {
       // Mint NFT to recipient
       const mintHash = await testClient.writeContract({
         address: contractAddress,
-        abi: statTrackerAbi,
+        abi: POAPAbi,
         functionName: "mint",
         args: [recipient.address],
         account: owner,
@@ -143,14 +144,14 @@ describe("StatTracker Soulbound NFT Tests", () => {
       // Verify minting
       const ownerOf = await publicClient.readContract({
         address: contractAddress,
-        abi: statTrackerAbi,
+        abi: POAPAbi,
         functionName: "ownerOf",
         args: [tokenId],
       });
 
       const balance = await publicClient.readContract({
         address: contractAddress,
-        abi: statTrackerAbi,
+        abi: POAPAbi,
         functionName: "balanceOf",
         args: [recipient.address],
       });
@@ -162,7 +163,7 @@ describe("StatTracker Soulbound NFT Tests", () => {
     it("should increment nextTokenId after minting", async () => {
       const nextTokenId = await publicClient.readContract({
         address: contractAddress,
-        abi: statTrackerAbi,
+        abi: POAPAbi,
         functionName: "nextTokenId",
       });
 
@@ -173,7 +174,7 @@ describe("StatTracker Soulbound NFT Tests", () => {
       try {
         await testClient.writeContract({
           address: contractAddress,
-          abi: statTrackerAbi,
+          abi: POAPAbi,
           functionName: "mint",
           args: [recipient.address],
           account: thirdParty, // Non-owner account
@@ -193,7 +194,7 @@ describe("StatTracker Soulbound NFT Tests", () => {
       // Get current nextTokenId and mint a token for testing transfers
       const currentTokenId = await publicClient.readContract({
         address: contractAddress,
-        abi: statTrackerAbi,
+        abi: POAPAbi,
         functionName: "nextTokenId",
       });
 
@@ -201,7 +202,7 @@ describe("StatTracker Soulbound NFT Tests", () => {
 
       await testClient.writeContract({
         address: contractAddress,
-        abi: statTrackerAbi,
+        abi: POAPAbi,
         functionName: "mint",
         args: [recipient.address],
         account: owner,
@@ -212,7 +213,7 @@ describe("StatTracker Soulbound NFT Tests", () => {
       try {
         await testClient.writeContract({
           address: contractAddress,
-          abi: statTrackerAbi,
+          abi: POAPAbi,
           functionName: "transferFrom",
           args: [recipient.address, thirdParty.address, testTokenId],
           account: recipient,
@@ -228,7 +229,7 @@ describe("StatTracker Soulbound NFT Tests", () => {
       try {
         await testClient.writeContract({
           address: contractAddress,
-          abi: statTrackerAbi,
+          abi: POAPAbi,
           functionName: "safeTransferFrom",
           args: [recipient.address, thirdParty.address, testTokenId],
           account: recipient,
@@ -244,7 +245,7 @@ describe("StatTracker Soulbound NFT Tests", () => {
       try {
         await testClient.writeContract({
           address: contractAddress,
-          abi: statTrackerAbi,
+          abi: POAPAbi,
           functionName: "safeTransferFrom",
           args: [recipient.address, thirdParty.address, testTokenId, "0x"],
           account: recipient,
@@ -260,7 +261,7 @@ describe("StatTracker Soulbound NFT Tests", () => {
       try {
         await testClient.writeContract({
           address: contractAddress,
-          abi: statTrackerAbi,
+          abi: POAPAbi,
           functionName: "approve",
           args: [thirdParty.address, testTokenId],
           account: recipient,
@@ -276,7 +277,7 @@ describe("StatTracker Soulbound NFT Tests", () => {
       try {
         await testClient.writeContract({
           address: contractAddress,
-          abi: statTrackerAbi,
+          abi: POAPAbi,
           functionName: "setApprovalForAll",
           args: [thirdParty.address, true],
           account: recipient,
@@ -292,7 +293,7 @@ describe("StatTracker Soulbound NFT Tests", () => {
       try {
         await testClient.writeContract({
           address: contractAddress,
-          abi: statTrackerAbi,
+          abi: POAPAbi,
           functionName: "transferFrom",
           args: [recipient.address, thirdParty.address, testTokenId],
           account: thirdParty, // Third party trying to transfer
@@ -312,7 +313,7 @@ describe("StatTracker Soulbound NFT Tests", () => {
       // Get current nextTokenId and mint a token for verification tests
       const currentTokenId = await publicClient.readContract({
         address: contractAddress,
-        abi: statTrackerAbi,
+        abi: POAPAbi,
         functionName: "nextTokenId",
       });
 
@@ -320,7 +321,7 @@ describe("StatTracker Soulbound NFT Tests", () => {
 
       await testClient.writeContract({
         address: contractAddress,
-        abi: statTrackerAbi,
+        abi: POAPAbi,
         functionName: "mint",
         args: [recipient.address],
         account: owner,
@@ -332,7 +333,7 @@ describe("StatTracker Soulbound NFT Tests", () => {
       try {
         await testClient.writeContract({
           address: contractAddress,
-          abi: statTrackerAbi,
+          abi: POAPAbi,
           functionName: "transferFrom",
           args: [recipient.address, thirdParty.address, verifyTokenId],
           account: recipient,
@@ -344,21 +345,21 @@ describe("StatTracker Soulbound NFT Tests", () => {
       // Verify ownership hasn't changed
       const ownerOf = await publicClient.readContract({
         address: contractAddress,
-        abi: statTrackerAbi,
+        abi: POAPAbi,
         functionName: "ownerOf",
         args: [verifyTokenId],
       });
 
       const recipientBalance = await publicClient.readContract({
         address: contractAddress,
-        abi: statTrackerAbi,
+        abi: POAPAbi,
         functionName: "balanceOf",
         args: [recipient.address],
       });
 
       const thirdPartyBalance = await publicClient.readContract({
         address: contractAddress,
-        abi: statTrackerAbi,
+        abi: POAPAbi,
         functionName: "balanceOf",
         args: [thirdParty.address],
       });
@@ -371,14 +372,14 @@ describe("StatTracker Soulbound NFT Tests", () => {
     it("should show no approved addresses due to disabled approvals", async () => {
       const approved = await publicClient.readContract({
         address: contractAddress,
-        abi: statTrackerAbi,
+        abi: POAPAbi,
         functionName: "getApproved",
         args: [verifyTokenId],
       });
 
       const isApprovedForAll = await publicClient.readContract({
         address: contractAddress,
-        abi: statTrackerAbi,
+        abi: POAPAbi,
         functionName: "isApprovedForAll",
         args: [recipient.address, thirdParty.address],
       });
