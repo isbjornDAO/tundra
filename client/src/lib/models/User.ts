@@ -25,11 +25,10 @@ const UserSchema = new mongoose.Schema({
   },
   email: {
     type: String,
-    required: true,
-    unique: true,
     lowercase: true,
     trim: true,
-    match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    sparse: true,
+    index: true
   },
   avatar: String,
   bio: String,
@@ -77,9 +76,9 @@ const UserSchema = new mongoose.Schema({
   }
 });
 
-UserSchema.index({ walletAddress: 1 });
-UserSchema.index({ username: 1 });
-UserSchema.index({ email: 1 });
+// Indexes are already created by unique: true in schema fields
+// UserSchema.index({ walletAddress: 1 }); // Already unique in schema
+// UserSchema.index({ username: 1 }); // Already unique in schema
 UserSchema.index({ clan: 1 });
 
 export const User = mongoose.models.User || mongoose.model('User', UserSchema);

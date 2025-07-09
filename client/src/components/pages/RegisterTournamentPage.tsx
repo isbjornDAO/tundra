@@ -5,18 +5,28 @@ import { useAccount } from 'wagmi';
 import { Layout } from '@/components/Layout';
 import { useTournaments } from '@/hooks/useTournaments';
 import { REGIONS, type Game, type Region, type Player } from '@/types/tournament';
+import { COUNTRIES } from '@/types/countries';
 
 interface User {
   _id: string;
   walletAddress: string;
   displayName: string;
   isClanLeader: boolean;
+  country?: string;
   clan?: {
     _id: string;
     name: string;
     tag: string;
     members: User[];
   };
+}
+
+interface Clan {
+  _id: string;
+  name: string;
+  tag: string;
+  country: string;
+  members: User[];
 }
 
 interface ClanMember {
@@ -32,8 +42,11 @@ export default function RegisterTournamentPage() {
   const [mounted, setMounted] = useState(false);
   const [currentStep, setCurrentStep] = useState<Step>('game');
   const [selectedGame, setSelectedGame] = useState<Game | ''>('');
+  const [selectedTournament, setSelectedTournament] = useState<any>(null);
   const [teamName, setTeamName] = useState('');
-  const [teamRegion, setTeamRegion] = useState<Region | ''>('');
+  const [teamCountry, setTeamCountry] = useState<string>('');
+  const [selectedClan, setSelectedClan] = useState<Clan | null>(null);
+  const [userClans, setUserClans] = useState<Clan[]>([]);
   const [players, setPlayers] = useState<Player[]>(
     Array(5).fill(null).map((_, i) => ({ id: `${Date.now()}-${i}`, name: '', steamId: '' }))
   );
@@ -49,13 +62,15 @@ export default function RegisterTournamentPage() {
       const formData = {
         currentStep,
         selectedGame,
+        selectedTournament,
         teamName,
-        teamRegion,
+        teamCountry,
+        selectedClan,
         players
       };
       localStorage.setItem('tournamentRegistration', JSON.stringify(formData));
     }
-  }, [currentStep, selectedGame, teamName, teamRegion, players, mounted]);
+  }, [currentStep, selectedGame, selectedTournament, teamName, teamCountry, selectedClan, players, mounted]);
 
   // Load form data from localStorage on mount
   useEffect(() => {
@@ -66,8 +81,10 @@ export default function RegisterTournamentPage() {
           const parsedData = JSON.parse(savedData);
           setCurrentStep(parsedData.currentStep || 'game');
           setSelectedGame(parsedData.selectedGame || '');
+          setSelectedTournament(parsedData.selectedTournament || null);
           setTeamName(parsedData.teamName || '');
-          setTeamRegion(parsedData.teamRegion || '');
+          setTeamCountry(parsedData.teamCountry || '');
+          setSelectedClan(parsedData.selectedClan || null);
           if (parsedData.players && Array.isArray(parsedData.players)) {
             setPlayers(parsedData.players);
           }
@@ -99,18 +116,33 @@ export default function RegisterTournamentPage() {
         throw new Error('User not found');
       }
       const userData = await response.json();
-      setUser(userData);
+      setUser(userData.user);
       
-      if (userData.clan && userData.isClanLeader) {
-        const clanResponse = await fetch(`/api/clans?id=${userData.clan._id}`);
-        if (clanResponse.ok) {
-          const clanData = await clanResponse.json();
-          setClanMembers(
-            clanData.members.map((member: User) => ({
-              ...member,
-              selected: false
-            }))
-          );
+      // Set default country from user profile
+      if (userData.user.country) {
+        setTeamCountry(userData.user.country);
+      }
+      
+      // Fetch clans where user is a leader
+      if (userData.user.isClanLeader) {
+        const clansResponse = await fetch(`/api/clans?leaderAddress=${address}`);
+        if (clansResponse.ok) {
+          const clansData = await clansResponse.json();
+          setUserClans(clansData.clans || []);
+          
+          // If user has a current clan, set it as selected
+          if (userData.user.clan) {
+            const currentClan = clansData.clans?.find((clan: Clan) => clan._id === userData.user.clan._id);
+            if (currentClan) {
+              setSelectedClan(currentClan);
+              setClanMembers(
+                currentClan.members.map((member: User) => ({
+                  ...member,
+                  selected: false
+                }))
+              );
+            }
+          }
         }
       }
     } catch (error) {
@@ -118,6 +150,19 @@ export default function RegisterTournamentPage() {
       setError('Failed to load user data. Please ensure you have registered an account.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleClanSelection = (clanId: string) => {
+    const clan = userClans.find(c => c._id === clanId);
+    if (clan) {
+      setSelectedClan(clan);
+      setClanMembers(
+        clan.members.map((member: User) => ({
+          ...member,
+          selected: false
+        }))
+      );
     }
   };
 
@@ -167,10 +212,10 @@ export default function RegisterTournamentPage() {
   }
 
   // Show tournaments to all users, but disable registration for non-clan leaders
-  const canRegister = user && user.isClanLeader && user.clan;
+  const canRegister = user && user.isClanLeader && userClans.length > 0;
   const restrictionMessage = !user ? 'You need to create an account to register for tournaments.' 
     : !user.isClanLeader ? 'Only clan leaders can register teams for tournaments. Contact an admin to be granted clan leader permissions.'
-    : !user.clan ? 'You need to be part of a clan to register for tournaments. Create or join a clan first.'
+    : userClans.length === 0 ? 'You need to be a leader of a clan to register for tournaments. Create or join a clan first.'
     : null;
 
   const updatePlayer = (playerIndex: number, field: 'name' | 'steamId', value: string) => {
@@ -192,7 +237,6 @@ export default function RegisterTournamentPage() {
   };
 
   const handleSubmit = async () => {
-    const selectedTournament = tournaments.find(t => t.game === selectedGame);
     if (!selectedTournament || selectedTournament.status !== 'open') {
       alert('Tournament is not available for registration');
       return;
@@ -213,10 +257,10 @@ export default function RegisterTournamentPage() {
         body: JSON.stringify({
           tournamentId: selectedTournament._id,
           team: {
-            name: teamName || `[${user.clan?.tag}] ${user.clan?.name}`,
-            region: teamRegion,
+            name: teamName || `[${selectedClan?.tag}] ${selectedClan?.name}`,
+            country: teamCountry,
             organizer: address,
-            clanId: user.clan?._id,
+            clanId: selectedClan?._id,
             players: selectedMembers.map((member, i) => ({
               id: member._id,
               name: member.displayName,
@@ -231,13 +275,15 @@ export default function RegisterTournamentPage() {
         throw new Error('Failed to register team');
       }
 
-      alert(`Team "${teamName || user.clan?.name}" successfully registered for ${selectedGame} tournament!`);
+      alert(`Team "${teamName || selectedClan?.name}" successfully registered for ${selectedGame} tournament!`);
       
       // Clear localStorage and reset form
       localStorage.removeItem('tournamentRegistration');
       setTeamName('');
-      setTeamRegion('');
+      setTeamCountry('');
+      setSelectedClan(null);
       setSelectedGame('');
+      setSelectedTournament(null);
       setClanMembers(prev => prev.map(m => ({ ...m, selected: false })));
       setCurrentStep('game');
       
@@ -249,9 +295,8 @@ export default function RegisterTournamentPage() {
     }
   };
 
-  const selectedTournament = tournaments.find(t => t.game === selectedGame);
-  const canProceedFromGame = selectedGame && selectedTournament?.status === 'open';
-  const canProceedFromTeam = teamName && teamRegion;
+  const canProceedFromGame = selectedTournament && selectedTournament.status === 'open';
+  const canProceedFromTeam = teamName && teamCountry && selectedClan;
   const canProceedFromPlayers = clanMembers.filter(m => m.selected).length >= 3;
 
   const InfoModal = () => {
@@ -380,8 +425,8 @@ export default function RegisterTournamentPage() {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
                 {tournaments.map((tournament) => (
                   <div
-                    key={tournament.game}
-                    onClick={() => canRegister && tournament.status === 'open' && setSelectedGame(tournament.game as Game)}
+                    key={tournament._id}
+                    onClick={() => canRegister && tournament.status === 'open' && (setSelectedGame(tournament.game as Game), setSelectedTournament(tournament))}
                     className={`transition-all duration-200 ${
                       !canRegister ? 'opacity-70 cursor-not-allowed' 
                       : tournament.status !== 'open' ? 'opacity-50 cursor-not-allowed' 
@@ -389,7 +434,7 @@ export default function RegisterTournamentPage() {
                     }`}
                   >
                     <div className={`card-compact h-56 flex flex-col transition-all duration-200 ${
-                      selectedGame === tournament.game 
+                      selectedTournament?._id === tournament._id 
                         ? 'ring-2 ring-white/40 bg-white/5 scale-105' 
                         : ''
                     }`}>
@@ -460,7 +505,7 @@ export default function RegisterTournamentPage() {
                 >
                   {!canRegister 
                     ? 'Registration Restricted' 
-                    : selectedGame ? `Continue with ${selectedGame}` : 'Select a Game'}
+                    : selectedTournament ? `Continue with ${selectedTournament.game}` : 'Select a Tournament'}
                 </button>
               </div>
             </div>
@@ -474,40 +519,64 @@ export default function RegisterTournamentPage() {
               
               <div className="max-w-2xl mx-auto space-y-6">
                 <div className="form-group">
-                  <label className="form-label">Team Name</label>
-                  <input
-                    type="text"
-                    placeholder={`Leave empty to use: [${user.clan?.tag}] ${user.clan?.name}`}
-                    value={teamName}
-                    onChange={(e) => setTeamName(e.target.value)}
-                    className="input-field text-center text-xl"
-                  />
+                  <label className="form-label">Select Clan</label>
+                  <select
+                    value={selectedClan?._id || ''}
+                    onChange={(e) => handleClanSelection(e.target.value)}
+                    className="input-field"
+                    required
+                  >
+                    <option value="">Select a clan...</option>
+                    {userClans.map(clan => (
+                      <option key={clan._id} value={clan._id} className="text-black">
+                        [{clan.tag}] {clan.name} ({clan.country})
+                      </option>
+                    ))}
+                  </select>
                   <p className="text-sm text-gray-400 mt-1">
-                    Default: [{user.clan?.tag}] {user.clan?.name}
+                    Choose which clan you're representing
                   </p>
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Team Region</label>
+                  <label className="form-label">Team Name</label>
+                  <input
+                    type="text"
+                    placeholder={selectedClan ? `Leave empty to use: [${selectedClan.tag}] ${selectedClan.name}` : 'Select a clan first'}
+                    value={teamName}
+                    onChange={(e) => setTeamName(e.target.value)}
+                    className="input-field text-center text-xl"
+                    disabled={!selectedClan}
+                  />
+                  <p className="text-sm text-gray-400 mt-1">
+                    {selectedClan ? `Default: [${selectedClan.tag}] ${selectedClan.name}` : 'Select a clan to set default name'}
+                  </p>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Team Country</label>
                   <select
-                    value={teamRegion}
-                    onChange={(e) => setTeamRegion(e.target.value as Region)}
+                    value={teamCountry}
+                    onChange={(e) => setTeamCountry(e.target.value)}
                     className="input-field"
                     required
                   >
-                    <option value="">Select your region...</option>
-                    {REGIONS.map(region => (
-                      <option key={region} value={region} className="text-black">
-                        {region}
+                    <option value="">Select country...</option>
+                    {COUNTRIES.map(country => (
+                      <option key={country.name} value={country.name} className="text-black">
+                        {country.flag} {country.name}
                       </option>
                     ))}
                   </select>
+                  <p className="text-sm text-gray-400 mt-1">
+                    {user?.country ? `Default from your profile: ${user.country}` : 'Select your team\'s country'}
+                  </p>
                 </div>
 
                 {selectedTournament && (
                   <div className="card-compact bg-white/5 border-white/20">
                     <div className="text-center">
-                      <h4 className="text-white font-medium mb-2">Tournament: {selectedGame}</h4>
+                      <h4 className="text-white font-medium mb-2">Tournament: {selectedTournament.game}</h4>
                       <p className="text-sm text-gray-300">
                         {selectedTournament.registeredTeams}/{selectedTournament.maxTeams} teams registered
                       </p>
@@ -537,7 +606,7 @@ export default function RegisterTournamentPage() {
               <h2 className="heading-lg text-center mb-2">Select Team Members</h2>
               <p className="text-body text-center mb-4">Choose clan members for your team (minimum 3 players)</p>
               <p className="text-center text-sm text-gray-400 mb-8">
-                Clan: [{user.clan?.tag}] {user.clan?.name}
+                Clan: [{selectedClan?.tag}] {selectedClan?.name}
               </p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -607,7 +676,7 @@ export default function RegisterTournamentPage() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-400">Game:</span>
-                      <span className="text-white">{selectedGame}</span>
+                      <span className="text-white">{selectedTournament?.game}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-400">Prize Pool:</span>
@@ -626,12 +695,16 @@ export default function RegisterTournamentPage() {
                   <h3 className="text-white font-medium mb-4">Team Details</h3>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Team Name:</span>
-                      <span className="text-white">{teamName}</span>
+                      <span className="text-gray-400">Clan:</span>
+                      <span className="text-white">[{selectedClan?.tag}] {selectedClan?.name}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Region:</span>
-                      <span className="text-white">{teamRegion}</span>
+                      <span className="text-gray-400">Team Name:</span>
+                      <span className="text-white">{teamName || `[${selectedClan?.tag}] ${selectedClan?.name}`}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Country:</span>
+                      <span className="text-white">{teamCountry}</span>
                     </div>
                   </div>
                 </div>

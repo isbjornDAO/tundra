@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     
     const { searchParams } = new URL(request.url);
     const clanId = searchParams.get('id');
+    const leaderAddress = searchParams.get('leaderAddress');
     
     if (clanId) {
       const clan = await Clan.findById(clanId)
@@ -17,9 +18,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(clan);
     }
     
-    const clans = await Clan.find()
+    if (leaderAddress) {
+      // Find user by wallet address
+      const leader = await User.findOne({ walletAddress: leaderAddress.toLowerCase() });
+      if (!leader) {
+        return NextResponse.json({ clans: [] });
+      }
+      
+      // Find clans where this user is the leader
+      const clans = await Clan.find({ leader: leader._id })
+        .populate('leader')
+        .populate('members');
+      
+      return NextResponse.json({ clans });
+    }
+    
+    const clans = await Clan.find({})
       .populate('leader')
       .populate('members');
+    
+    console.log('Clans API - Found clans:', clans.length);
+    console.log('Clans API - First clan:', clans[0]);
+    
     return NextResponse.json(clans);
   } catch (error) {
     console.error('Error fetching clans:', error);
@@ -77,7 +97,8 @@ export async function POST(request: NextRequest) {
       logo,
       leader: leader._id,
       members: [leader._id],
-      region
+      region,
+      country: leader.country || region // Use leader's country or region as fallback
     });
     
     await clan.save();

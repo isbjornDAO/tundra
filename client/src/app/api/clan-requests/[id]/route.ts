@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import connectToDatabase from '@/lib/mongoose';
 import { ClanRequest } from '@/lib/models/ClanRequest';
 import { Clan } from '@/lib/models/Clan';
 import { User } from '@/lib/models/User';

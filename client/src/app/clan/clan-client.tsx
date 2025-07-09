@@ -60,6 +60,12 @@ function ClanContent() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [joinRequestLoading, setJoinRequestLoading] = useState<string | null>(null);
   const [createRequestLoading, setCreateRequestLoading] = useState(false);
+  const [showManageMembers, setShowManageMembers] = useState(false);
+  const [showEditDetails, setShowEditDetails] = useState(false);
+  const [showJoinRequests, setShowJoinRequests] = useState(false);
+  const [showClanSettings, setShowClanSettings] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   useEffect(() => {
     if (isConnected && address) {
@@ -176,6 +182,35 @@ function ClanContent() {
     } finally {
       setCreateRequestLoading(false);
     }
+  };
+
+  const handleLeaveClan = async () => {
+    if (!user?.clan) return;
+    
+    try {
+      const response = await fetch('/api/clans/leave', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          walletAddress: address,
+          clanId: user.clan._id
+        })
+      });
+      
+      if (response.ok) {
+        alert('Successfully left the clan!');
+        window.location.reload(); // Refresh to update user state
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Failed to leave clan');
+      }
+    } catch (error) {
+      console.error('Error leaving clan:', error);
+      alert('Failed to leave clan');
+    }
+    setShowLeaveConfirm(false);
   };
 
   if (!isConnected) {
@@ -531,16 +566,28 @@ function ClanContent() {
           <div className="card">
             <h2 className="text-xl font-semibold text-white mb-4">Clan Management</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <button className="btn btn-primary">
+              <button 
+                className="btn btn-primary"
+                onClick={() => setShowManageMembers(true)}
+              >
                 Manage Members
               </button>
-              <button className="btn btn-secondary">
+              <button 
+                className="btn btn-secondary"
+                onClick={() => setShowEditDetails(true)}
+              >
                 Edit Clan Details
               </button>
-              <button className="btn btn-secondary">
+              <button 
+                className="btn btn-secondary"
+                onClick={() => setShowJoinRequests(true)}
+              >
                 View Join Requests
               </button>
-              <button className="btn btn-outline-danger">
+              <button 
+                className="btn btn-outline-danger"
+                onClick={() => setShowClanSettings(true)}
+              >
                 Clan Settings
               </button>
             </div>
@@ -552,10 +599,16 @@ function ClanContent() {
           <div className="card">
             <h2 className="text-xl font-semibold text-white mb-4">Member Actions</h2>
             <div className="flex gap-4">
-              <button className="btn btn-secondary">
+              <button 
+                className="btn btn-secondary"
+                onClick={() => setShowInviteModal(true)}
+              >
                 Invite Players
               </button>
-              <button className="btn btn-outline-danger">
+              <button 
+                className="btn btn-outline-danger"
+                onClick={() => setShowLeaveConfirm(true)}
+              >
                 Leave Clan
               </button>
             </div>
@@ -671,6 +724,118 @@ function ClanContent() {
             >
               Create First Local Clan
             </button>
+          </div>
+        )}
+
+        {/* Leave Clan Confirmation Modal */}
+        {showLeaveConfirm && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-md w-full mx-4">
+              <h3 className="text-xl font-bold text-white mb-4">Leave Clan</h3>
+              <p className="text-gray-300 mb-6">
+                Are you sure you want to leave {user?.clan?.name}? This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowLeaveConfirm(false)}
+                  className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleLeaveClan}
+                  className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                >
+                  Leave Clan
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Placeholder Modals for Future Implementation */}
+        {showManageMembers && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-2xl w-full mx-4">
+              <h3 className="text-xl font-bold text-white mb-4">Manage Members</h3>
+              <p className="text-gray-300 mb-6">
+                Member management functionality coming soon!
+              </p>
+              <button
+                onClick={() => setShowManageMembers(false)}
+                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showEditDetails && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-2xl w-full mx-4">
+              <h3 className="text-xl font-bold text-white mb-4">Edit Clan Details</h3>
+              <p className="text-gray-300 mb-6">
+                Edit clan details functionality coming soon!
+              </p>
+              <button
+                onClick={() => setShowEditDetails(false)}
+                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showJoinRequests && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-2xl w-full mx-4">
+              <h3 className="text-xl font-bold text-white mb-4">View Join Requests</h3>
+              <p className="text-gray-300 mb-6">
+                Join requests management functionality coming soon!
+              </p>
+              <button
+                onClick={() => setShowJoinRequests(false)}
+                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showClanSettings && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-2xl w-full mx-4">
+              <h3 className="text-xl font-bold text-white mb-4">Clan Settings</h3>
+              <p className="text-gray-300 mb-6">
+                Clan settings functionality coming soon!
+              </p>
+              <button
+                onClick={() => setShowClanSettings(false)}
+                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showInviteModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-md w-full mx-4">
+              <h3 className="text-xl font-bold text-white mb-4">Invite Players</h3>
+              <p className="text-gray-300 mb-6">
+                Player invitation functionality coming soon!
+              </p>
+              <button
+                onClick={() => setShowInviteModal(false)}
+                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Close
+              </button>
+            </div>
           </div>
         )}
 

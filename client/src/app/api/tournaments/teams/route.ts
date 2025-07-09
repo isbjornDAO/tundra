@@ -22,6 +22,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Tournament is full" }, { status: 400 });
     }
 
+    // Check for duplicate registration by organizer
+    const existingTeams = await inMemoryDB.findTeams({ tournamentId });
+    const existingTeam = existingTeams.find(t => t.organizer === team.organizer);
+    if (existingTeam) {
+      return NextResponse.json({ error: "You have already registered a team for this tournament" }, { status: 400 });
+    }
+
     // Insert team
     const teamDoc = {
       ...team,

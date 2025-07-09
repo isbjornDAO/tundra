@@ -108,7 +108,67 @@ export async function GET(request: Request) {
       }
     }
 
-    // Global tournament stats using in-memory database
+    // Try to get MongoDB data first, fallback to in-memory
+    const mongoClient = await clientPromise;
+    
+    if (mongoClient) {
+      try {
+        const db = mongoClient.db("tundra");
+        const tournamentsCol = db.collection("tournaments");
+        const teamsCol = db.collection("teams");
+        
+        // Get all tournaments
+        const tournaments = await tournamentsCol.find({}).toArray();
+        const teams = await teamsCol.find({}).toArray();
+        
+        // Calculate stats from MongoDB data
+        const totalTournaments = tournaments.length;
+        const activeTournaments = tournaments.filter(t => t.status === 'active').length;
+        const completedTournaments = tournaments.filter(t => t.status === 'completed').length;
+        const openTournaments = tournaments.filter(t => t.status === 'open').length;
+        const totalTeams = teams.length;
+        
+        // Game breakdown - calculate from tournaments
+        const gameBreakdown = tournaments.reduce((acc, tournament) => {
+          const existing = acc.find(item => item._id === tournament.game);
+          if (existing) {
+            existing.total++;
+            if (tournament.status === 'completed') existing.completed++;
+            if (tournament.status === 'active') existing.active++;
+            if (tournament.status === 'open') existing.open++;
+          } else {
+            acc.push({
+              _id: tournament.game,
+              total: 1,
+              completed: tournament.status === 'completed' ? 1 : 0,
+              active: tournament.status === 'active' ? 1 : 0,
+              open: tournament.status === 'open' ? 1 : 0
+            });
+          }
+          return acc;
+        }, [] as any[]);
+
+        return NextResponse.json({
+          global: {
+            totalTournaments,
+            activeTournaments,
+            completedTournaments,
+            openTournaments,
+            totalTeams,
+            totalMatches: 0,
+            completedMatches: 0,
+            completionRate: completedTournaments > 0 ? (completedTournaments / totalTournaments) * 100 : 0
+          },
+          gameBreakdown,
+          recentActivity: []
+        });
+      } catch (mongoError) {
+        console.error("MongoDB error for stats:", mongoError);
+        // Fall through to in-memory fallback
+      }
+    }
+
+    // Fallback to in-memory database
     const stats = await inMemoryDB.getTournamentStats();
     const tournaments = await inMemoryDB.findTournaments();
     const teams = await inMemoryDB.findTeams();
@@ -140,12 +200,12 @@ export async function GET(request: Request) {
         completedTournaments: stats.completedTournaments,
         openTournaments: stats.openTournaments,
         totalTeams: stats.totalTeams,
-        totalMatches: 0, // No matches in simple implementation
+        totalMatches: 0,
         completedMatches: 0,
         completionRate: 0
       },
       gameBreakdown,
-      recentActivity: [] // No matches in simple implementation
+      recentActivity: []
     });
   } catch (error) {
     console.error("Error fetching tournament stats:", error);

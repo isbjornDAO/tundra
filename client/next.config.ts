@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   experimental: {
-    optimizePackageImports: ['@rainbow-me/rainbowkit', 'wagmi'],
+    optimizePackageImports: ['wagmi', '@privy-io/react-auth'],
   },
   webpack: (config, { isServer, webpack }) => {
     // Handle client-side only modules
@@ -32,6 +32,12 @@ const nextConfig: NextConfig = {
         resourceRegExp: /^pino-pretty$/,
       })
     );
+    
+    // Ignore source map warnings for node_modules
+    config.ignoreWarnings = [
+      /Failed to parse source map/,
+      /Source map error/,
+    ];
     
     return config;
   },

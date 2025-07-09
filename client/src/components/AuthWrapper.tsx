@@ -69,19 +69,7 @@ function AuthWrapperContent({ children }: AuthWrapperProps) {
     <>
       {children}
       
-      {/* Show signup modal if connected but needs signup */}
-      {isConnected && address && needsSignup && !loading && (
-        <UserSignupModal
-          isOpen={true}
-          walletAddress={address}
-          onSignupComplete={handleSignupComplete}
-          onClose={() => {
-            // Allow closing if there's an error (like wallet already registered)
-            // or if user wants to disconnect wallet
-            setNeedsSignup(false);
-          }}
-        />
-      )}
+      {/* Signup is now handled on the auth page, not in a modal */}
     </>
   );
 }

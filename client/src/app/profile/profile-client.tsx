@@ -41,7 +41,7 @@ function ProfileContent() {
     }
   };
 
-  if (!isConnected) {
+  if (!isConnected || !user) {
     return (
       <Layout>
         <div className="max-w-4xl mx-auto text-center">

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useAccount, useAccountEffect } from 'wagmi';
+import { usePrivy } from '@privy-io/react-auth';
 
 interface User {
   _id: string;
@@ -35,6 +36,10 @@ export function useAuth() {
   const [needsSignup, setNeedsSignup] = useState(false);
   const [address, setAddress] = useState<string | undefined>();
   const [isConnected, setIsConnected] = useState(false);
+  const prevAddressRef = useRef<string | undefined>();
+  const isSwitchingRef = useRef(false);
+
+  const { logout, login, authenticated } = usePrivy();
 
   useEffect(() => {
     setMounted(true);
@@ -45,12 +50,13 @@ export function useAuth() {
   
   useEffect(() => {
     if (mounted) {
+      console.log('wagmi account update:', wagmiAccount.address, wagmiAccount.isConnected);
       setAddress(wagmiAccount.address);
       setIsConnected(wagmiAccount.isConnected);
     }
   }, [mounted, wagmiAccount.address, wagmiAccount.isConnected]);
 
-  const fetchUser = async (walletAddress: string) => {
+  const fetchUser = useCallback(async (walletAddress: string) => {
     setLoading(true);
     try {
       const response = await fetch(`/api/users?walletAddress=${walletAddress}`);
@@ -77,7 +83,7 @@ export function useAuth() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const createUser = async (userData: any) => {
     try {
@@ -133,15 +139,118 @@ export function useAuth() {
     }
   };
 
-  useEffect(() => {
-    if (mounted && isConnected && address) {
-      fetchUser(address);
-    } else if (mounted) {
+  // Handle wallet switching
+  const handleWalletSwitch = useCallback(async (newAddress: string) => {
+    if (isSwitchingRef.current) return;
+    
+    try {
+      isSwitchingRef.current = true;
+      console.log('Switching from', prevAddressRef.current, 'to', newAddress);
+      
+      // Clear current user state
+      setUser(null);
+      setLoading(true);
+      
+      // Logout from Privy first if authenticated
+      if (authenticated && prevAddressRef.current && prevAddressRef.current !== newAddress) {
+        console.log('Logging out previous wallet...');
+        await logout();
+        
+        // Small delay to ensure logout completes
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Re-authenticate with new wallet
+        console.log('Logging in with new wallet...');
+        await login();
+      }
+      
+      // Update the address reference
+      prevAddressRef.current = newAddress;
+      
+      // Fetch user data for new wallet
+      await fetchUser(newAddress);
+    } catch (error) {
+      console.error('Error switching wallets:', error);
+    } finally {
+      isSwitchingRef.current = false;
+    }
+  }, [authenticated, logout, login, fetchUser]);
+
+  // Use wagmi's account change detection
+  useAccountEffect({
+    onConnect(data) {
+      console.log('useAccountEffect - Wallet connected:', data.address);
+      console.log('Previous address was:', prevAddressRef.current);
+      if (data.address && data.address !== prevAddressRef.current) {
+        console.log('Address changed, triggering switch...');
+        handleWalletSwitch(data.address);
+      } else {
+        console.log('Same address, no switch needed');
+      }
+    },
+    onDisconnect() {
+      console.log('useAccountEffect - Wallet disconnected');
       setUser(null);
       setNeedsSignup(false);
       setLoading(false);
+      prevAddressRef.current = undefined;
+    },
+  });
+
+  // Initial load only
+  useEffect(() => {
+    if (mounted && isConnected && address && !prevAddressRef.current) {
+      prevAddressRef.current = address;
+      fetchUser(address);
     }
-  }, [mounted, address, isConnected]);
+  }, [mounted, isConnected, address, fetchUser]);
+
+  // Listen to MetaMask account changes directly
+  useEffect(() => {
+    if (!mounted || typeof window === 'undefined') return;
+
+    // Type guard for ethereum provider
+    const ethereum = (window as any).ethereum;
+    if (!ethereum) return;
+
+    const handleAccountsChanged = async (accounts: string[]) => {
+      console.log('MetaMask accounts changed:', accounts);
+      
+      if (accounts.length === 0) {
+        // User disconnected all accounts
+        setUser(null);
+        setNeedsSignup(false);
+        prevAddressRef.current = undefined;
+        return;
+      }
+
+      const newAddress = accounts[0];
+      if (newAddress && newAddress.toLowerCase() !== prevAddressRef.current?.toLowerCase()) {
+        console.log('New account detected via MetaMask:', newAddress);
+        console.log('Previous was:', prevAddressRef.current);
+        
+        // Clear current state
+        setUser(null);
+        setLoading(true);
+        
+        // Update address reference
+        prevAddressRef.current = newAddress;
+        
+        // Fetch new user data
+        await fetchUser(newAddress);
+      }
+    };
+
+    // Add the event listener
+    ethereum.on('accountsChanged', handleAccountsChanged);
+
+    return () => {
+      // Clean up the event listener
+      if (ethereum.removeListener) {
+        ethereum.removeListener('accountsChanged', handleAccountsChanged);
+      }
+    };
+  }, [mounted, fetchUser]);
 
   return {
     user,

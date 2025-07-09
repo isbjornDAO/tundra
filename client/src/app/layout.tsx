@@ -5,6 +5,7 @@ import { Web3Provider } from "@/providers/Web3Provider";
 import { QueryProvider } from "@/providers/QueryProvider";
 import { PageProvider } from "@/contexts/PageContext";
 import { AuthWrapper } from "@/components/AuthWrapper";
+import { PrivyAuthGuard } from "@/components/PrivyAuthGuard";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,9 +35,11 @@ export default function RootLayout({
         <QueryProvider>
           <Web3Provider>
             <PageProvider>
-              <AuthWrapper>
-                {children}
-              </AuthWrapper>
+              <PrivyAuthGuard>
+                <AuthWrapper>
+                  {children}
+                </AuthWrapper>
+              </PrivyAuthGuard>
             </PageProvider>
           </Web3Provider>
         </QueryProvider>

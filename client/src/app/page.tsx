@@ -12,15 +12,19 @@ const ConnectWallet = dynamic(() => import('@/components/ConnectWallet').then(mo
   loading: () => <button className="btn btn-primary">Connect Wallet</button>
 });
 
-// Make InteractiveGlobe client-side only to prevent SSR issues with Three.js
-const InteractiveGlobe = dynamic(() => import('@/components/InteractiveGlobe').then(mod => ({ default: mod.InteractiveGlobe })), {
+// Make LiveSnowstormStream client-side only to prevent SSR issues
+const LiveSnowstormStream = dynamic(() => import('@/components/LiveSnowstormStream').then(mod => ({ default: mod.LiveSnowstormStream })), {
   ssr: false,
-  loading: () => <div className="h-[400px] flex items-center justify-center text-white">Loading globe...</div>
+  loading: () => <div className="h-[400px] flex items-center justify-center text-white">Loading live stream...</div>
 });
 import { PageRouter } from '@/components/PageRouter';
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   const [stats, setStats] = useState({
     totalGames: 0,
     totalSlots: 0,
@@ -39,15 +43,28 @@ export default function Home() {
     left: Math.random() * 100,
   }));
 
+  // Redirect to clan page if user is in a clan - DISABLED
+  // useEffect(() => {
+  //   if (!authLoading && user?.clan) {
+  //     router.push('/clan');
+  //   }
+  // }, [user, authLoading, router]);
+
   useEffect(() => {
     async function fetchStats() {
       try {
         const response = await fetch('/api/tournaments/stats');
         if (response.ok) {
           const data = await response.json();
+          
+          // Calculate total available slots across all tournaments
+          const totalSlots = data.gameBreakdown?.reduce((sum: number, game: any) => {
+            return sum + (game.total * 12); // Assuming 12 teams per tournament max
+          }, 0) || 0;
+          
           setStats({
             totalGames: data.gameBreakdown?.length || 0,
-            totalSlots: data.global?.totalTournaments * 12 || 0, // Assuming 12 teams per tournament
+            totalSlots: totalSlots,
             totalTeams: data.global?.totalTeams || 0,
             loading: false
           });
@@ -109,28 +126,14 @@ export default function Home() {
         
         <main className="container-main py-8 relative z-20">
           {/* Hero Section */}
-          <div className="text-center">
-            <div className="h-[300px] mb-8">
-              <InteractiveGlobe />
-            </div>
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-6 tracking-tight">
-              Brave the Cold
-            </h1>
-            <p className="text-body text-sm md:text-base mb-10 max-w-2xl mx-auto">
-              The rewards platform for IRL events and tournaments. Powered by Team1
-            </p>
-            <div className="flex flex-col sm:flex-row justify-center gap-4 mb-12">
-              <a href="/tournaments/register" className="btn btn-primary">
-                Register Team
-              </a>
-              <a href="/tournaments/bracket" className="btn btn-secondary">
-                View Brackets
-              </a>
+          <div className="text-center mb-24">
+            <div className="mb-8">
+              <LiveSnowstormStream />
             </div>
           </div>
 
           {/* Stats Section */}
-          <div className="grid-3 mb-16">
+          <div className="grid-3 mb-24">
             <div className="card text-center">
               <div className="heading-lg mb-2">{stats.loading ? '...' : stats.totalGames}</div>
               <div className="text-muted">Games Available</div>
@@ -145,13 +148,13 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Globe Section */}
-          <div className="mb-16">
+          {/* Tournament Calendar Section */}
+          <div className="mb-24">
             <SimpleTournamentMap />
           </div>
 
           {/* Features Grid */}
-          <div className="grid-2 section-tight mb-16">
+          <div className="grid-2 section-tight mb-24">
             <div className="card-interactive">
               <div className="flex items-start gap-6">
                 <div className="w-12 h-12 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -246,7 +249,7 @@ export default function Home() {
           </div>
 
           {/* CTA Section */}
-          <div className="card text-center mb-16">
+          <div className="card text-center mb-24">
             <h2 className="heading-lg mb-4">Ready to Compete?</h2>
             <p className="text-body mb-8 max-w-lg mx-auto">
               Join the global esports tournament platform powered by Team1 and Avalanche. 

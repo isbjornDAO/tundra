@@ -77,9 +77,9 @@ export function UserSignupModal({ isOpen, walletAddress, onSignupComplete, onClo
             
             <div className="space-y-4 text-lg text-gray-300 mb-8">
               <p>🎉 Your account has been created successfully!</p>
-              <p>🏆 You're now ready to compete in tournaments</p>
-              <p>👥 Join clans and build your esports legacy</p>
-              <p>💰 Earn prizes and climb the leaderboards</p>
+              <p>🌐 Connect with players in your local community</p>
+              <p>🏆 Compete in tournaments and earn rewards</p>
+              <p>📍 Discover events happening near you</p>
             </div>
             
             <div className="bg-white/5 rounded-lg p-6 mb-6">
@@ -122,6 +122,9 @@ export function UserSignupModal({ isOpen, walletAddress, onSignupComplete, onClo
         <div className="text-center mb-6">
           <h2 className="heading-lg mb-2">Welcome to Tundra!</h2>
           <p className="text-muted">Complete your account setup to get started</p>
+          <p className="text-yellow-400 text-sm mt-2">
+            ⚠️ Account creation is required to access the platform
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -198,16 +201,8 @@ export function UserSignupModal({ isOpen, walletAddress, onSignupComplete, onClo
 
           <div className="flex gap-3 pt-4">
             <button
-              type="button"
-              onClick={onClose}
-              className="btn btn-secondary flex-1"
-              disabled={loading}
-            >
-              Cancel
-            </button>
-            <button
               type="submit"
-              className="btn btn-primary flex-1"
+              className="btn btn-primary w-full"
               disabled={loading || !formData.username || !formData.displayName || !formData.email || !formData.country}
             >
               {loading ? 'Creating Account...' : 'Create Account'}

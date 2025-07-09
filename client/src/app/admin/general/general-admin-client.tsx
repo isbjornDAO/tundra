@@ -26,6 +26,7 @@ interface Clan {
   region: string;
   leader: User;
   members: User[];
+  createdAt: string;
 }
 
 export default function GeneralAdminClient() {
@@ -67,6 +68,9 @@ export default function GeneralAdminClient() {
       
       const usersData = await usersResponse.json();
       const clansData = await clansResponse.json();
+      
+      console.log('Admin - Users fetched:', usersData.length);
+      console.log('Admin - Clans fetched:', clansData);
       
       setUsers(usersData);
       setClans(clansData);
@@ -149,7 +153,7 @@ export default function GeneralAdminClient() {
 
   return (
     <WagmiGuard>
-      <Layout title="General Admin">
+      <Layout title="Admin">
         <div className="max-w-7xl mx-auto">
           {/* Tab Navigation */}
           <div className="border-b border-white/10 mb-8">
@@ -224,7 +228,12 @@ export default function GeneralAdminClient() {
 
           {activeTab === 'clans' && (
             <div>
-              <h2 className="heading-md mb-6">All Clans</h2>
+              <h2 className="heading-md mb-6">All Clans ({clans.length})</h2>
+              {clans.length === 0 ? (
+                <div className="card p-8 text-center">
+                  <p className="text-muted">No clans have been created yet.</p>
+                </div>
+              ) : (
               <div className="grid-3">
                 {clans.map((clan) => (
                   <div key={clan._id} className="card-compact">
@@ -239,7 +248,7 @@ export default function GeneralAdminClient() {
                     </div>
                     <div className="space-y-2">
                       <p className="text-sm text-muted">
-                        Leader: {clan.leader.displayName}
+                        Leader: {clan.leader?.displayName || 'Unknown'}
                       </p>
                       <p className="text-sm text-muted">
                         Created: {new Date(clan.createdAt).toLocaleDateString()}
@@ -248,6 +257,7 @@ export default function GeneralAdminClient() {
                   </div>
                 ))}
               </div>
+              )}
             </div>
           )}
 

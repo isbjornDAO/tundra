@@ -1,18 +1,39 @@
 import { NextResponse } from "next/server";
 import { inMemoryDB } from "@/lib/in-memory-db";
-// import clientPromise from "@/lib/mongodb";
+import clientPromise from "@/lib/mongodb";
 
 export async function GET() {
   try {
-    // Get all tournaments from in-memory database
-    const tournaments = await inMemoryDB.findTournaments();
-    const allTeams = await inMemoryDB.findTeams();
+    // Try to get MongoDB data first
+    const mongoClient = await clientPromise;
+    let tournaments = [];
+    let allTeams = [];
+    
+    if (mongoClient) {
+      try {
+        const db = mongoClient.db("tundra");
+        const tournamentsCol = db.collection("tournaments");
+        const teamsCol = db.collection("teams");
+        
+        tournaments = await tournamentsCol.find({}).toArray();
+        allTeams = await teamsCol.find({}).toArray();
+      } catch (mongoError) {
+        console.error("MongoDB error for locations:", mongoError);
+        // Fall back to in-memory database
+        tournaments = await inMemoryDB.findTournaments();
+        allTeams = await inMemoryDB.findTeams();
+      }
+    } else {
+      // Fall back to in-memory database
+      tournaments = await inMemoryDB.findTournaments();
+      allTeams = await inMemoryDB.findTeams();
+    }
     
     // Add teams to tournaments
     const tournamentsWithTeams = tournaments.map(tournament => ({
       ...tournament,
       teams: allTeams
-        .filter(team => team.tournamentId === tournament._id)
+        .filter(team => team.tournamentId === tournament._id.toString())
         .map(team => ({
           name: team.name,
           region: team.region || "North America",
@@ -33,19 +54,13 @@ export async function GET() {
     };
 
     // Group tournaments by region and add coordinates
-    const locationData = tournamentsWithTeams.reduce((acc, tournament) => {
-      // Get the most common region from teams in this tournament
-      const regionCounts = tournament.teams.reduce((counts, team) => {
-        const region = team.region || "Unknown";
-        counts[region] = (counts[region] || 0) + 1;
-        return counts;
-      }, {});
+    const locationData = tournamentsWithTeams.reduce((acc: any, tournament: any) => {
+      // Use tournament region directly, or get from teams if available
+      const primaryRegion = tournament.region || 
+        (tournament.teams.length > 0 ? tournament.teams[0].region : null) || 
+        "North America";
 
-      const primaryRegion = Object.entries(regionCounts).reduce((a, b) => 
-        regionCounts[a[0]] > regionCounts[b[0]] ? a : b
-      )?.[0] || "North America";
-
-      const coords = regionCoordinates[primaryRegion] || regionCoordinates["North America"];
+      const coords = (regionCoordinates as any)[primaryRegion] || regionCoordinates["North America"];
       
       const locationKey = `${coords.city}-${tournament.game}`;
       
@@ -66,14 +81,14 @@ export async function GET() {
 
       acc[locationKey].tournaments.push({
         id: tournament._id,
-        registeredTeams: tournament.registeredTeams,
-        maxTeams: tournament.maxTeams,
+        registeredTeams: tournament.registeredTeams || tournament.teams?.length || 0,
+        maxTeams: tournament.maxTeams || 16,
         status: tournament.status,
         createdAt: tournament.createdAt,
         completedAt: tournament.completedAt
       });
 
-      acc[locationKey].totalTeams += tournament.registeredTeams;
+      acc[locationKey].totalTeams += tournament.registeredTeams || tournament.teams?.length || 0;
       
       // Update status priority: active > open > completed
       if (tournament.status === 'active') {
@@ -86,10 +101,10 @@ export async function GET() {
     }, {});
 
     // Convert to array and add scheduled times
-    const locations = Object.values(locationData).map(location => ({
+    const locations = Object.values(locationData).map((location: any) => ({
       ...location,
-      scheduledTime: location.tournaments.find(t => t.status === 'active')?.createdAt || 
-                    location.tournaments.find(t => t.status === 'open')?.createdAt ||
+      scheduledTime: location.tournaments.find((t: any) => t.status === 'active')?.createdAt || 
+                    location.tournaments.find((t: any) => t.status === 'open')?.createdAt ||
                     location.tournaments[0]?.createdAt || new Date(),
       teamCount: location.totalTeams
     }));

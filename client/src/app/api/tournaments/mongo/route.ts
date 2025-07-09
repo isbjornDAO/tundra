@@ -17,7 +17,6 @@ export async function GET(request: NextRequest) {
     if (status) query.status = status;
     
     const tournaments = await Tournament.find(query)
-      .populate('teams')
       .sort({ createdAt: -1 });
     
     return NextResponse.json({ tournaments });
