@@ -8,6 +8,10 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 abstract contract SoulboundNFT is ERC721, Ownable {
     uint256 public nextTokenId;
 
+    string private _baseTokenURI;
+
+    mapping(address => uint256) private _addressToTokenId;
+
     mapping(uint256 => bool) public minted;
 
     constructor(
@@ -21,6 +25,7 @@ abstract contract SoulboundNFT is ERC721, Ownable {
         minted[tokenId] = true;
         nextTokenId++;
         _safeMint(to, tokenId);
+        _addressToTokenId[to] = tokenId;
     }
 
     function _update(
@@ -30,7 +35,7 @@ abstract contract SoulboundNFT is ERC721, Ownable {
     ) internal override(ERC721) returns (address) {
         address from = _ownerOf(tokenId);
 
-        if (from != address(0) && to != address(0)) {
+        if (from != address(0)) {
             revert("Soulbound: transfer disabled");
         }
 
@@ -46,5 +51,18 @@ abstract contract SoulboundNFT is ERC721, Ownable {
         bool approved
     ) public virtual override {
         revert("Soulbound: Approvals disabled");
+    }
+
+    function setBaseURI(string memory newBaseURI) public onlyOwner {
+        _baseTokenURI = newBaseURI;
+    }
+
+    function _baseURI() internal view override returns (string memory) {
+        return _baseTokenURI;
+    }
+
+    function tokenIdOf(address owner) public view returns (uint256) {
+        require(balanceOf(owner) > 0, "Soulbound: address does not own a token");
+        return _addressToTokenId[owner];
     }
 }
