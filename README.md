@@ -27,6 +27,7 @@ Global ranking system tracking leaderboards:
 - Overall ranking by XP
 - Competition-specific
 - Top regional guilds
+- Local clans
 
 Champions for each leaderboard will be crowned once a year.
 
