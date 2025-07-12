@@ -15,6 +15,8 @@ export async function GET(request: NextRequest) {
 
     // Validate username format
     const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+    console.log('Checking username:', username, 'Length:', username.length, 'Regex test:', usernameRegex.test(username));
+    
     if (!usernameRegex.test(username)) {
       return NextResponse.json({ 
         available: false, 

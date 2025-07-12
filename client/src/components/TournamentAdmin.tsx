@@ -65,6 +65,38 @@ interface Match {
   createdAt: string;
 }
 
+interface Clan {
+  _id: string;
+  name: string;
+  tag: string;
+  description?: string;
+  logo?: string;
+  leader: {
+    _id: string;
+    username: string;
+    displayName: string;
+  };
+  members: Array<{
+    _id: string;
+    username: string;
+    displayName: string;
+  }>;
+  maxMembers: number;
+  country: string;
+  region: string;
+  isVerified: boolean;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  isPublic: boolean;
+  stats: {
+    totalTournaments: number;
+    wins: number;
+    totalPrizeMoney: number;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface Tournament {
   tournament: {
     _id: string;
@@ -92,7 +124,7 @@ export function TournamentAdmin() {
   const [maxTeams, setMaxTeams] = useState(16);
   const [adminData, setAdminData] = useState<AdminData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'tournaments' | 'create' | 'matches' | 'users' | 'schedule'>('tournaments');
+  const [activeTab, setActiveTab] = useState<'tournaments' | 'create' | 'matches' | 'users' | 'schedule' | 'clans'>('tournaments');
   
   // Team1 Host Dashboard state
   const [hostTournaments, setHostTournaments] = useState<Tournament[]>([]);
@@ -114,12 +146,19 @@ export function TournamentAdmin() {
   // Schedule management state
   const [scheduleData, setScheduleData] = useState<{[key: string]: string}>({});
   const [schedulingMatch, setSchedulingMatch] = useState<string | null>(null);
+  
+  // Clan management state
+  const [clans, setClans] = useState<Clan[]>([]);
+  const [pendingClans, setPendingClans] = useState<Clan[]>([]);
+  const [approvingClan, setApprovingClan] = useState<string | null>(null);
 
   const tournaments = tournamentsData?.tournaments || [];
   
   useEffect(() => {
     if (address) {
       fetchAdminData();
+      // Always fetch clans for pending notifications
+      fetchClans();
       if (activeTab === 'matches' || activeTab === 'schedule') {
         fetchHostTournaments();
       }
@@ -172,6 +211,82 @@ export function TournamentAdmin() {
       setUsers(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching users:', error);
+    }
+  };
+
+  const fetchClans = async () => {
+    try {
+      const response = await fetch('/api/clans');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch clans');
+      }
+      
+      const data = await response.json();
+      const allClans = Array.isArray(data) ? data : [];
+      
+      setClans(allClans.filter((clan: Clan) => clan.isVerified));
+      setPendingClans(allClans.filter((clan: Clan) => !clan.isVerified));
+    } catch (error) {
+      console.error('Error fetching clans:', error);
+    }
+  };
+
+  const handleApproveClan = async (clanId: string) => {
+    try {
+      setApprovingClan(clanId);
+      const response = await fetch('/api/clans/admin', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clanId,
+          action: 'approve',
+          walletAddress: address
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to approve clan');
+      }
+
+      await fetchClans();
+      
+    } catch (error) {
+      console.error('Error approving clan:', error);
+      alert(`Error approving clan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setApprovingClan(null);
+    }
+  };
+
+  const handleRejectClan = async (clanId: string) => {
+    try {
+      setApprovingClan(clanId);
+      const response = await fetch('/api/clans/admin', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clanId,
+          action: 'reject',
+          walletAddress: address
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to reject clan');
+      }
+
+      await fetchClans();
+      
+    } catch (error) {
+      console.error('Error rejecting clan:', error);
+      alert(`Error rejecting clan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setApprovingClan(null);
     }
   };
 
@@ -358,7 +473,7 @@ export function TournamentAdmin() {
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-8">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-white">Tournament Hosting</h1>
+        <h1 className="text-3xl font-bold text-white">Host</h1>
         <div className="text-sm text-gray-400">
           Role: {adminData?.role === 'super_admin' ? 'Super Admin' : adminData?.role === 'regional_admin' ? 'Regional Admin' : adminData?.role === 'team1_host' ? 'Team1 Host' : 'User'}
           {adminData?.role === 'regional_admin' && (
@@ -367,7 +482,76 @@ export function TournamentAdmin() {
         </div>
       </div>
 
-      {/* Create Tournament */}
+      {/* Tab Navigation */}
+      <div className="border-b border-white/10">
+        <nav className="flex space-x-8">
+          <button
+            onClick={() => setActiveTab('tournaments')}
+            className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'tournaments'
+                ? 'border-red-500 text-red-400'
+                : 'border-transparent text-gray-400 hover:text-white'
+            }`}
+          >
+            <span>🏆</span>
+            Tournaments
+          </button>
+          <button
+            onClick={() => setActiveTab('matches')}
+            className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'matches'
+                ? 'border-red-500 text-red-400'
+                : 'border-transparent text-gray-400 hover:text-white'
+            }`}
+          >
+            <span>⚔️</span>
+            Matches
+          </button>
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'users'
+                ? 'border-red-500 text-red-400'
+                : 'border-transparent text-gray-400 hover:text-white'
+            }`}
+          >
+            <span>👥</span>
+            Users
+          </button>
+          <button
+            onClick={() => setActiveTab('schedule')}
+            className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'schedule'
+                ? 'border-red-500 text-red-400'
+                : 'border-transparent text-gray-400 hover:text-white'
+            }`}
+          >
+            <span>📅</span>
+            Schedule
+          </button>
+          <button
+            onClick={() => setActiveTab('clans')}
+            className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'clans'
+                ? 'border-red-500 text-red-400'
+                : 'border-transparent text-gray-400 hover:text-white'
+            }`}
+          >
+            <span>🛡️</span>
+            Clans
+            {pendingClans.length > 0 && (
+              <span className="px-1.5 py-0.5 bg-red-600 text-white text-xs rounded-full min-w-[20px] text-center">
+                {pendingClans.length}
+              </span>
+            )}
+          </button>
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'tournaments' && (
+        <>
+          {/* Create Tournament */}
       <div className="bg-black/20 rounded-lg border border-white/10 p-6">
         <h2 className="text-xl font-bold mb-4 text-white">Create New Tournament</h2>
         
@@ -428,30 +612,507 @@ export function TournamentAdmin() {
         </div>
       </div>
 
-      {/* Tournament List */}
-      <div className="bg-black/20 rounded-lg border border-white/10 p-6">
-        <h2 className="text-xl font-bold mb-4 text-white">Active Tournaments</h2>
-        
-        <div className="space-y-4">
-          {filteredTournaments.map((tournament: any) => (
-            <TournamentCard
-              key={tournament._id}
-              tournament={tournament}
-              onGenerateBracket={handleGenerateBracket}
-              generateBracketPending={generateBracket.isPending}
-            />
-          ))}
-          
-          {filteredTournaments.length === 0 && (
-            <p className="text-gray-400 text-center py-8">
-              {adminData?.role === 'regional_admin' 
-                ? `No tournaments found in your regions: ${adminData.regions.join(', ')}` 
-                : 'No tournaments found'
-              }
-            </p>
+          {/* Tournament List */}
+          <div className="bg-black/20 rounded-lg border border-white/10 p-6">
+            <h2 className="text-xl font-bold mb-4 text-white">Active Tournaments</h2>
+            
+            <div className="space-y-4">
+              {filteredTournaments.map((tournament: any) => (
+                <TournamentCard
+                  key={tournament._id}
+                  tournament={tournament}
+                  onGenerateBracket={handleGenerateBracket}
+                  generateBracketPending={generateBracket.isPending}
+                />
+              ))}
+              
+              {filteredTournaments.length === 0 && (
+                <p className="text-gray-400 text-center py-8">
+                  {adminData?.role === 'regional_admin' 
+                    ? `No tournaments found in your regions: ${adminData.regions.join(', ')}` 
+                    : 'No tournaments found'
+                  }
+                </p>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Clans Tab */}
+      {activeTab === 'clans' && (
+        <div className="space-y-6">
+          {/* Pending Clans Section */}
+          {pendingClans.length > 0 && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6">
+              <h2 className="text-xl font-bold mb-4 text-white flex items-center gap-2">
+                <span>Pending Clan Approvals</span>
+                <span className="px-2 py-1 bg-red-600 text-white text-sm rounded-full">
+                  {pendingClans.length}
+                </span>
+              </h2>
+              
+              <div className="space-y-4">
+                {pendingClans.map((clan) => (
+                  <div key={clan._id} className="bg-black/20 border border-white/20 rounded-lg p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="text-lg font-semibold text-white">{clan.name}</h3>
+                          <span className="px-2 py-1 bg-blue-600 text-white text-xs rounded font-medium">
+                            [{clan.tag}]
+                          </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                          <div>
+                            <span className="text-gray-400 text-sm">Leader:</span>
+                            <p className="text-white">{clan.leader.displayName} (@{clan.leader.username})</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 text-sm">Location:</span>
+                            <p className="text-white">{clan.country}, {clan.region}</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 text-sm">Members:</span>
+                            <p className="text-white">{clan.members.length} / {clan.maxMembers}</p>
+                          </div>
+                        </div>
+                        
+                        {clan.description && (
+                          <div className="mb-3">
+                            <span className="text-gray-400 text-sm">Description:</span>
+                            <p className="text-gray-300 text-sm">{clan.description}</p>
+                          </div>
+                        )}
+                        
+                        <div className="text-xs text-gray-400">
+                          Created: {new Date(clan.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-2 ml-4">
+                        <button
+                          onClick={() => handleApproveClan(clan._id)}
+                          disabled={approvingClan === clan._id}
+                          className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
+                        >
+                          {approvingClan === clan._id ? 'Approving...' : 'Approve'}
+                        </button>
+                        <button
+                          onClick={() => handleRejectClan(clan._id)}
+                          disabled={approvingClan === clan._id}
+                          className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
+                        >
+                          {approvingClan === clan._id ? 'Rejecting...' : 'Reject'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Approved Clans Section */}
+          <div className="bg-black/20 rounded-lg border border-white/10 p-6">
+            <h2 className="text-xl font-bold mb-4 text-white">Approved Clans</h2>
+            
+            <div className="space-y-4">
+              {clans.map((clan) => (
+                <div key={clan._id} className="bg-black/10 border border-white/20 rounded-lg p-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-lg font-semibold text-white">{clan.name}</h3>
+                        <span className="px-2 py-1 bg-blue-600 text-white text-xs rounded font-medium">
+                          [{clan.tag}]
+                        </span>
+                        <span className="px-2 py-1 bg-green-600 text-white text-xs rounded font-medium">
+                          ✓ Verified
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
+                        <div>
+                          <span className="text-gray-400 text-sm">Leader:</span>
+                          <p className="text-white">{clan.leader.displayName} (@{clan.leader.username})</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-400 text-sm">Location:</span>
+                          <p className="text-white">{clan.country}, {clan.region}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-400 text-sm">Members:</span>
+                          <p className="text-white">{clan.members.length} / {clan.maxMembers}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-400 text-sm">Tournaments:</span>
+                          <p className="text-white">{clan.stats.totalTournaments}</p>
+                        </div>
+                      </div>
+                      
+                      {clan.description && (
+                        <div className="mb-3">
+                          <span className="text-gray-400 text-sm">Description:</span>
+                          <p className="text-gray-300 text-sm">{clan.description}</p>
+                        </div>
+                      )}
+                      
+                      <div className="flex gap-4 text-xs text-gray-400">
+                        <span>Created: {new Date(clan.createdAt).toLocaleDateString()}</span>
+                        {clan.verifiedAt && (
+                          <span>Verified: {new Date(clan.verifiedAt).toLocaleDateString()}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {clans.length === 0 && (
+                <p className="text-gray-400 text-center py-8">No approved clans found</p>
+              )}
+            </div>
+          </div>
+
+          {pendingClans.length === 0 && (
+            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-6 text-center">
+              <h3 className="text-lg font-semibold text-green-400 mb-2">All caught up!</h3>
+              <p className="text-gray-300">No pending clan approvals at this time.</p>
+            </div>
           )}
         </div>
-      </div>
+      )}
+
+      {/* Matches Tab */}
+      {activeTab === 'matches' && (
+        <div className="space-y-6">
+          <div className="bg-black/20 rounded-lg border border-white/10 p-6">
+            <h2 className="text-xl font-bold mb-4 text-white">Match Results Entry</h2>
+            
+            <div className="space-y-6">
+              {hostTournaments.map((tournament) => (
+                <div key={tournament.tournament._id} className="bg-black/10 border border-white/20 rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">{tournament.tournament.game}</h3>
+                      <p className="text-gray-300">Region: {tournament.tournament.region}</p>
+                    </div>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${tournament.tournament.status === 'active' ? 'bg-green-600 text-white' : 'bg-gray-600 text-white'}`}>
+                      {tournament.tournament.status.toUpperCase()}
+                    </span>
+                  </div>
+
+                  {tournament.matches.length > 0 ? (
+                    <div className="space-y-3">
+                      {tournament.matches.map((match) => (
+                        <div key={match._id} className="bg-black/20 border border-white/10 rounded-lg p-4">
+                          <div className="flex justify-between items-center">
+                            <div className="flex-1">
+                              <h4 className="font-medium text-white mb-2">{getRoundDisplayName(match.round)}</h4>
+                              <div className="grid grid-cols-2 gap-4 mb-3">
+                                <div className="text-white">
+                                  <span className="text-gray-400">Team 1:</span> {match.team1?.name || 'TBD'}
+                                </div>
+                                <div className="text-white">
+                                  <span className="text-gray-400">Team 2:</span> {match.team2?.name || 'TBD'}
+                                </div>
+                              </div>
+                              
+                              {match.status === 'completed' && match.winner && (
+                                <div className="text-green-400 text-sm font-medium">
+                                  ✓ Winner: {match.winner.name}
+                                </div>
+                              )}
+                              
+                              {match.status === 'scheduled' && match.scheduledAt && (
+                                <div className="text-blue-400 text-sm">
+                                  📅 Scheduled: {new Date(match.scheduledAt).toLocaleString()}
+                                </div>
+                              )}
+                            </div>
+                            
+                            {match.status === 'pending' && match.team1 && match.team2 && (
+                              <div className="flex gap-2 ml-4">
+                                <button
+                                  onClick={() => handleEnterResult(match._id, match.team1!.id)}
+                                  disabled={submitting === match._id}
+                                  className="px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
+                                >
+                                  {submitting === match._id ? 'Submitting...' : `${match.team1.name} Wins`}
+                                </button>
+                                <button
+                                  onClick={() => handleEnterResult(match._id, match.team2!.id)}
+                                  disabled={submitting === match._id}
+                                  className="px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
+                                >
+                                  {submitting === match._id ? 'Submitting...' : `${match.team2.name} Wins`}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-400 text-center py-8">No matches found for this tournament</p>
+                  )}
+                </div>
+              ))}
+              
+              {hostTournaments.length === 0 && (
+                <p className="text-gray-400 text-center py-8">No tournaments found for match management</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Users Tab */}
+      {activeTab === 'users' && (
+        <div className="space-y-6">
+          <div className="bg-black/20 rounded-lg border border-white/10 p-6">
+            <h2 className="text-xl font-bold mb-4 text-white">User Management</h2>
+            
+            <div className="mb-6">
+              <input
+                type="text"
+                placeholder="Search users by username, display name, or wallet address..."
+                value={userSearchQuery}
+                onChange={(e) => setUserSearchQuery(e.target.value)}
+                className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            
+            <div className="space-y-4">
+              {filteredUsers.map((user) => (
+                <div key={user._id} className="bg-black/10 border border-white/20 rounded-lg p-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-lg font-semibold text-white">{user.displayName}</h3>
+                        <span className="text-gray-400">@{user.username}</span>
+                        {user.isAdmin && (
+                          <span className="px-2 py-1 bg-red-600 text-white text-xs rounded font-medium">Admin</span>
+                        )}
+                        {user.isTeam1Host && (
+                          <span className="px-2 py-1 bg-purple-600 text-white text-xs rounded font-medium">Team1 Host</span>
+                        )}
+                        {user.isClanLeader && (
+                          <span className="px-2 py-1 bg-blue-600 text-white text-xs rounded font-medium">Clan Leader</span>
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
+                        <div>
+                          <span className="text-gray-400 text-sm">Level:</span>
+                          <p className="text-white">{user.stats.level}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-400 text-sm">XP:</span>
+                          <p className="text-white">{user.stats.xp}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-400 text-sm">Tournaments:</span>
+                          <p className="text-white">{user.stats.totalTournaments}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-400 text-sm">Wins:</span>
+                          <p className="text-white">{user.stats.wins}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-4 text-xs text-gray-400">
+                        <span>Country: {user.country}</span>
+                        <span>Joined: {new Date(user.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-2 ml-4">
+                      <button
+                        onClick={() => handleUserEdit(user)}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
+                      >
+                        Edit Stats
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {filteredUsers.length === 0 && (
+                <p className="text-gray-400 text-center py-8">No users found</p>
+              )}
+            </div>
+          </div>
+
+          {/* User Edit Modal */}
+          {isEditingUser && selectedUser && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+              <div className="bg-gray-900 border border-white/20 rounded-lg p-6 w-full max-w-md">
+                <h3 className="text-xl font-bold text-white mb-4">Edit User Stats</h3>
+                <p className="text-gray-300 mb-4">
+                  Editing stats for: <span className="font-semibold">{selectedUser.displayName}</span>
+                </p>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-white">Level</label>
+                    <input
+                      type="number"
+                      value={userStats.level}
+                      onChange={(e) => setUserStats(prev => ({ ...prev, level: parseInt(e.target.value) || 1 }))}
+                      min="1"
+                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-white">XP</label>
+                    <input
+                      type="number"
+                      value={userStats.xp}
+                      onChange={(e) => setUserStats(prev => ({ ...prev, xp: parseInt(e.target.value) || 0 }))}
+                      min="0"
+                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-white">Total Tournaments</label>
+                    <input
+                      type="number"
+                      value={userStats.totalTournaments}
+                      onChange={(e) => setUserStats(prev => ({ ...prev, totalTournaments: parseInt(e.target.value) || 0 }))}
+                      min="0"
+                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-white">Wins</label>
+                    <input
+                      type="number"
+                      value={userStats.wins}
+                      onChange={(e) => setUserStats(prev => ({ ...prev, wins: parseInt(e.target.value) || 0 }))}
+                      min="0"
+                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-white">Total Prize Money</label>
+                    <input
+                      type="number"
+                      value={userStats.totalPrizeMoney}
+                      onChange={(e) => setUserStats(prev => ({ ...prev, totalPrizeMoney: parseInt(e.target.value) || 0 }))}
+                      min="0"
+                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={() => handleUserStatsUpdate(selectedUser._id, userStats)}
+                    disabled={submitting === selectedUser._id}
+                    className="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:cursor-not-allowed text-white font-medium rounded-md transition-colors"
+                  >
+                    {submitting === selectedUser._id ? 'Saving...' : 'Save Changes'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsEditingUser(false);
+                      setSelectedUser(null);
+                    }}
+                    className="flex-1 py-2 px-4 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-md transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Schedule Tab */}
+      {activeTab === 'schedule' && (
+        <div className="space-y-6">
+          <div className="bg-black/20 rounded-lg border border-white/10 p-6">
+            <h2 className="text-xl font-bold mb-4 text-white">Match Scheduling</h2>
+            
+            <div className="space-y-6">
+              {hostTournaments.map((tournament) => (
+                <div key={tournament.tournament._id} className="bg-black/10 border border-white/20 rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">{tournament.tournament.game}</h3>
+                      <p className="text-gray-300">Region: {tournament.tournament.region}</p>
+                    </div>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${tournament.tournament.status === 'active' ? 'bg-green-600 text-white' : 'bg-gray-600 text-white'}`}>
+                      {tournament.tournament.status.toUpperCase()}
+                    </span>
+                  </div>
+
+                  {tournament.matches.length > 0 ? (
+                    <div className="space-y-3">
+                      {tournament.matches.filter(match => match.status !== 'completed').map((match) => (
+                        <div key={match._id} className="bg-black/20 border border-white/10 rounded-lg p-4">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <h4 className="font-medium text-white mb-2">{getRoundDisplayName(match.round)}</h4>
+                              <div className="grid grid-cols-2 gap-4 mb-3">
+                                <div className="text-white">
+                                  <span className="text-gray-400">Team 1:</span> {match.team1?.name || 'TBD'}
+                                </div>
+                                <div className="text-white">
+                                  <span className="text-gray-400">Team 2:</span> {match.team2?.name || 'TBD'}
+                                </div>
+                              </div>
+                              
+                              {match.status === 'scheduled' && match.scheduledAt && (
+                                <div className="text-blue-400 text-sm">
+                                  📅 Scheduled: {new Date(match.scheduledAt).toLocaleString()}
+                                </div>
+                              )}
+                            </div>
+                            
+                            {match.team1 && match.team2 && (
+                              <div className="flex items-center gap-2 ml-4">
+                                <input
+                                  type="datetime-local"
+                                  value={scheduleData[match._id] || ''}
+                                  onChange={(e) => setScheduleData(prev => ({ ...prev, [match._id]: e.target.value }))}
+                                  className="px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <button
+                                  onClick={() => handleScheduleMatch(match._id, scheduleData[match._id])}
+                                  disabled={schedulingMatch === match._id || !scheduleData[match._id]}
+                                  className="px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
+                                >
+                                  {schedulingMatch === match._id ? 'Scheduling...' : 'Schedule'}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-400 text-center py-8">No matches available for scheduling</p>
+                  )}
+                </div>
+              ))}
+              
+              {hostTournaments.length === 0 && (
+                <p className="text-gray-400 text-center py-8">No tournaments found for scheduling</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

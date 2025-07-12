@@ -34,13 +34,13 @@ export default function RootLayout({
       >
         <QueryProvider>
           <Web3Provider>
-            <PageProvider>
-              <PrivyAuthGuard>
+            <PrivyAuthGuard>
+              <PageProvider>
                 <AuthWrapper>
                   {children}
                 </AuthWrapper>
-              </PrivyAuthGuard>
-            </PageProvider>
+              </PageProvider>
+            </PrivyAuthGuard>
           </Web3Provider>
         </QueryProvider>
       </body>

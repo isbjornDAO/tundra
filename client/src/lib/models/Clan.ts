@@ -78,8 +78,6 @@ const ClanSchema = new mongoose.Schema({
   }
 });
 
-ClanSchema.index({ name: 1 });
-ClanSchema.index({ tag: 1 });
 ClanSchema.index({ leader: 1 });
 
 export const Clan = mongoose.models.Clan || mongoose.model('Clan', ClanSchema);

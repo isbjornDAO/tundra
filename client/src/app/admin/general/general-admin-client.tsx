@@ -23,10 +23,17 @@ interface Clan {
   _id: string;
   name: string;
   tag: string;
+  description?: string;
   region: string;
+  country: string;
   leader: User;
   members: User[];
+  maxMembers: number;
+  isVerified: boolean;
+  verifiedBy?: string;
+  verifiedAt?: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 export default function GeneralAdminClient() {
@@ -36,9 +43,12 @@ export default function GeneralAdminClient() {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [clans, setClans] = useState<Clan[]>([]);
+  const [pendingClans, setPendingClans] = useState<Clan[]>([]);
+  const [verifiedClans, setVerifiedClans] = useState<Clan[]>([]);
   const [activeTab, setActiveTab] = useState<'users' | 'clans' | 'whitelist'>('users');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [adminRegions, setAdminRegions] = useState<string[]>([]);
+  const [approvingClan, setApprovingClan] = useState<string | null>(null);
 
   useEffect(() => {
     if (address) {
@@ -46,6 +56,10 @@ export default function GeneralAdminClient() {
       fetchData();
     }
   }, [address]);
+
+  const handleTabChange = (tab: 'users' | 'clans' | 'whitelist') => {
+    setActiveTab(tab);
+  };
 
   const checkAuthorization = async () => {
     try {
@@ -74,6 +88,13 @@ export default function GeneralAdminClient() {
       
       setUsers(usersData);
       setClans(clansData);
+      
+      // Separate pending and verified clans
+      const pending = clansData.filter((clan: Clan) => !clan.isVerified);
+      const verified = clansData.filter((clan: Clan) => clan.isVerified);
+      
+      setPendingClans(pending);
+      setVerifiedClans(verified);
     } catch (error) {
       console.error('Error fetching data:', error);
     }
@@ -124,6 +145,64 @@ export default function GeneralAdminClient() {
     }
   };
 
+  const handleApproveClan = async (clanId: string) => {
+    try {
+      setApprovingClan(clanId);
+      const response = await fetch('/api/clans/admin', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clanId,
+          action: 'approve',
+          walletAddress: address
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to approve clan');
+      }
+
+      await fetchData();
+      
+    } catch (error) {
+      console.error('Error approving clan:', error);
+      alert(`Error approving clan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setApprovingClan(null);
+    }
+  };
+
+  const handleRejectClan = async (clanId: string) => {
+    try {
+      setApprovingClan(clanId);
+      const response = await fetch('/api/clans/admin', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clanId,
+          action: 'reject',
+          walletAddress: address
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to reject clan');
+      }
+
+      await fetchData();
+      
+    } catch (error) {
+      console.error('Error rejecting clan:', error);
+      alert(`Error rejecting clan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setApprovingClan(null);
+    }
+  };
+
   if (loading) {
     return (
       <WagmiGuard>
@@ -161,7 +240,7 @@ export default function GeneralAdminClient() {
               {['users', 'clans', 'whitelist'].map((tab) => (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab as any)}
+                  onClick={() => handleTabChange(tab as any)}
                   className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors capitalize ${
                     activeTab === tab
                       ? 'border-red-500 text-red-400'
@@ -227,37 +306,128 @@ export default function GeneralAdminClient() {
           )}
 
           {activeTab === 'clans' && (
-            <div>
-              <h2 className="heading-md mb-6">All Clans ({clans.length})</h2>
-              {clans.length === 0 ? (
-                <div className="card p-8 text-center">
-                  <p className="text-muted">No clans have been created yet.</p>
-                </div>
-              ) : (
-              <div className="grid-3">
-                {clans.map((clan) => (
-                  <div key={clan._id} className="card-compact">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="text-white font-semibold text-lg">[{clan.tag}] {clan.name}</h3>
-                        <p className="text-muted">Region: {clan.region}</p>
-                      </div>
-                      <span className="status-badge status-active">
-                        {clan.members.length} members
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      <p className="text-sm text-muted">
-                        Leader: {clan.leader?.displayName || 'Unknown'}
-                      </p>
-                      <p className="text-sm text-muted">
-                        Created: {new Date(clan.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
+            <div className="space-y-8">
+              {/* Pending Clans */}
+              <div>
+                <h2 className="heading-md mb-6 flex items-center gap-2">
+                  Pending Clan Approvals
+                  {pendingClans.length > 0 && (
+                    <span className="px-2 py-1 bg-red-600 text-white text-sm rounded-full">
+                      {pendingClans.length}
+                    </span>
+                  )}
+                </h2>
+                {pendingClans.length === 0 ? (
+                  <div className="card p-8 text-center">
+                    <p className="text-muted">No pending clan approvals.</p>
                   </div>
-                ))}
+                ) : (
+                  <div className="space-y-4">
+                    {pendingClans.map((clan) => (
+                      <div key={clan._id} className="card p-6">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-4">
+                              <h3 className="text-white font-semibold text-xl">{clan.name}</h3>
+                              <span className="px-2 py-1 bg-blue-600 text-white text-sm rounded font-medium">
+                                [{clan.tag}]
+                              </span>
+                              <span className="px-2 py-1 bg-yellow-600 text-white text-sm rounded font-medium">
+                                Pending
+                              </span>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                              <div>
+                                <span className="text-muted text-sm">Leader:</span>
+                                <p className="text-white">{clan.leader?.displayName || 'Unknown'}</p>
+                              </div>
+                              <div>
+                                <span className="text-muted text-sm">Location:</span>
+                                <p className="text-white">{clan.country}, {clan.region}</p>
+                              </div>
+                              <div>
+                                <span className="text-muted text-sm">Members:</span>
+                                <p className="text-white">{clan.members.length} / {clan.maxMembers}</p>
+                              </div>
+                            </div>
+                            
+                            {clan.description && (
+                              <div className="mb-4">
+                                <span className="text-muted text-sm">Description:</span>
+                                <p className="text-gray-300 text-sm mt-1">{clan.description}</p>
+                              </div>
+                            )}
+                            
+                            <div className="text-xs text-muted">
+                              Created: {new Date(clan.createdAt).toLocaleDateString()}
+                            </div>
+                          </div>
+                          
+                          <div className="flex gap-2 ml-6">
+                            <button
+                              onClick={() => handleApproveClan(clan._id)}
+                              disabled={approvingClan === clan._id}
+                              className="btn btn-primary disabled:opacity-50"
+                            >
+                              {approvingClan === clan._id ? 'Approving...' : 'Approve'}
+                            </button>
+                            <button
+                              onClick={() => handleRejectClan(clan._id)}
+                              disabled={approvingClan === clan._id}
+                              className="btn btn-outline text-red-400 border-red-400 hover:bg-red-500/20 disabled:opacity-50"
+                            >
+                              {approvingClan === clan._id ? 'Rejecting...' : 'Reject'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              )}
+
+              {/* Verified Clans */}
+              <div>
+                <h2 className="heading-md mb-6">Verified Clans ({verifiedClans.length})</h2>
+                {verifiedClans.length === 0 ? (
+                  <div className="card p-8 text-center">
+                    <p className="text-muted">No verified clans yet.</p>
+                  </div>
+                ) : (
+                  <div className="grid-3">
+                    {verifiedClans.map((clan) => (
+                      <div key={clan._id} className="card-compact">
+                        <div className="flex items-start justify-between mb-4">
+                          <div>
+                            <h3 className="text-white font-semibold text-lg">[{clan.tag}] {clan.name}</h3>
+                            <p className="text-muted">Region: {clan.region}</p>
+                            <span className="inline-block mt-2 px-2 py-1 bg-green-600 text-white text-xs rounded font-medium">
+                              ✓ Verified
+                            </span>
+                          </div>
+                          <span className="status-badge status-active">
+                            {clan.members.length} members
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-sm text-muted">
+                            Leader: {clan.leader?.displayName || 'Unknown'}
+                          </p>
+                          <p className="text-sm text-muted">
+                            Created: {new Date(clan.createdAt).toLocaleDateString()}
+                          </p>
+                          {clan.verifiedAt && (
+                            <p className="text-sm text-muted">
+                              Verified: {new Date(clan.verifiedAt).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
