@@ -80,12 +80,26 @@ function AuthGuardContent({ children }: { children: React.ReactNode }) {
 
   // Don't render protected content if not authenticated (except login page)
   if (!authenticated && pathname !== '/login') {
-    return null;
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-white text-lg">Redirecting to login...</p>
+        </div>
+      </div>
+    );
   }
 
   // Don't render protected content if authenticated but no username (except login page)
   if (authenticated && hasUsername === false && pathname !== '/login') {
-    return null;
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-white text-lg">Completing setup...</p>
+        </div>
+      </div>
+    );
   }
 
   return <>{children}</>;
