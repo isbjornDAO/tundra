@@ -6,7 +6,7 @@ Tundra connects real-world tournaments with rewards on the web. Powering competi
 ## ❄️ Overview
 
 - 🗺️ **World Map**: Watch "Snowstorms" (competitions) live worldwide
-- 🏆 **Summit**: Compete for top ranks in gaming, hackathons, and art battles
+- 🏆 **Summit**: Compete for top ranks solo and with local clans
 - 🎯 **XP**: Level up for digital and physical rewards
 - 🐻‍❄️ **Arctic Profiles**: Customize your polar bear avatar and snow den
 - ⚡ **Seamless Onboarding**: Email/social signup with auto-wallet creation
