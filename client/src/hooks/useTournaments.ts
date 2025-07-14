@@ -85,11 +85,12 @@ export const useBracket = (tournamentId: string) => {
   return useQuery({
     queryKey: ["bracket", tournamentId],
     queryFn: async () => {
+      if (!tournamentId) throw new Error("No tournament ID provided");
       const response = await fetch(`/api/tournaments/brackets?tournamentId=${tournamentId}`);
       if (!response.ok) throw new Error("Failed to fetch bracket");
       return response.json();
     },
-    enabled: !!tournamentId,
+    enabled: !!tournamentId && tournamentId.length > 0,
   });
 };
 
@@ -98,14 +99,18 @@ export const useMatches = (bracketId?: string, organizerAddress?: string) => {
     queryKey: ["matches", bracketId, organizerAddress],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (bracketId) params.append("bracketId", bracketId);
-      if (organizerAddress) params.append("organizer", organizerAddress);
+      if (bracketId && bracketId.length > 0) params.append("bracketId", bracketId);
+      if (organizerAddress && organizerAddress.length > 0) params.append("organizer", organizerAddress);
+      
+      if (params.toString().length === 0) {
+        throw new Error("No valid parameters provided for matches query");
+      }
       
       const response = await fetch(`/api/tournaments/matches?${params}`);
       if (!response.ok) throw new Error("Failed to fetch matches");
       return response.json();
     },
-    enabled: !!(bracketId || organizerAddress),
+    enabled: !!(bracketId && bracketId.length > 0) || !!(organizerAddress && organizerAddress.length > 0),
   });
 };
 

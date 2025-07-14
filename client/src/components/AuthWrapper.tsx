@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
+import { usePathname } from 'next/navigation';
 import { UserSignupModal } from '@/components/UserSignupModal';
 
 interface AuthWrapperProps {
@@ -9,6 +10,7 @@ interface AuthWrapperProps {
 }
 
 function AuthWrapperContent({ children }: AuthWrapperProps) {
+  const pathname = usePathname();
   const { address, isConnected } = useAccount();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -20,7 +22,7 @@ function AuthWrapperContent({ children }: AuthWrapperProps) {
       fetch(`/api/users?walletAddress=${address}`)
         .then(res => res.json())
         .then(data => {
-          if (data.user) {
+          if (data.user && data.user.username && data.user.country) {
             setUser(data.user);
             setNeedsSignup(false);
           } else {
@@ -61,24 +63,42 @@ function AuthWrapperContent({ children }: AuthWrapperProps) {
 
   const handleSignupComplete = (newUser: any) => {
     console.log('User created successfully:', newUser);
-    setUser(newUser);
-    setNeedsSignup(false);
+    if (newUser && newUser.username && newUser.country) {
+      setUser(newUser);
+      setNeedsSignup(false);
+      // Force a re-check by refetching user data
+      setTimeout(() => {
+        if (address) {
+          fetch(`/api/users?walletAddress=${address}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.user && data.user.username && data.user.country) {
+                setUser(data.user);
+                setNeedsSignup(false);
+              }
+            })
+            .catch(console.error);
+        }
+      }, 100);
+    }
   };
 
   return (
     <>
       {children}
       
-      {/* Show signup modal when connected but needs signup */}
-      <UserSignupModal 
-        isOpen={needsSignup && isConnected && !!address}
-        walletAddress={address || ''}
-        onSignupComplete={handleSignupComplete}
-        onClose={() => {
-          // Don't allow closing without signup - disconnect wallet instead
-          console.log('Signup modal close attempted - user must complete signup');
-        }}
-      />
+      {/* Show signup modal when connected but needs signup - but not on login page */}
+      {pathname !== '/login' && !loading && (
+        <UserSignupModal 
+          isOpen={needsSignup && isConnected && !!address}
+          walletAddress={address || ''}
+          onSignupComplete={handleSignupComplete}
+          onClose={() => {
+            // Don't allow closing without signup - disconnect wallet instead
+            console.log('Signup modal close attempted - user must complete signup');
+          }}
+        />
+      )}
     </>
   );
 }

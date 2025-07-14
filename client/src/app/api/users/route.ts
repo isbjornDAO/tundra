@@ -17,7 +17,14 @@ export async function GET(request: NextRequest) {
       // Try to populate clan if it exists
       if (user && user.clan) {
         try {
-          await user.populate('clan', 'name tag description logo country region memberCount stats leader members');
+          await user.populate({
+            path: 'clan',
+            select: 'name tag description logo country region memberCount stats leader members',
+            populate: {
+              path: 'members leader',
+              select: 'username displayName walletAddress country'
+            }
+          });
         } catch (error) {
           console.error('Error populating clan:', error);
           // Continue without clan data if population fails

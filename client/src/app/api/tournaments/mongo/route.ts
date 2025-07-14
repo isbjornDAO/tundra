@@ -19,7 +19,21 @@ export async function GET(request: NextRequest) {
     const tournaments = await Tournament.find(query)
       .sort({ createdAt: -1 });
     
-    return NextResponse.json({ tournaments });
+    // Convert to plain objects and ensure proper data structure
+    const tournamentsData = tournaments.map(t => ({
+      _id: t._id.toString(),
+      game: t.game,
+      region: t.region,
+      maxTeams: t.maxTeams,
+      registeredTeams: t.registeredTeams || 0,
+      status: t.status,
+      prizePool: t.prizePool,
+      bracketId: t.bracketId?.toString(),
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt
+    }));
+    
+    return NextResponse.json({ tournaments: tournamentsData });
   } catch (error) {
     console.error('Error fetching tournaments:', error);
     return NextResponse.json({ error: 'Failed to fetch tournaments' }, { status: 500 });

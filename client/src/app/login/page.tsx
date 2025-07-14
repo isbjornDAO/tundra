@@ -39,12 +39,12 @@ export default function AuthPage() {
       const response = await fetch(`/api/users?walletAddress=${address}`);
       const data = await response.json();
       
-      if (data.user && data.user.username) {
-        // User exists with username, redirect to home
+      if (data.user && data.user.username && data.user.country) {
+        // User exists with username and country, redirect to home
         router.push('/');
-      } else if (data.user && !data.user.username) {
-        // User exists but has no username - disconnect wallet and show error
-        console.log('User found but no username - disconnecting wallet');
+      } else if (data.user && (!data.user.username || !data.user.country)) {
+        // User exists but has incomplete profile - disconnect wallet and show error
+        console.log('User found but incomplete profile - disconnecting wallet');
         logout();
         setError('Account found but incomplete. Please reconnect and complete signup.');
         setIsCheckingAccount(false);
@@ -89,18 +89,21 @@ export default function AuthPage() {
   const handleSignUp = async () => {
     if (!authenticated) {
       setIsLoading(true);
+      setIsCheckingAccount(true);
       try {
         await login();
-        // After login, show signup modal
-        setShowSignupModal(true);
+        // After login, checkExistingUser will be called via useEffect
       } catch (error) {
         console.error('Login error:', error);
         setError('Failed to connect wallet');
-      } finally {
         setIsLoading(false);
+        setIsCheckingAccount(false);
       }
-    } else {
-      setShowSignupModal(true);
+    } else if (address) {
+      // Already authenticated, check if user exists
+      setIsLoading(true);
+      setIsCheckingAccount(true);
+      await checkExistingUser();
     }
   };
 
@@ -124,7 +127,7 @@ export default function AuthPage() {
       <div className="absolute inset-0 z-10">
         {Array.from({ length: 50 }).map((_, i) => (
           <div
-            key={i}
+            key={`snow-${i}`}
             className="absolute animate-fall"
             style={{
               left: `${Math.random() * 100}%`,
@@ -226,73 +229,91 @@ export default function AuthPage() {
             transition={{ duration: 0.6, delay: 0.4 }}
             className="bg-black/50 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl"
           >
-            <div className="space-y-6">
-              <div className="text-center mb-8">
-                <h2 className="text-2xl font-bold text-white mb-3">Welcome to Tundra</h2>
-                <p className="text-gray-400">Sign in to your account or create a new one</p>
-              </div>
-              
-              <div className="space-y-3">
-                <button
-                  onClick={handleConnectExistingWallet}
-                  disabled={isLoading}
-                  className="w-full bg-red-500 text-white font-bold py-5 px-6 rounded-xl hover:bg-red-600 transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                >
-                  {isLoading && isCheckingAccount ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Checking account...
-                    </span>
-                  ) : (
-                    <div className="flex items-center justify-center gap-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                      </svg>
-                      Sign In
-                    </div>
-                  )}
-                </button>
-                <p className="text-gray-400 text-sm text-center">Already have an account? Sign in with your wallet</p>
-              </div>
-              
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-white/20"></div>
+            {authenticated && address && showSignupModal ? (
+              // Show inline signup form
+              <UserSignupModal 
+                isOpen={true}
+                walletAddress={address}
+                onSignupComplete={(user) => {
+                  console.log('Signup completed:', user);
+                  setShowSignupModal(false);
+                  router.push('/');
+                }}
+                onClose={() => {
+                  // Don't allow closing without signup
+                  console.log('Cannot close signup modal - must complete signup');
+                }}
+              />
+            ) : (
+              // Show auth options
+              <div className="space-y-6">
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl font-bold text-white mb-3">Welcome to Tundra</h2>
+                  <p className="text-gray-400">Sign in to your account or create a new one</p>
                 </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-black text-gray-400">or</span>
+                
+                <div className="space-y-3">
+                  <button
+                    onClick={handleConnectExistingWallet}
+                    disabled={isLoading}
+                    className="w-full bg-red-500 text-white font-bold py-5 px-6 rounded-xl hover:bg-red-600 transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  >
+                    {isLoading && isCheckingAccount ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Checking account...
+                      </span>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                        </svg>
+                        Sign In
+                      </div>
+                    )}
+                  </button>
+                  <p className="text-gray-400 text-sm text-center">Already have an account? Sign in with your wallet</p>
+                </div>
+                
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-white/20"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-black text-gray-400">or</span>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <button
+                    onClick={handleSignUp}
+                    disabled={isLoading}
+                    className="w-full bg-white/10 border border-white/20 text-white font-bold py-5 px-6 rounded-xl hover:bg-white/20 hover:border-white/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Connecting...
+                      </span>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                        </svg>
+                        Sign Up
+                      </div>
+                    )}
+                  </button>
+                  <p className="text-gray-400 text-sm text-center">New to Tundra? Create your account to get started</p>
                 </div>
               </div>
-              
-              <div className="space-y-3">
-                <button
-                  onClick={handleSignUp}
-                  disabled={isLoading}
-                  className="w-full bg-white/10 border border-white/20 text-white font-bold py-5 px-6 rounded-xl hover:bg-white/20 hover:border-white/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Connecting...
-                    </span>
-                  ) : (
-                    <div className="flex items-center justify-center gap-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                      </svg>
-                      Sign Up
-                    </div>
-                  )}
-                </button>
-                <p className="text-gray-400 text-sm text-center">New to Tundra? Create your account to get started</p>
-              </div>
-            </div>
+            )}
           </motion.div>
         </div>
 
@@ -316,23 +337,6 @@ export default function AuthPage() {
           </p>
         </div>
       </div>
-      
-      {/* Signup Modal */}
-      {authenticated && address && (
-        <UserSignupModal 
-          isOpen={showSignupModal}
-          walletAddress={address}
-          onSignupComplete={(user) => {
-            console.log('Signup completed:', user);
-            setShowSignupModal(false);
-            router.push('/');
-          }}
-          onClose={() => {
-            // Don't allow closing without signup
-            console.log('Cannot close signup modal - must complete signup');
-          }}
-        />
-      )}
 
       <style jsx>{`
         @keyframes fall {

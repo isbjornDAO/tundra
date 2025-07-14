@@ -19,6 +19,7 @@ interface Clan {
   };
   memberCount: number;
   canJoin: boolean;
+  hasRequested?: boolean;
   stats: {
     totalTournaments: number;
     wins: number;
@@ -52,7 +53,7 @@ const getRegionFromCountry = (country: string): string => {
 
 function ClanContent() {
   const { address, isConnected } = useAccount();
-  const { user } = useAuth();
+  const { user, refetchUser } = useAuth();
   const [localClans, setLocalClans] = useState<Clan[]>([]);
   const [globalClans, setGlobalClans] = useState<Clan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,12 +61,9 @@ function ClanContent() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [joinRequestLoading, setJoinRequestLoading] = useState<string | null>(null);
   const [createRequestLoading, setCreateRequestLoading] = useState(false);
-  const [showManageMembers, setShowManageMembers] = useState(false);
-  const [showEditDetails, setShowEditDetails] = useState(false);
-  const [showJoinRequests, setShowJoinRequests] = useState(false);
-  const [showClanSettings, setShowClanSettings] = useState(false);
-  const [showInviteModal, setShowInviteModal] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [joinRequests, setJoinRequests] = useState<any[]>([]);
+  const [managementLoading, setManagementLoading] = useState(false);
 
   useEffect(() => {
     if (isConnected && address) {
@@ -74,12 +72,32 @@ function ClanContent() {
   }, [isConnected, address]);
 
   useEffect(() => {
+    // Auto-fetch join requests when user is a clan leader
+    if (user?.isClanLeader && user?.clan?._id) {
+      fetchJoinRequests();
+    }
+  }, [user?.isClanLeader, user?.clan?._id]);
+
+  useEffect(() => {
+    // Refresh user data when returning to clan view to get latest member info
+    if (activeTab === 'my-clan' && user?.clan) {
+      refetchUser();
+    }
+  }, [activeTab, refetchUser]);
+
+  useEffect(() => {
     // Set initial tab based on user's clan status
     if (user?.clan) {
       setActiveTab('my-clan');
     } else {
       setActiveTab('discover');
     }
+    
+    // Debug logging
+    console.log('User data:', user);
+    console.log('User is clan leader:', user?.isClanLeader);
+    console.log('User clan data:', user?.clan);
+    console.log('Clan members:', user?.clan?.members);
   }, [user]);
 
   const fetchClans = async () => {
@@ -115,7 +133,7 @@ function ClanContent() {
       const data = await response.json();
       if (response.ok) {
         alert('Join request sent successfully!');
-        fetchClans();
+        fetchClans(); // This will refresh the clan data with updated hasRequested status
       } else {
         alert(data.error || 'Failed to send join request');
       }
@@ -213,6 +231,48 @@ function ClanContent() {
     setShowLeaveConfirm(false);
   };
 
+  const fetchJoinRequests = async () => {
+    if (!user?.clan?._id || !user?.isClanLeader) return;
+    
+    setManagementLoading(true);
+    try {
+      const response = await fetch(`/api/clans/${user.clan._id}/join-requests?walletAddress=${address}`);
+      if (response.ok) {
+        const data = await response.json();
+        setJoinRequests(data.joinRequests || []);
+      }
+    } catch (error) {
+      console.error('Error fetching join requests:', error);
+    } finally {
+      setManagementLoading(false);
+    }
+  };
+
+  const handleJoinRequestAction = async (requestId: string, action: 'approve' | 'reject') => {
+    if (!user?.clan?._id) return;
+
+    try {
+      const response = await fetch(`/api/clans/${user.clan._id}/join-requests`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId, action, walletAddress: address })
+      });
+
+      if (response.ok) {
+        alert(`Join request ${action}d successfully!`);
+        fetchJoinRequests(); // Refresh requests
+        fetchClans(); // Refresh clan data
+        refetchUser(); // Refresh user data to get updated clan members
+      } else {
+        const data = await response.json();
+        alert(data.error || `Failed to ${action} join request`);
+      }
+    } catch (error) {
+      console.error(`Error ${action}ing join request:`, error);
+      alert(`Failed to ${action} join request`);
+    }
+  };
+
   if (!isConnected) {
     return (
       <Layout>
@@ -286,11 +346,16 @@ function ClanContent() {
           {clan.canJoin ? (
             <button
               onClick={() => handleJoinRequest(clan._id)}
-              disabled={joinRequestLoading === clan._id || !!user?.clan}
-              className="btn btn-primary btn-sm"
+              disabled={joinRequestLoading === clan._id || !!user?.clan || clan.hasRequested}
+              className={`btn btn-sm ${
+                clan.hasRequested 
+                  ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/20 cursor-not-allowed' 
+                  : 'btn-primary'
+              }`}
             >
               {joinRequestLoading === clan._id ? 'Sending...' : 
-               user?.clan ? 'Already in Clan' : 'Request to Join'}
+               user?.clan ? 'Already in Clan' :
+               clan.hasRequested ? 'Requested' : 'Request to Join'}
             </button>
           ) : (
             <div className="text-xs text-gray-400 text-center">
@@ -528,31 +593,41 @@ function ClanContent() {
           </div>
         </div>
 
+
+
+
         {/* Clan Members */}
         <div className="card mb-8">
           <h2 className="text-xl font-semibold text-white mb-4">Clan Members</h2>
           <div className="space-y-3">
             {Array.isArray(user.clan.members) && user.clan.members.length > 0 ? (
-              user.clan.members.map((member: any, index: number) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-medium text-sm">
-                        {member.displayName?.charAt(0) || member.username?.charAt(0) || '?'}
-                      </span>
+              user.clan.members.map((member: any, index: number) => {
+                console.log('Member data:', member);
+                console.log('Member type:', typeof member);
+                console.log('Member keys:', Object.keys(member));
+                const memberName = member.username || member.displayName || member.name || 'Unknown';
+                const memberUsername = member.username || 'unknown';
+                return (
+                  <div key={index} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                        <span className="text-white font-medium text-sm">
+                          {memberName.charAt(0).toUpperCase() || '?'}
+                        </span>
+                      </div>
+                      <div>
+                        <div className="text-white font-medium">{memberName}</div>
+                        <div className="text-gray-400 text-sm">@{memberUsername}</div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-white font-medium">{member.displayName || 'Unknown'}</div>
-                      <div className="text-gray-400 text-sm">@{member.username || 'unknown'}</div>
+                    <div className="text-right">
+                      {member._id === user.clan.leader && (
+                        <span className="status-badge status-warning text-xs">Leader</span>
+                      )}
                     </div>
                   </div>
-                  <div className="text-right">
-                    {member._id === user.clan.leader && (
-                      <span className="status-badge status-warning text-xs">Leader</span>
-                    )}
-                  </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="text-center py-6 text-gray-400">
                 <p>No members found</p>
@@ -561,57 +636,78 @@ function ClanContent() {
           </div>
         </div>
 
-        {/* Clan Management (for leaders) */}
-        {user.isClanLeader && (
-          <div className="card">
-            <h2 className="text-xl font-semibold text-white mb-4">Clan Management</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <button 
-                className="btn btn-primary"
-                onClick={() => setShowManageMembers(true)}
-              >
-                Manage Members
-              </button>
-              <button 
-                className="btn btn-secondary"
-                onClick={() => setShowEditDetails(true)}
-              >
-                Edit Clan Details
-              </button>
-              <button 
-                className="btn btn-secondary"
-                onClick={() => setShowJoinRequests(true)}
-              >
-                View Join Requests
-              </button>
-              <button 
-                className="btn btn-outline-danger"
-                onClick={() => setShowClanSettings(true)}
-              >
-                Clan Settings
-              </button>
+        {/* Pending Members (for leaders) */}
+        {user?.isClanLeader && (
+          <div className="card mb-8">
+            <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+              <span className="text-yellow-400">📋</span>
+              Pending Members
+            </h2>
+            <div className="space-y-3">
+              {managementLoading ? (
+                <div className="text-center py-4 text-gray-400">Loading pending members...</div>
+              ) : joinRequests.length === 0 ? (
+                <div className="text-center py-6 text-gray-400">
+                  <p>No pending join requests</p>
+                  <p className="text-sm mt-1">New requests will appear here for approval</p>
+                </div>
+              ) : (
+                joinRequests.map((request) => (
+                  <div key={request._id} className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg border border-white/10">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                        <span className="text-white font-medium text-sm">
+                          {request.user.username?.[0]?.toUpperCase() || '?'}
+                        </span>
+                      </div>
+                      <div>
+                        <div className="text-white font-medium">{request.user.username}</div>
+                        <div className="text-gray-400 text-sm">{request.user.country}</div>
+                        <div className="text-xs text-gray-500">
+                          Requested {new Date(request.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleJoinRequestAction(request._id, 'approve')}
+                        className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm rounded-lg transition-colors font-medium"
+                      >
+                        Accept
+                      </button>
+                      <button
+                        onClick={() => handleJoinRequestAction(request._id, 'reject')}
+                        className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors font-medium"
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
 
-        {/* Regular Member Actions */}
-        {!user.isClanLeader && (
+        {/* Leave Clan Action for regular members */}
+        {!user?.isClanLeader && user?.clan && (
           <div className="card">
-            <h2 className="text-xl font-semibold text-white mb-4">Member Actions</h2>
-            <div className="flex gap-4">
-              <button 
-                className="btn btn-secondary"
-                onClick={() => setShowInviteModal(true)}
-              >
-                Invite Players
-              </button>
-              <button 
-                className="btn btn-outline-danger"
-                onClick={() => setShowLeaveConfirm(true)}
-              >
-                Leave Clan
-              </button>
-            </div>
+            <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+              <span className="text-blue-400">👤</span>
+              Member Actions
+            </h2>
+            <button 
+              onClick={() => setShowLeaveConfirm(true)}
+              className="w-full p-4 bg-red-500/10 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors"
+            >
+              <div className="flex items-center justify-center gap-3">
+                <div className="text-red-400 text-xl">🚪</div>
+                <div>
+                  <div className="text-red-400 font-medium">Leave Clan</div>
+                  <div className="text-gray-400 text-sm">Leave this clan permanently</div>
+                </div>
+              </div>
+            </button>
           </div>
         )}
       </div>
@@ -727,121 +823,38 @@ function ClanContent() {
           </div>
         )}
 
-        {/* Leave Clan Confirmation Modal */}
-        {showLeaveConfirm && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-md w-full mx-4">
-              <h3 className="text-xl font-bold text-white mb-4">Leave Clan</h3>
-              <p className="text-gray-300 mb-6">
-                Are you sure you want to leave {user?.clan?.name}? This action cannot be undone.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowLeaveConfirm(false)}
-                  className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleLeaveClan}
-                  className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-                >
-                  Leave Clan
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Placeholder Modals for Future Implementation */}
-        {showManageMembers && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-2xl w-full mx-4">
-              <h3 className="text-xl font-bold text-white mb-4">Manage Members</h3>
-              <p className="text-gray-300 mb-6">
-                Member management functionality coming soon!
-              </p>
-              <button
-                onClick={() => setShowManageMembers(false)}
-                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        )}
-
-        {showEditDetails && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-2xl w-full mx-4">
-              <h3 className="text-xl font-bold text-white mb-4">Edit Clan Details</h3>
-              <p className="text-gray-300 mb-6">
-                Edit clan details functionality coming soon!
-              </p>
-              <button
-                onClick={() => setShowEditDetails(false)}
-                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        )}
-
-        {showJoinRequests && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-2xl w-full mx-4">
-              <h3 className="text-xl font-bold text-white mb-4">View Join Requests</h3>
-              <p className="text-gray-300 mb-6">
-                Join requests management functionality coming soon!
-              </p>
-              <button
-                onClick={() => setShowJoinRequests(false)}
-                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        )}
-
-        {showClanSettings && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-2xl w-full mx-4">
-              <h3 className="text-xl font-bold text-white mb-4">Clan Settings</h3>
-              <p className="text-gray-300 mb-6">
-                Clan settings functionality coming soon!
-              </p>
-              <button
-                onClick={() => setShowClanSettings(false)}
-                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        )}
-
-        {showInviteModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-md w-full mx-4">
-              <h3 className="text-xl font-bold text-white mb-4">Invite Players</h3>
-              <p className="text-gray-300 mb-6">
-                Player invitation functionality coming soon!
-              </p>
-              <button
-                onClick={() => setShowInviteModal(false)}
-                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Create Clan Request Modal */}
         <CreateClanRequestModal />
       </div>
+
+      {/* Leave Clan Confirmation Modal */}
+
+      {showLeaveConfirm && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" style={{ zIndex: 999999 }}>
+          <div className="bg-gray-900 border border-white/10 rounded-xl p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold text-white mb-4">Leave Clan</h3>
+            <p className="text-gray-300 mb-6">
+              Are you sure you want to leave {user?.clan?.name}? This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLeaveConfirm(false)}
+                className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLeaveClan}
+                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Leave Clan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </Layout>
   );
 }

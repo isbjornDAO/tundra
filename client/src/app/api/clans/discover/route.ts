@@ -13,10 +13,13 @@ export async function GET(request: NextRequest) {
     
     let userLocation = userCountry;
     
-    // If wallet address provided, get user's country
+    let currentUser = null;
+    // If wallet address provided, get user's country and user data
     if (walletAddress && !userCountry) {
-      const user = await User.findOne({ walletAddress: walletAddress.toLowerCase() });
-      userLocation = user?.country;
+      currentUser = await User.findOne({ walletAddress: walletAddress.toLowerCase() });
+      userLocation = currentUser?.country;
+    } else if (walletAddress) {
+      currentUser = await User.findOne({ walletAddress: walletAddress.toLowerCase() });
     }
     
     // Get all verified public clans
@@ -35,12 +38,21 @@ export async function GET(request: NextRequest) {
     
     const globalClans = allClans.filter(clan => clan.country !== userLocation);
     
-    // Get clan statistics
-    const clanStats = allClans.map(clan => ({
-      ...clan.toObject(),
-      memberCount: clan.members.length,
-      canJoin: userLocation ? clan.country === userLocation : false
-    }));
+    // Get clan statistics with join request status
+    const clanStats = allClans.map(clan => {
+      const clanObj = clan.toObject();
+      const hasRequested = currentUser ? 
+        clan.joinRequests.some(req => 
+          req.user.toString() === currentUser._id.toString() && req.status === 'pending'
+        ) : false;
+      
+      return {
+        ...clanObj,
+        memberCount: clan.members.length,
+        canJoin: userLocation ? clan.country === userLocation : false,
+        hasRequested
+      };
+    });
     
     const localClanStats = clanStats.filter(clan => clan.country === userLocation);
     const globalClanStats = clanStats.filter(clan => clan.country !== userLocation);

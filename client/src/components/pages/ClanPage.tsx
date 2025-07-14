@@ -36,10 +36,13 @@ export function ClanPage({ walletAddress }: ClanPageProps) {
   const [newMessage, setNewMessage] = useState('');
   const [clanName, setClanName] = useState('');
   const [clanMembers, setClanMembers] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<'chat' | 'matches' | 'stats'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'matches' | 'stats' | 'manage'>('chat');
   const [clanId, setClanId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [clan, setClan] = useState<any>(null);
+  const [joinRequests, setJoinRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [managementLoading, setManagementLoading] = useState(false);
 
   useEffect(() => {
     if (walletAddress) {
@@ -67,16 +70,23 @@ export function ClanPage({ walletAddress }: ClanPageProps) {
       const userResponse = await fetch(`/api/users?walletAddress=${walletAddress}`);
       if (userResponse.ok) {
         const userData = await userResponse.json();
-        setCurrentUser(userData);
+        setCurrentUser(userData.user);
         
         if (userData.user && userData.user.clan) {
-          const clan = userData.user.clan;
-          setClanName(clan.name);
-          setClanId(clan._id);
-          setClanMembers(clan.members?.map((m: any) => m.displayName) || []);
+          const clanId = userData.user.clan._id || userData.user.clan;
+          setClanId(clanId);
           
-          // Fetch clan messages
-          await fetchMessages(clan._id);
+          // Fetch full clan details
+          const clanResponse = await fetch(`/api/clans/${clanId}`);
+          if (clanResponse.ok) {
+            const clanData = await clanResponse.json();
+            setClan(clanData.clan);
+            setClanName(clanData.clan.name);
+            setClanMembers(clanData.clan.members?.map((m: any) => m.username || m.displayName) || []);
+            
+            // Fetch clan messages
+            await fetchMessages(clanId);
+          }
         }
       }
       
@@ -89,6 +99,7 @@ export function ClanPage({ walletAddress }: ClanPageProps) {
       setClanMembers([]);
       setMessages([]);
       setMatches([]);
+      setClan(null);
     } finally {
       setLoading(false);
     }
@@ -133,6 +144,90 @@ export function ClanPage({ walletAddress }: ClanPageProps) {
       }
     }
   };
+
+  // Management functions
+  const fetchJoinRequests = async () => {
+    if (!clanId) return;
+    
+    setManagementLoading(true);
+    try {
+      const response = await fetch(`/api/clans/${clanId}/join-requests?walletAddress=${walletAddress}`);
+      if (response.ok) {
+        const data = await response.json();
+        setJoinRequests(data.joinRequests || []);
+      }
+    } catch (error) {
+      console.error('Error fetching join requests:', error);
+    } finally {
+      setManagementLoading(false);
+    }
+  };
+
+  const handleJoinRequest = async (requestId: string, action: 'approve' | 'reject') => {
+    if (!clanId) return;
+
+    try {
+      const response = await fetch(`/api/clans/${clanId}/join-requests`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId, action, walletAddress })
+      });
+
+      if (response.ok) {
+        // Refresh join requests
+        fetchJoinRequests();
+        // Refresh clan data to update member count
+        fetchClanData();
+      }
+    } catch (error) {
+      console.error('Error handling join request:', error);
+    }
+  };
+
+  const removeMember = async (memberWalletAddress: string) => {
+    if (!clanId) return;
+
+    try {
+      const response = await fetch(`/api/clans/${clanId}/members`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress, memberWalletAddress })
+      });
+
+      if (response.ok) {
+        // Refresh clan data
+        fetchClanData();
+      }
+    } catch (error) {
+      console.error('Error removing member:', error);
+    }
+  };
+
+  const inviteMember = async (inviteWalletAddress: string) => {
+    if (!clanId) return;
+
+    try {
+      const response = await fetch(`/api/clans/${clanId}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress, inviteWalletAddress })
+      });
+
+      if (response.ok) {
+        // Refresh clan data
+        fetchClanData();
+      }
+    } catch (error) {
+      console.error('Error inviting member:', error);
+    }
+  };
+
+  // Fetch join requests when management tab is opened
+  useEffect(() => {
+    if (activeTab === 'manage' && clan && currentUser && clan.leader === currentUser._id) {
+      fetchJoinRequests();
+    }
+  }, [activeTab, clan, currentUser]);
 
   if (!walletAddress) {
     return (
@@ -208,7 +303,8 @@ export function ClanPage({ walletAddress }: ClanPageProps) {
           {[
             { id: 'chat', label: 'Chat', icon: '💬' },
             { id: 'matches', label: 'Matches', icon: '⚔️' },
-            { id: 'stats', label: 'Statistics', icon: '📊' }
+            { id: 'stats', label: 'Statistics', icon: '📊' },
+            ...(clan && currentUser && clan.leader === currentUser._id ? [{ id: 'manage', label: 'Manage', icon: '⚙️' }] : [])
           ].map((tab) => (
             <button
               key={tab.id}
@@ -448,6 +544,147 @@ export function ClanPage({ walletAddress }: ClanPageProps) {
                 </div>
                 <span className="text-green-400 font-medium">Victory</span>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Management Tab */}
+      {activeTab === 'manage' && clan && currentUser && clan.leader === currentUser._id && (
+        <div className="space-y-6">
+          {/* Join Requests */}
+          <div className="card">
+            <h3 className="heading-md mb-4 flex items-center gap-2">
+              <span>📋</span>
+              Join Requests ({joinRequests.length})
+            </h3>
+            {managementLoading ? (
+              <div className="text-center text-muted py-4">Loading requests...</div>
+            ) : joinRequests.length === 0 ? (
+              <div className="text-center text-muted py-4">No pending join requests</div>
+            ) : (
+              <div className="space-y-3">
+                {joinRequests.map((request) => (
+                  <div key={request._id} className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                        <span className="text-white text-sm font-bold">
+                          {request.user.username?.[0]?.toUpperCase() || '?'}
+                        </span>
+                      </div>
+                      <div>
+                        <div className="text-white font-medium">{request.user.username}</div>
+                        <div className="text-muted text-sm">{request.user.country}</div>
+                        <div className="text-xs text-muted">
+                          Requested {new Date(request.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleJoinRequest(request._id, 'approve')}
+                        className="btn btn-sm bg-green-500 hover:bg-green-600 text-white"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => handleJoinRequest(request._id, 'reject')}
+                        className="btn btn-sm bg-red-500 hover:bg-red-600 text-white"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Member Management */}
+          <div className="card">
+            <h3 className="heading-md mb-4 flex items-center gap-2">
+              <span>👥</span>
+              Manage Members
+            </h3>
+            <div className="space-y-3">
+              {clan.members?.map((member: any) => (
+                <div key={member._id} className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                      <span className="text-white text-sm font-bold">
+                        {member.username?.[0]?.toUpperCase() || '?'}
+                      </span>
+                    </div>
+                    <div>
+                      <div className="text-white font-medium flex items-center gap-2">
+                        {member.username}
+                        {member._id === clan.leader && (
+                          <span className="text-yellow-400 text-xs">👑 Leader</span>
+                        )}
+                      </div>
+                      <div className="text-muted text-sm">{member.country}</div>
+                    </div>
+                  </div>
+                  {member._id !== clan.leader && (
+                    <button
+                      onClick={() => removeMember(member.walletAddress)}
+                      className="btn btn-sm bg-red-500 hover:bg-red-600 text-white"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Invite Member */}
+          <div className="card">
+            <h3 className="heading-md mb-4 flex items-center gap-2">
+              <span>✉️</span>
+              Invite Member
+            </h3>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                placeholder="Enter wallet address"
+                className="input-field flex-1"
+                id="invite-wallet-input"
+              />
+              <button
+                onClick={() => {
+                  const input = document.getElementById('invite-wallet-input') as HTMLInputElement;
+                  if (input?.value.trim()) {
+                    inviteMember(input.value.trim());
+                    input.value = '';
+                  }
+                }}
+                className="btn btn-primary"
+              >
+                Invite
+              </button>
+            </div>
+            <p className="text-muted text-sm mt-2">
+              Enter the wallet address of the player you want to invite to your clan.
+            </p>
+          </div>
+
+          {/* Clan Settings */}
+          <div className="card">
+            <h3 className="heading-md mb-4 flex items-center gap-2">
+              <span>⚙️</span>
+              Clan Settings
+            </h3>
+            <div className="space-y-4">
+              <button className="btn btn-secondary">
+                Edit Clan Details
+              </button>
+              <button className="btn btn-secondary">
+                Transfer Leadership
+              </button>
+              <button className="btn bg-red-500 hover:bg-red-600 text-white">
+                Disband Clan
+              </button>
             </div>
           </div>
         </div>

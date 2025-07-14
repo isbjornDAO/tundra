@@ -19,6 +19,7 @@
     "mongodb": "^6.17.0",
     "mongoose": "^8.16.2",
     "next": "15.3.4",
+    "node-fetch": "^3.3.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-three-fiber": "^6.0.13",

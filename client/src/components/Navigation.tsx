@@ -19,7 +19,7 @@ export function Navigation() {
     { href: '/tournaments/register', label: 'Register', icon: '📝' },
     { href: '/tournaments/bracket', label: 'Brackets', icon: '🏆' },
     { href: '/tournaments/results', label: 'Results', icon: '📊' },
-    ...(isTeam1Host || isAdmin ? [{ href: '/tournaments/admin', label: 'Host', icon: '🎯' }] : []),
+    ...(isTeam1Host || isAdmin ? [{ href: '/tournaments/host', label: 'Host', icon: '🎯' }] : []),
   ];
 
   // Check if current path is tournament-related

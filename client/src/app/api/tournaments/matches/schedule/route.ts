@@ -95,6 +95,26 @@ export async function PATCH(request: Request) {
         },
         { $set: { status: "rejected" } }
       );
+    } else if (action === "rejected") {
+      // If rejected, check if this was the current scheduled time
+      const match = await matchesCol.findOne({ _id: timeSlot.matchId });
+      if (match && match.scheduledTime && 
+          new Date(match.scheduledTime).getTime() === new Date(timeSlot.proposedTime).getTime()) {
+        // Remove scheduled time and reset match to pending
+        await matchesCol.updateOne(
+          { _id: timeSlot.matchId },
+          { 
+            $set: { 
+              status: "pending",
+              organizer1Approved: false,
+              organizer2Approved: false
+            },
+            $unset: {
+              scheduledTime: ""
+            }
+          }
+        );
+      }
     }
 
     return NextResponse.json({ 

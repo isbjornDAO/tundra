@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAccount } from 'wagmi';
 import { useTournaments, useCreateTournament, useGenerateBracket, useTeams } from "@/hooks/useTournaments";
-import { GAMES, REGIONS, type Game, type Region } from "@/types/tournament";
+import { GAMES, type Game } from "@/types/tournament";
 
 interface AdminData {
   isAdmin: boolean;
@@ -13,26 +13,6 @@ interface AdminData {
   regions: string[];
 }
 
-interface User {
-  _id: string;
-  walletAddress: string;
-  username: string;
-  displayName: string;
-  email?: string;
-  country: string;
-  stats: {
-    totalTournaments: number;
-    wins: number;
-    totalPrizeMoney: number;
-    level: number;
-    xp: number;
-  };
-  isClanLeader: boolean;
-  isTeam1Host: boolean;
-  isAdmin: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
 
 interface Team {
   _id: string;
@@ -65,37 +45,6 @@ interface Match {
   createdAt: string;
 }
 
-interface Clan {
-  _id: string;
-  name: string;
-  tag: string;
-  description?: string;
-  logo?: string;
-  leader: {
-    _id: string;
-    username: string;
-    displayName: string;
-  };
-  members: Array<{
-    _id: string;
-    username: string;
-    displayName: string;
-  }>;
-  maxMembers: number;
-  country: string;
-  region: string;
-  isVerified: boolean;
-  verifiedBy?: string;
-  verifiedAt?: string;
-  isPublic: boolean;
-  stats: {
-    totalTournaments: number;
-    wins: number;
-    totalPrizeMoney: number;
-  };
-  createdAt: string;
-  updatedAt: string;
-}
 
 interface Tournament {
   tournament: {
@@ -120,50 +69,28 @@ export function TournamentAdmin() {
   const generateBracket = useGenerateBracket();
   
   const [selectedGame, setSelectedGame] = useState<Game | "">("");
-  const [selectedRegion, setSelectedRegion] = useState<Region | "">("");
   const [maxTeams, setMaxTeams] = useState(16);
   const [adminData, setAdminData] = useState<AdminData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'tournaments' | 'create' | 'matches' | 'users' | 'schedule' | 'clans'>('tournaments');
+  const [activeTab, setActiveTab] = useState<'tournaments' | 'matches' | 'schedule'>('tournaments');
   
   // Team1 Host Dashboard state
   const [hostTournaments, setHostTournaments] = useState<Tournament[]>([]);
   const [submitting, setSubmitting] = useState<string | null>(null);
   
-  // User management state
-  const [users, setUsers] = useState<User[]>([]);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [userSearchQuery, setUserSearchQuery] = useState('');
-  const [isEditingUser, setIsEditingUser] = useState(false);
-  const [userStats, setUserStats] = useState({
-    totalTournaments: 0,
-    wins: 0,
-    totalPrizeMoney: 0,
-    level: 1,
-    xp: 0
-  });
   
   // Schedule management state
   const [scheduleData, setScheduleData] = useState<{[key: string]: string}>({});
   const [schedulingMatch, setSchedulingMatch] = useState<string | null>(null);
   
-  // Clan management state
-  const [clans, setClans] = useState<Clan[]>([]);
-  const [pendingClans, setPendingClans] = useState<Clan[]>([]);
-  const [approvingClan, setApprovingClan] = useState<string | null>(null);
 
   const tournaments = tournamentsData?.tournaments || [];
   
   useEffect(() => {
     if (address) {
       fetchAdminData();
-      // Always fetch clans for pending notifications
-      fetchClans();
       if (activeTab === 'matches' || activeTab === 'schedule') {
         fetchHostTournaments();
-      }
-      if (activeTab === 'users') {
-        fetchUsers();
       }
     }
   }, [address, activeTab]);
@@ -184,7 +111,6 @@ export function TournamentAdmin() {
     try {
       const params = new URLSearchParams();
       params.append('walletAddress', address!);
-      if (selectedRegion) params.append('region', selectedRegion);
       
       const response = await fetch(`/api/tournaments/matches/admin?${params}`);
       
@@ -199,96 +125,7 @@ export function TournamentAdmin() {
     }
   };
 
-  const fetchUsers = async () => {
-    try {
-      const response = await fetch('/api/users');
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch users');
-      }
-      
-      const data = await response.json();
-      setUsers(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    }
-  };
 
-  const fetchClans = async () => {
-    try {
-      const response = await fetch('/api/clans');
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch clans');
-      }
-      
-      const data = await response.json();
-      const allClans = Array.isArray(data) ? data : [];
-      
-      setClans(allClans.filter((clan: Clan) => clan.isVerified));
-      setPendingClans(allClans.filter((clan: Clan) => !clan.isVerified));
-    } catch (error) {
-      console.error('Error fetching clans:', error);
-    }
-  };
-
-  const handleApproveClan = async (clanId: string) => {
-    try {
-      setApprovingClan(clanId);
-      const response = await fetch('/api/clans/admin', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          clanId,
-          action: 'approve',
-          walletAddress: address
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to approve clan');
-      }
-
-      await fetchClans();
-      
-    } catch (error) {
-      console.error('Error approving clan:', error);
-      alert(`Error approving clan: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setApprovingClan(null);
-    }
-  };
-
-  const handleRejectClan = async (clanId: string) => {
-    try {
-      setApprovingClan(clanId);
-      const response = await fetch('/api/clans/admin', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          clanId,
-          action: 'reject',
-          walletAddress: address
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to reject clan');
-      }
-
-      await fetchClans();
-      
-    } catch (error) {
-      console.error('Error rejecting clan:', error);
-      alert(`Error rejecting clan: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setApprovingClan(null);
-    }
-  };
 
   const handleEnterResult = async (matchId: string, winnerId: string) => {
     if (!address) return;
@@ -327,35 +164,6 @@ export function TournamentAdmin() {
     }
   };
 
-  const handleUserStatsUpdate = async (userId: string, newStats: typeof userStats) => {
-    try {
-      setSubmitting(userId);
-      const response = await fetch('/api/users', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          walletAddress: selectedUser?.walletAddress,
-          stats: newStats
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update user stats');
-      }
-
-      await fetchUsers();
-      setIsEditingUser(false);
-      setSelectedUser(null);
-      
-    } catch (error) {
-      console.error('Error updating user stats:', error);
-      alert(`Error updating user stats: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setSubmitting(null);
-    }
-  };
 
   const handleScheduleMatch = async (matchId: string, scheduledTime: string) => {
     try {
@@ -398,40 +206,25 @@ export function TournamentAdmin() {
     }
   };
 
-  const filteredUsers = users.filter(user => 
-    user.username.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-    user.displayName.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-    user.walletAddress.toLowerCase().includes(userSearchQuery.toLowerCase())
-  );
 
-  const handleUserEdit = (user: User) => {
-    setSelectedUser(user);
-    setUserStats(user.stats);
-    setIsEditingUser(true);
-  };
 
   // Filter tournaments by admin regions - Team1 hosts see all tournaments
   const filteredTournaments = adminData?.role === 'super_admin' || adminData?.isTeam1Host
     ? tournaments 
     : tournaments.filter(t => adminData?.regions.includes(t.region));
 
-  // Get available regions for this admin - Team1 hosts can create in all regions
-  const availableRegions = adminData?.role === 'super_admin' || adminData?.isTeam1Host
-    ? REGIONS 
-    : (adminData?.regions || []);
 
   const handleCreateTournament = async () => {
-    if (!selectedGame || !selectedRegion) return;
+    if (!selectedGame) return;
 
     try {
       await createTournament.mutateAsync({
         game: selectedGame,
-        region: selectedRegion,
+        region: "Global", // Default region since we removed region selection
         maxTeams,
       });
       alert("Tournament created successfully!");
       setSelectedGame("");
-      setSelectedRegion("");
       setMaxTeams(16);
     } catch (error) {
       console.error("Failed to create tournament:", error);
@@ -508,17 +301,6 @@ export function TournamentAdmin() {
             Matches
           </button>
           <button
-            onClick={() => setActiveTab('users')}
-            className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'users'
-                ? 'border-red-500 text-red-400'
-                : 'border-transparent text-gray-400 hover:text-white'
-            }`}
-          >
-            <span>👥</span>
-            Users
-          </button>
-          <button
             onClick={() => setActiveTab('schedule')}
             className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
               activeTab === 'schedule'
@@ -528,22 +310,6 @@ export function TournamentAdmin() {
           >
             <span>📅</span>
             Schedule
-          </button>
-          <button
-            onClick={() => setActiveTab('clans')}
-            className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'clans'
-                ? 'border-red-500 text-red-400'
-                : 'border-transparent text-gray-400 hover:text-white'
-            }`}
-          >
-            <span>🛡️</span>
-            Clans
-            {pendingClans.length > 0 && (
-              <span className="px-1.5 py-0.5 bg-red-600 text-white text-xs rounded-full min-w-[20px] text-center">
-                {pendingClans.length}
-              </span>
-            )}
           </button>
         </nav>
       </div>
@@ -555,7 +321,7 @@ export function TournamentAdmin() {
       <div className="bg-black/20 rounded-lg border border-white/10 p-6">
         <h2 className="text-xl font-bold mb-4 text-white">Create New Tournament</h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium mb-2 text-white">Game</label>
             <select
@@ -572,21 +338,6 @@ export function TournamentAdmin() {
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2 text-white">Region</label>
-            <select
-              value={selectedRegion}
-              onChange={(e) => setSelectedRegion(e.target.value as Region)}
-              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="" className="text-black">Select Region</option>
-              {availableRegions.map((region) => (
-                <option key={region} value={region} className="text-black">
-                  {region}
-                </option>
-              ))}
-            </select>
-          </div>
 
           <div>
             <label className="block text-sm font-medium mb-2 text-white">Max Teams</label>
@@ -603,7 +354,7 @@ export function TournamentAdmin() {
           <div className="flex items-end">
             <button
               onClick={handleCreateTournament}
-              disabled={!selectedGame || !selectedRegion || createTournament.isPending}
+              disabled={!selectedGame || createTournament.isPending}
               className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:cursor-not-allowed text-white font-medium rounded-md transition-colors"
             >
               {createTournament.isPending ? "Creating..." : "Create Tournament"}
@@ -639,151 +390,6 @@ export function TournamentAdmin() {
         </>
       )}
 
-      {/* Clans Tab */}
-      {activeTab === 'clans' && (
-        <div className="space-y-6">
-          {/* Pending Clans Section */}
-          {pendingClans.length > 0 && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6">
-              <h2 className="text-xl font-bold mb-4 text-white flex items-center gap-2">
-                <span>Pending Clan Approvals</span>
-                <span className="px-2 py-1 bg-red-600 text-white text-sm rounded-full">
-                  {pendingClans.length}
-                </span>
-              </h2>
-              
-              <div className="space-y-4">
-                {pendingClans.map((clan) => (
-                  <div key={clan._id} className="bg-black/20 border border-white/20 rounded-lg p-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-lg font-semibold text-white">{clan.name}</h3>
-                          <span className="px-2 py-1 bg-blue-600 text-white text-xs rounded font-medium">
-                            [{clan.tag}]
-                          </span>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-                          <div>
-                            <span className="text-gray-400 text-sm">Leader:</span>
-                            <p className="text-white">{clan.leader.displayName} (@{clan.leader.username})</p>
-                          </div>
-                          <div>
-                            <span className="text-gray-400 text-sm">Location:</span>
-                            <p className="text-white">{clan.country}, {clan.region}</p>
-                          </div>
-                          <div>
-                            <span className="text-gray-400 text-sm">Members:</span>
-                            <p className="text-white">{clan.members.length} / {clan.maxMembers}</p>
-                          </div>
-                        </div>
-                        
-                        {clan.description && (
-                          <div className="mb-3">
-                            <span className="text-gray-400 text-sm">Description:</span>
-                            <p className="text-gray-300 text-sm">{clan.description}</p>
-                          </div>
-                        )}
-                        
-                        <div className="text-xs text-gray-400">
-                          Created: {new Date(clan.createdAt).toLocaleDateString()}
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-2 ml-4">
-                        <button
-                          onClick={() => handleApproveClan(clan._id)}
-                          disabled={approvingClan === clan._id}
-                          className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
-                        >
-                          {approvingClan === clan._id ? 'Approving...' : 'Approve'}
-                        </button>
-                        <button
-                          onClick={() => handleRejectClan(clan._id)}
-                          disabled={approvingClan === clan._id}
-                          className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
-                        >
-                          {approvingClan === clan._id ? 'Rejecting...' : 'Reject'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Approved Clans Section */}
-          <div className="bg-black/20 rounded-lg border border-white/10 p-6">
-            <h2 className="text-xl font-bold mb-4 text-white">Approved Clans</h2>
-            
-            <div className="space-y-4">
-              {clans.map((clan) => (
-                <div key={clan._id} className="bg-black/10 border border-white/20 rounded-lg p-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold text-white">{clan.name}</h3>
-                        <span className="px-2 py-1 bg-blue-600 text-white text-xs rounded font-medium">
-                          [{clan.tag}]
-                        </span>
-                        <span className="px-2 py-1 bg-green-600 text-white text-xs rounded font-medium">
-                          ✓ Verified
-                        </span>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
-                        <div>
-                          <span className="text-gray-400 text-sm">Leader:</span>
-                          <p className="text-white">{clan.leader.displayName} (@{clan.leader.username})</p>
-                        </div>
-                        <div>
-                          <span className="text-gray-400 text-sm">Location:</span>
-                          <p className="text-white">{clan.country}, {clan.region}</p>
-                        </div>
-                        <div>
-                          <span className="text-gray-400 text-sm">Members:</span>
-                          <p className="text-white">{clan.members.length} / {clan.maxMembers}</p>
-                        </div>
-                        <div>
-                          <span className="text-gray-400 text-sm">Tournaments:</span>
-                          <p className="text-white">{clan.stats.totalTournaments}</p>
-                        </div>
-                      </div>
-                      
-                      {clan.description && (
-                        <div className="mb-3">
-                          <span className="text-gray-400 text-sm">Description:</span>
-                          <p className="text-gray-300 text-sm">{clan.description}</p>
-                        </div>
-                      )}
-                      
-                      <div className="flex gap-4 text-xs text-gray-400">
-                        <span>Created: {new Date(clan.createdAt).toLocaleDateString()}</span>
-                        {clan.verifiedAt && (
-                          <span>Verified: {new Date(clan.verifiedAt).toLocaleDateString()}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
-              {clans.length === 0 && (
-                <p className="text-gray-400 text-center py-8">No approved clans found</p>
-              )}
-            </div>
-          </div>
-
-          {pendingClans.length === 0 && (
-            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-6 text-center">
-              <h3 className="text-lg font-semibold text-green-400 mb-2">All caught up!</h3>
-              <p className="text-gray-300">No pending clan approvals at this time.</p>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Matches Tab */}
       {activeTab === 'matches' && (
@@ -869,173 +475,6 @@ export function TournamentAdmin() {
         </div>
       )}
 
-      {/* Users Tab */}
-      {activeTab === 'users' && (
-        <div className="space-y-6">
-          <div className="bg-black/20 rounded-lg border border-white/10 p-6">
-            <h2 className="text-xl font-bold mb-4 text-white">User Management</h2>
-            
-            <div className="mb-6">
-              <input
-                type="text"
-                placeholder="Search users by username, display name, or wallet address..."
-                value={userSearchQuery}
-                onChange={(e) => setUserSearchQuery(e.target.value)}
-                className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            
-            <div className="space-y-4">
-              {filteredUsers.map((user) => (
-                <div key={user._id} className="bg-black/10 border border-white/20 rounded-lg p-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold text-white">{user.displayName}</h3>
-                        <span className="text-gray-400">@{user.username}</span>
-                        {user.isAdmin && (
-                          <span className="px-2 py-1 bg-red-600 text-white text-xs rounded font-medium">Admin</span>
-                        )}
-                        {user.isTeam1Host && (
-                          <span className="px-2 py-1 bg-purple-600 text-white text-xs rounded font-medium">Team1 Host</span>
-                        )}
-                        {user.isClanLeader && (
-                          <span className="px-2 py-1 bg-blue-600 text-white text-xs rounded font-medium">Clan Leader</span>
-                        )}
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
-                        <div>
-                          <span className="text-gray-400 text-sm">Level:</span>
-                          <p className="text-white">{user.stats.level}</p>
-                        </div>
-                        <div>
-                          <span className="text-gray-400 text-sm">XP:</span>
-                          <p className="text-white">{user.stats.xp}</p>
-                        </div>
-                        <div>
-                          <span className="text-gray-400 text-sm">Tournaments:</span>
-                          <p className="text-white">{user.stats.totalTournaments}</p>
-                        </div>
-                        <div>
-                          <span className="text-gray-400 text-sm">Wins:</span>
-                          <p className="text-white">{user.stats.wins}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-4 text-xs text-gray-400">
-                        <span>Country: {user.country}</span>
-                        <span>Joined: {new Date(user.createdAt).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex gap-2 ml-4">
-                      <button
-                        onClick={() => handleUserEdit(user)}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
-                      >
-                        Edit Stats
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
-              {filteredUsers.length === 0 && (
-                <p className="text-gray-400 text-center py-8">No users found</p>
-              )}
-            </div>
-          </div>
-
-          {/* User Edit Modal */}
-          {isEditingUser && selectedUser && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-              <div className="bg-gray-900 border border-white/20 rounded-lg p-6 w-full max-w-md">
-                <h3 className="text-xl font-bold text-white mb-4">Edit User Stats</h3>
-                <p className="text-gray-300 mb-4">
-                  Editing stats for: <span className="font-semibold">{selectedUser.displayName}</span>
-                </p>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2 text-white">Level</label>
-                    <input
-                      type="number"
-                      value={userStats.level}
-                      onChange={(e) => setUserStats(prev => ({ ...prev, level: parseInt(e.target.value) || 1 }))}
-                      min="1"
-                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-2 text-white">XP</label>
-                    <input
-                      type="number"
-                      value={userStats.xp}
-                      onChange={(e) => setUserStats(prev => ({ ...prev, xp: parseInt(e.target.value) || 0 }))}
-                      min="0"
-                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-2 text-white">Total Tournaments</label>
-                    <input
-                      type="number"
-                      value={userStats.totalTournaments}
-                      onChange={(e) => setUserStats(prev => ({ ...prev, totalTournaments: parseInt(e.target.value) || 0 }))}
-                      min="0"
-                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-2 text-white">Wins</label>
-                    <input
-                      type="number"
-                      value={userStats.wins}
-                      onChange={(e) => setUserStats(prev => ({ ...prev, wins: parseInt(e.target.value) || 0 }))}
-                      min="0"
-                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-2 text-white">Total Prize Money</label>
-                    <input
-                      type="number"
-                      value={userStats.totalPrizeMoney}
-                      onChange={(e) => setUserStats(prev => ({ ...prev, totalPrizeMoney: parseInt(e.target.value) || 0 }))}
-                      min="0"
-                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex gap-3 mt-6">
-                  <button
-                    onClick={() => handleUserStatsUpdate(selectedUser._id, userStats)}
-                    disabled={submitting === selectedUser._id}
-                    className="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:cursor-not-allowed text-white font-medium rounded-md transition-colors"
-                  >
-                    {submitting === selectedUser._id ? 'Saving...' : 'Save Changes'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsEditingUser(false);
-                      setSelectedUser(null);
-                    }}
-                    className="flex-1 py-2 px-4 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-md transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Schedule Tab */}
       {activeTab === 'schedule' && (
