@@ -2,7 +2,6 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { WagmiGuard } from '@/components/WagmiGuard';
 import { Layout } from '@/components/Layout';
 import { useTeam1Auth } from '@/hooks/useTeam1Auth';
 import { useTournaments, useBracket, useMatches } from '@/hooks/useTournaments';
@@ -63,13 +62,11 @@ function TournamentBracketsContent() {
 
   if (!mounted || tournamentsLoading) {
     return (
-      <WagmiGuard>
         <Layout>
           <div className="flex items-center justify-center min-h-screen">
             <div className="text-lg text-white">Loading...</div>
           </div>
         </Layout>
-      </WagmiGuard>
     );
   }
 
@@ -191,7 +188,6 @@ function TournamentBracketsContent() {
   };
 
   return (
-    <WagmiGuard>
       <Layout>
         {/* Header */}
         <div className="mb-6">
@@ -486,7 +482,6 @@ function TournamentBracketsContent() {
           </div>
         )}
       </Layout>
-    </WagmiGuard>
   );
 }
 

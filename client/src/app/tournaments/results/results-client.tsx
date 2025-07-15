@@ -5,7 +5,6 @@ import { Layout } from '@/components/Layout';
 import { useTeam1Auth } from '@/hooks/useTeam1Auth';
 import { useResults, useStats } from '@/hooks/useTournaments';
 import { GAMES, type Game } from '@/types/tournament';
-import { WagmiGuard } from '@/components/WagmiGuard';
 import MatchResultsConfirmation from '@/components/MatchResultsConfirmation';
 
 export default function ResultsClient() {

@@ -31,7 +31,11 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
 
   // Don't render provider during SSR
   if (!mounted || typeof window === 'undefined') {
-    return <div>{children}</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg text-white">Loading Web3...</div>
+      </div>
+    );
   }
 
   return (

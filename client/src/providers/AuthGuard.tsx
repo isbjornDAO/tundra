@@ -2,19 +2,28 @@
 
 import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
-import { usePathname } from 'next/navigation';
+import { ConnectWallet } from '@/components/ConnectWallet';
+import { useRouter, usePathname } from 'next/navigation';
 import { UserSignupModal } from '@/components/UserSignupModal';
 
-interface AuthWrapperProps {
+interface AuthGuardProps {
   children: React.ReactNode;
 }
 
-function AuthWrapperContent({ children }: AuthWrapperProps) {
-  const pathname = usePathname();
+export function AuthGuard({ children }: AuthGuardProps) {
+  const [mounted, setMounted] = useState(false);
   const { address, isConnected } = useAccount();
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [needsSignup, setNeedsSignup] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoadingAdmin, setIsLoadingAdmin] = useState(true);
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (isConnected && address) {
@@ -43,13 +52,32 @@ function AuthWrapperContent({ children }: AuthWrapperProps) {
     }
   }, [address, isConnected]);
 
+  useEffect(() => {
+    if (address) {
+      checkAdminStatus();
+    } else {
+      setIsLoadingAdmin(false);
+    }
+  }, [address]);
+
+  const checkAdminStatus = async () => {
+    try {
+      const response = await fetch(`/api/admin/check?walletAddress=${address}`);
+      const data = await response.json();
+      setIsAdmin(data.isAdmin);
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+    } finally {
+      setIsLoadingAdmin(false);
+    }
+  };
+
   const createUser = async (userData: any) => {
     const response = await fetch('/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(userData)
     });
-    
     if (response.ok) {
       const newUser = await response.json();
       setUser(newUser);
@@ -62,11 +90,9 @@ function AuthWrapperContent({ children }: AuthWrapperProps) {
   };
 
   const handleSignupComplete = (newUser: any) => {
-    console.log('User created successfully:', newUser);
     if (newUser && newUser.username && newUser.country) {
       setUser(newUser);
       setNeedsSignup(false);
-      // Force a re-check by refetching user data
       setTimeout(() => {
         if (address) {
           fetch(`/api/users?walletAddress=${address}`)
@@ -83,33 +109,7 @@ function AuthWrapperContent({ children }: AuthWrapperProps) {
     }
   };
 
-  return (
-    <>
-      {children}
-      
-      {/* Show signup modal when connected but needs signup - but not on login page */}
-      {pathname !== '/login' && !loading && (
-        <UserSignupModal 
-          isOpen={needsSignup && isConnected && !!address}
-          walletAddress={address || ''}
-          onSignupComplete={handleSignupComplete}
-          onClose={() => {
-            // Don't allow closing without signup - disconnect wallet instead
-            console.log('Signup modal close attempted - user must complete signup');
-          }}
-        />
-      )}
-    </>
-  );
-}
-
-export function AuthWrapper({ children }: AuthWrapperProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
+  // SSR/CSR guard
   if (!mounted) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -118,5 +118,51 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
     );
   }
 
-  return <AuthWrapperContent>{children}</AuthWrapperContent>;
+  // Loading admin check
+  if (isLoadingAdmin) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg text-white">Checking admin credentials...</div>
+      </div>
+    );
+  }
+
+  // Not connected
+  if (!isConnected) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
+        <h1 className="text-2xl font-bold text-white">Welcome to Tundra</h1>
+        <p className="text-gray-400">Connect your wallet to access the tournament platform</p>
+        <ConnectWallet />
+      </div>
+    );
+  }
+
+  // Needs signup
+  if (needsSignup && pathname !== '/login') {
+    return (
+      <>
+        {children}
+        <UserSignupModal
+          isOpen={needsSignup && isConnected && !!address}
+          walletAddress={address || ''}
+          onSignupComplete={handleSignupComplete}
+          onClose={() => {}}
+        />
+      </>
+    );
+  }
+
+  // Not admin
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
+        <h1 className="text-2xl font-bold text-white">Access Denied</h1>
+        <p className="text-gray-400">You need admin permissions to access this platform</p>
+        <ConnectWallet />
+      </div>
+    );
+  }
+
+  return <>{children}</>;
 }

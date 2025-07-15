@@ -36,7 +36,7 @@ export function useAuth() {
   const [needsSignup, setNeedsSignup] = useState(false);
   const [address, setAddress] = useState<string | undefined>();
   const [isConnected, setIsConnected] = useState(false);
-  const prevAddressRef = useRef<string | undefined>();
+  const prevAddressRef = useRef<string | undefined>(undefined);
   const isSwitchingRef = useRef(false);
 
   const { logout, login, authenticated } = usePrivy();
