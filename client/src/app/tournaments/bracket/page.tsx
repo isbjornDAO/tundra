@@ -7,24 +7,40 @@ import { Layout } from '@/components/Layout';
 import { useTeam1Auth } from '@/hooks/useTeam1Auth';
 import { useTournaments, useBracket, useMatches } from '@/hooks/useTournaments';
 import { type BracketMatch, GAMES } from '@/types/tournament';
+import TimeCoordinationModule from '@/components/bracket/TimeCoordinationModule';
+import ResultsEntryModule from '@/components/bracket/ResultsEntryModule';
 
 function TournamentBracketsContent() {
   const [mounted, setMounted] = useState(false);
   const { address } = useTeam1Auth();
   const searchParams = useSearchParams();
   const gameParam = searchParams.get('game');
-  const [selectedGame, setSelectedGame] = useState(gameParam || 'CS2');
-  const [proposedTime, setProposedTime] = useState('');
+  const [selectedGame, setSelectedGame] = useState(gameParam || 'Valorant');
   const [submitting, setSubmitting] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const { data: tournamentsData, isLoading: tournamentsLoading } = useTournaments();
   
-  // For CS2, use known IDs directly
-  const cs2TournamentId = '68745d57a6abf1c233fd9f8b';
-  const cs2BracketId = '687465d6d3016c387dfbd9cc';
+  // Get current tournament from database
+  const getCurrentTournament = () => {
+    const tournaments = tournamentsData?.tournaments || [];
+    return tournaments.find(t => 
+      t.game === selectedGame && (t.status === 'active' || t.status === 'full')
+    );
+  };
   
-  const { data: bracketData } = useBracket(selectedGame === 'CS2' ? cs2TournamentId : '');
-  const { data: matchesData } = useMatches(selectedGame === 'CS2' ? cs2BracketId : '');
+  const getCurrentTournamentId = () => {
+    const tournament = getCurrentTournament();
+    return tournament?._id || '';
+  };
+  
+  const getCurrentBracketId = () => {
+    const tournament = getCurrentTournament();
+    return tournament?.bracketId || '';
+  };
+  
+  const { data: bracketData } = useBracket(getCurrentTournamentId());
+  const { data: matchesData } = useMatches(getCurrentBracketId());
   
   const [timeSlots, setTimeSlots] = useState([]);
 
@@ -58,22 +74,8 @@ function TournamentBracketsContent() {
   }
 
   const tournaments = tournamentsData?.tournaments || [];
-  const activeTournament = tournaments.find(t => 
-    t.game === selectedGame && (t.status === 'active' || t.status === 'full')
-  );
-
-  // Mock tournament for CS2 if not found
-  const mockCS2Tournament = selectedGame === 'CS2' ? {
-    _id: cs2TournamentId,
-    game: 'CS2',
-    status: 'active',
-    bracketId: cs2BracketId,
-    maxTeams: 2,
-    registeredTeams: 2,
-    region: 'Global'
-  } : null;
-
-  const finalTournament = activeTournament || mockCS2Tournament;
+  const activeTournament = getCurrentTournament();
+  const finalTournament = activeTournament;
   const matches = matchesData?.matches || [];
 
   // Time proposal functions
@@ -107,7 +109,6 @@ function TournamentBracketsContent() {
       alert('Failed to propose time');
     } finally {
       setSubmitting(false);
-      setProposedTime('');
     }
   };
 
@@ -164,21 +165,26 @@ function TournamentBracketsContent() {
         throw new Error(errorData.error || 'Failed to reject time');
       }
       
-      // Refresh time slots
-      const matches = matchesData?.matches || [];
-      const firstMatchId = matches.length > 0 ? matches[0]._id : null;
-      if (firstMatchId) {
-        const slotsRes = await fetch(`/api/tournaments/matches/schedule?matchId=${firstMatchId}`);
-        const slotsData = await slotsRes.json();
-        setTimeSlots(slotsData.timeSlots || []);
-      }
-      window.location.reload();
+      refreshData();
     } catch (error) {
       console.error('Error rejecting time:', error);
       alert(`Failed to reject time: ${error.message}`);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const refreshData = async () => {
+    setRefreshKey(prev => prev + 1);
+    // Refresh time slots
+    const matches = matchesData?.matches || [];
+    const firstMatchId = matches.length > 0 ? matches[0]._id : null;
+    if (firstMatchId) {
+      const slotsRes = await fetch(`/api/tournaments/matches/schedule?matchId=${firstMatchId}`);
+      const slotsData = await slotsRes.json();
+      setTimeSlots(slotsData.timeSlots || []);
+    }
+    window.location.reload();
   };
 
   // Check if user is participating in any match
@@ -215,9 +221,8 @@ function TournamentBracketsContent() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {GAMES.map((game) => {
               const tournament = tournaments.find(t => t.game === game);
-              const hasActiveTournament = tournament && (tournament.status === 'active' || tournament.status === 'full');
-              const isCS2WithFallback = game === 'CS2';
-              const isAvailable = hasActiveTournament || isCS2WithFallback;
+              const hasActiveTournament = tournament && (tournament.status === 'active' || tournament.status === 'full' || tournament.status === 'open');
+              const isAvailable = hasActiveTournament;
               
               return (
                 <button
@@ -235,13 +240,13 @@ function TournamentBracketsContent() {
                   <div className="font-medium mb-1">{game}</div>
                   <div className="text-xs">
                     {isAvailable ? (
-                      hasActiveTournament ? (
-                        <span className="text-green-400">
-                          {tournament.registeredTeams}/{tournament.maxTeams} Teams
-                        </span>
-                      ) : (
-                        <span className="text-blue-400">2/2 Teams</span>
-                      )
+                      <span className={`${
+                        tournament.status === 'active' ? 'text-green-400' : 
+                        tournament.status === 'full' ? 'text-yellow-400' : 
+                        'text-blue-400'
+                      }`}>
+                        {tournament.registeredTeams}/{tournament.maxTeams} Teams
+                      </span>
                     ) : (
                       <span className="text-gray-500">No Tournament</span>
                     )}
@@ -300,41 +305,156 @@ function TournamentBracketsContent() {
               </div>
             ) : (
               /* Matches Display */
-              <div className="space-y-6">
-                <h3 className="text-xl font-semibold text-white">Tournament Matches</h3>
+              <div className="space-y-8">
+                <h3 className="text-xl font-semibold text-white">Tournament Bracket</h3>
                 
-                {matches.map((match) => {
+                {/* Check if this is a simple 2-team tournament */}
+                {finalTournament.maxTeams === 2 ? (
+                  /* Simple 2-team match layout for Dota */
+                  <div className="max-w-2xl mx-auto">
+                    <div className="text-center mb-6">
+                      <h4 className="text-lg font-semibold text-white border-l-4 border-purple-500 pl-4 inline-block">
+                        Championship Match
+                      </h4>
+                    </div>
+                    {matches.map((match) => {
+                      const isMyMatch = match.team1?.organizer?.toLowerCase() === address?.toLowerCase() || 
+                                       match.team2?.organizer?.toLowerCase() === address?.toLowerCase();
+                      
+                      return (
+                        <div key={match._id} className={`rounded-lg border p-6 ${
+                          isMyMatch ? 'bg-purple-500/5 border-purple-500/20' : 'bg-white/5 border-white/10'
+                        }`}>
+                          {/* Match Header */}
+                          <div className="text-center mb-6">
+                            <h4 className="text-lg font-semibold text-white">
+                              {match.team1?.name} vs {match.team2?.name}
+                            </h4>
+                            <div className="text-sm text-gray-400 mt-1">Best of 3 • Single Elimination</div>
+                          </div>
+
+                          {/* Teams - Simplified for 2-team */}
+                          <div className="space-y-4 mb-6">
+                            {/* Team 1 */}
+                            <div className={`p-4 rounded-lg border ${
+                              match.team1?.organizer?.toLowerCase() === address?.toLowerCase()
+                                ? 'bg-green-500/10 border-green-500/20'
+                                : 'bg-white/5 border-white/10'
+                            }`}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="bg-blue-500/20 border border-blue-500/30 rounded px-3 py-2">
+                                    <span className="text-blue-300 text-sm font-bold">
+                                      {match.team1?.country || 'TEAM'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <div className="text-white font-medium">{match.team1?.name}</div>
+                                    <div className="text-gray-400 text-xs">{match.team1?.region}</div>
+                                  </div>
+                                </div>
+                                {match.winner?.name === match.team1?.name && (
+                                  <span className="text-yellow-400 text-xl">🏆</span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* VS */}
+                            <div className="flex items-center justify-center">
+                              <div className="bg-white/10 rounded-full w-12 h-12 flex items-center justify-center border border-white/20">
+                                <span className="text-white font-bold">VS</span>
+                              </div>
+                            </div>
+
+                            {/* Team 2 */}
+                            <div className={`p-4 rounded-lg border ${
+                              match.team2?.organizer?.toLowerCase() === address?.toLowerCase()
+                                ? 'bg-green-500/10 border-green-500/20'
+                                : 'bg-white/5 border-white/10'
+                            }`}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="bg-purple-500/20 border border-purple-500/30 rounded px-3 py-2">
+                                    <span className="text-purple-300 text-sm font-bold">
+                                      {match.team2?.country || 'TEAM'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <div className="text-white font-medium">{match.team2?.name}</div>
+                                    <div className="text-gray-400 text-xs">{match.team2?.region}</div>
+                                  </div>
+                                </div>
+                                {match.winner?.name === match.team2?.name && (
+                                  <span className="text-yellow-400 text-xl">🏆</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Match Status and Actions */}
+                          <div className="space-y-4">
+                            {/* Time Coordination */}
+                            <TimeCoordinationModule
+                              match={match}
+                              userAddress={address || ''}
+                              isUserMatch={isMyMatch}
+                              onTimeProposed={handleProposeTime}
+                              onTimeApproved={handleApproveTime}
+                              onTimeRejected={handleRejectTime}
+                              submitting={submitting}
+                            />
+                            
+                            {/* Results Entry */}
+                            <ResultsEntryModule
+                              match={match}
+                              onResultsSubmitted={refreshData}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  /* Multi-round tournament bracket */
+                  (() => {
+                    const rounds = ['quarterfinal', 'semifinal', 'final'];
+                    const matchesByRound = rounds.reduce((acc, round) => {
+                      acc[round] = matches.filter(match => match.round === round);
+                      return acc;
+                    }, {} as Record<string, typeof matches>);
+                    
+                    return rounds.map(round => {
+                      const roundMatches = matchesByRound[round];
+                      if (roundMatches.length === 0) return null;
+                      
+                      const roundTitle = round === 'quarterfinal' ? 'Quarterfinals' : 
+                                       round === 'semifinal' ? 'Semifinals' : 'Final';
+                      
+                      const roundColor = round === 'quarterfinal' ? 'border-blue-500' :
+                                        round === 'semifinal' ? 'border-orange-500' : 'border-yellow-500';
+                      
+                      return (
+                        <div key={round} className="space-y-4">
+                          <div className="flex items-center gap-4">
+                            <h4 className={`text-lg font-semibold text-white border-l-4 ${roundColor} pl-4`}>
+                              {roundTitle}
+                            </h4>
+                            <div className="text-sm text-gray-400">
+                              {roundMatches.length} match{roundMatches.length > 1 ? 'es' : ''}
+                            </div>
+                          </div>
+                          <div className={`grid gap-4 ${
+                            round === 'quarterfinal' ? 'grid-cols-1 lg:grid-cols-2' :
+                            round === 'semifinal' ? 'grid-cols-1 lg:grid-cols-2' :
+                            'grid-cols-1 max-w-2xl mx-auto'
+                          }`}>
+                          {roundMatches.map((match) => {
                   const isMyMatch = match.team1?.organizer?.toLowerCase() === address?.toLowerCase() || 
                                    match.team2?.organizer?.toLowerCase() === address?.toLowerCase();
-                  const myProposals = timeSlots.filter(slot => 
-                    slot.proposedBy.toLowerCase() === address?.toLowerCase() && 
-                    (slot.status === 'pending' || slot.status === 'accepted')
-                  );
-                  const opponentProposals = timeSlots.filter(slot => 
-                    slot.proposedBy.toLowerCase() !== address?.toLowerCase() && slot.status === 'pending'
-                  );
                   
-                  // Find who proposed the current scheduled time
-                  const scheduledProposal = timeSlots.find(slot => 
-                    slot.status === 'accepted' || 
-                    (match.scheduledTime && new Date(slot.proposedTime).getTime() === new Date(match.scheduledTime).getTime())
-                  );
-                  
-                  // Determine actual approval status based on time slots
-                  // A team is "ready" only if they have an ACTIVE (accepted or pending) proposal, not rejected ones
-                  const team1ActiveProposals = timeSlots.filter(slot => 
-                    slot.proposedBy.toLowerCase() === match.team1?.organizer?.toLowerCase() && 
-                    (slot.status === 'pending' || slot.status === 'accepted')
-                  );
-                  const team2ActiveProposals = timeSlots.filter(slot => 
-                    slot.proposedBy.toLowerCase() === match.team2?.organizer?.toLowerCase() && 
-                    (slot.status === 'pending' || slot.status === 'accepted')
-                  );
-                  
-                  const team1HasApproved = team1ActiveProposals.length > 0 || 
-                                          (scheduledProposal?.respondedBy?.toLowerCase() === match.team1?.organizer?.toLowerCase());
-                  const team2HasApproved = team2ActiveProposals.length > 0 || 
-                                          (scheduledProposal?.respondedBy?.toLowerCase() === match.team2?.organizer?.toLowerCase());
+                  // Simplified status indicators for display only
+                  const team1HasApproved = match.status === 'scheduled' || match.status === 'completed';
+                  const team2HasApproved = match.status === 'scheduled' || match.status === 'completed';
 
                   return (
                     <div key={match._id} className={`rounded-lg border p-6 ${
@@ -342,7 +462,13 @@ function TournamentBracketsContent() {
                     }`}>
                       {/* Match Header */}
                       <div className="text-center mb-6">
-                        <h4 className="text-lg font-semibold text-white">Final Match</h4>
+                        <h4 className="text-lg font-semibold text-white">
+                          {match.team1?._id && match.team2?._id ? (
+                            `${match.team1.name} vs ${match.team2.name}`
+                          ) : (
+                            `${roundTitle.slice(0, -1)} Match`
+                          )}
+                        </h4>
                         {match.status === 'completed' && match.winner && (
                           <div className="mt-2 flex items-center justify-center gap-2">
                             <span className="text-yellow-400 text-xl">🏆</span>
@@ -450,187 +576,34 @@ function TournamentBracketsContent() {
                         </div>
                       </div>
 
-                      {/* Match Status */}
-                      <div className="text-center mb-6">
-                        {match.status === 'pending' && (
-                          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
-                            <div className="text-yellow-400 font-medium">
-                              ⏳ Waiting for match time coordination
-                            </div>
-                          </div>
-                        )}
-                        {match.status === 'scheduled' && match.scheduledTime && (
-                          <>
-                            {team1HasApproved && team2HasApproved ? (
-                              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
-                                <div className="text-blue-400 font-medium">
-                                  📅 Match Confirmed: {new Date(match.scheduledTime).toLocaleDateString()} at{' '}
-                                  {new Date(match.scheduledTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', timeZoneName: 'short'})}
-                                </div>
-                                <div className="text-xs text-gray-400 mt-1">Both teams are ready to play</div>
-                              </div>
-                            ) : (
-                              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
-                                <div className="text-yellow-400 font-medium">
-                                  📅 Time Proposed: {new Date(match.scheduledTime).toLocaleDateString()} at{' '}
-                                  {new Date(match.scheduledTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', timeZoneName: 'short'})}
-                                </div>
-                                <div className="text-xs text-gray-400 mt-1">
-                                  Proposed by {scheduledProposal?.proposedBy.slice(0, 8)}... • 
-                                  Waiting for {!team1HasApproved && !team2HasApproved ? 'both teams' : 
-                                              !team1HasApproved ? match.team1?.name : match.team2?.name} to confirm
-                                </div>
-                              </div>
-                            )}
-                          </>
-                        )}
-                        {match.status === 'completed' && (
-                          <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
-                            <div className="text-green-400 font-medium">
-                              ✅ Match Completed
-                            </div>
-                          </div>
-                        )}
+                      {/* Match Status and Actions */}
+                      <div className="space-y-4 mb-6">
+                        {/* Time Coordination */}
+                        <TimeCoordinationModule
+                          match={match}
+                          userAddress={address || ''}
+                          isUserMatch={isMyMatch}
+                          onTimeProposed={handleProposeTime}
+                          onTimeApproved={handleApproveTime}
+                          onTimeRejected={handleRejectTime}
+                          submitting={submitting}
+                        />
+                        
+                        {/* Results Entry */}
+                        <ResultsEntryModule
+                          match={match}
+                          onResultsSubmitted={refreshData}
+                        />
                       </div>
-
-                      {/* Team Coordination (Only for participants) */}
-                      {isMyMatch && match.status !== 'completed' && !(team1HasApproved && team2HasApproved) && (
-                        <div className="border-t border-white/10 pt-6">
-                          <h5 className="text-white font-medium mb-4">Match Coordination</h5>
-                          
-                          {/* Modern side by side layout for proposals */}
-                          <div className="grid md:grid-cols-2 gap-6">
-                            {/* Propose Time Section */}
-                            {match.status !== 'completed' && (
-                              <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-5 shadow-lg">
-                                <div className="flex items-center gap-2 mb-4">
-                                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                                  <h6 className="text-white font-semibold text-sm">
-                                    {myProposals.length > 0 ? 'Change Proposed Time' : 'Propose Match Time'}
-                                  </h6>
-                                </div>
-                                
-                                <div className="space-y-3">
-                                  <div className="flex gap-3">
-                                    <input
-                                      type="datetime-local"
-                                      value={proposedTime}
-                                      onChange={(e) => setProposedTime(e.target.value)}
-                                      className="flex-1 px-3 py-2.5 bg-slate-800/60 border border-slate-600/50 rounded-lg text-white text-sm focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 transition-colors"
-                                      min={new Date().toISOString().slice(0, 16)}
-                                    />
-                                    <button
-                                      onClick={() => handleProposeTime(match._id, proposedTime)}
-                                      disabled={!proposedTime || submitting}
-                                      className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-blue-800 disabled:to-blue-900 text-white text-sm font-medium rounded-lg transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-60"
-                                    >
-                                      {submitting ? (
-                                        <div className="flex items-center gap-2">
-                                          <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin"></div>
-                                          <span>Saving...</span>
-                                        </div>
-                                      ) : (
-                                        myProposals.length > 0 ? '📝 Update' : '📅 Propose'
-                                      )}
-                                    </button>
-                                  </div>
-                                  
-                                  {/* My Proposals Status */}
-                                  {myProposals.length > 0 ? (
-                                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
-                                      <div className="flex items-center gap-2 mb-2">
-                                        <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
-                                        <span className="text-blue-300 text-xs font-medium">Your Active Proposal</span>
-                                      </div>
-                                      {myProposals.map((proposal) => (
-                                        <div key={proposal._id} className="text-white text-sm">
-                                          <div className="font-medium">
-                                            {new Date(proposal.proposedTime).toLocaleDateString('en-US', { 
-                                              weekday: 'short', month: 'short', day: 'numeric' 
-                                            })} at{' '}
-                                            {new Date(proposal.proposedTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', timeZoneName: 'short'})}
-                                          </div>
-                                          <div className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                                            proposal.status === 'accepted' ? 'bg-green-500/20 text-green-300' :
-                                            proposal.status === 'rejected' ? 'bg-red-500/20 text-red-300' : 
-                                            'bg-yellow-500/20 text-yellow-300'
-                                          }`}>
-                                            <div className={`w-1.5 h-1.5 rounded-full ${
-                                              proposal.status === 'accepted' ? 'bg-green-400' :
-                                              proposal.status === 'rejected' ? 'bg-red-400' : 'bg-yellow-400'
-                                            }`}></div>
-                                            {proposal.status === 'accepted' ? 'Accepted' :
-                                             proposal.status === 'rejected' ? 'Declined' : 'Pending'}
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <div className="border-2 border-dashed border-slate-600/50 rounded-lg p-4 text-center">
-                                      <div className="text-2xl mb-1">⏰</div>
-                                      <div className="text-slate-400 text-sm">Waiting for your time proposal</div>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Opponent Proposals Section */}
-                            <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-5 shadow-lg">
-                              <div className="flex items-center gap-2 mb-4">
-                                <div className="w-2 h-2 bg-amber-400 rounded-full"></div>
-                                <h6 className="text-white font-semibold text-sm">Opponent's Proposal</h6>
-                              </div>
-                              
-                              {opponentProposals.length > 0 ? (
-                                <div className="space-y-3">
-                                  {opponentProposals.map((proposal) => (
-                                    <div key={proposal._id} className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
-                                      <div className="mb-3">
-                                        <div className="text-white font-medium text-sm mb-1">
-                                          {new Date(proposal.proposedTime).toLocaleDateString('en-US', { 
-                                            weekday: 'short', month: 'short', day: 'numeric' 
-                                          })} at{' '}
-                                          {new Date(proposal.proposedTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', timeZoneName: 'short'})}
-                                        </div>
-                                        <div className="text-slate-400 text-xs">
-                                          Proposed by {proposal.proposedBy.slice(0, 8)}...
-                                        </div>
-                                      </div>
-                                      <div className="flex gap-2">
-                                        <button
-                                          onClick={() => handleApproveTime(match._id)}
-                                          disabled={submitting}
-                                          className="flex-1 px-3 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:from-green-800 disabled:to-green-900 text-white text-xs font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-60"
-                                        >
-                                          {submitting ? '⏳ Accepting...' : '✅ Accept'}
-                                        </button>
-                                        <button
-                                          onClick={() => handleRejectTime(proposal._id)}
-                                          disabled={submitting}
-                                          className="flex-1 px-3 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 disabled:from-red-800 disabled:to-red-900 text-white text-xs font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-60"
-                                        >
-                                          {submitting ? '⏳ Declining...' : '❌ Decline'}
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="border-2 border-dashed border-slate-600/50 rounded-lg p-6 text-center">
-                                  <div className="text-2xl mb-2">👥</div>
-                                  <div className="text-slate-400 text-sm mb-1">Waiting for opponent's proposal</div>
-                                  <div className="text-slate-500 text-xs">They need to suggest a match time</div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          
-                        </div>
-                      )}
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          );
+        }).filter(Boolean);
+      })()
+    )}
               </div>
             )}
           </div>
