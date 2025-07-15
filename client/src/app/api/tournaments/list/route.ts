@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
+import { validateGame, validateStatus, createSafeQuery } from "@/lib/security-utils";
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const game = searchParams.get("game");
-    const status = searchParams.get("status");
+    const gameParam = searchParams.get("game");
+    const statusParam = searchParams.get("status");
     
     const client = await clientPromise;
     const db = client.db("tundra");
@@ -13,12 +14,27 @@ export async function GET(request: Request) {
     const teamsCol = db.collection("teams");
 
     let query: any = {};
-    if (game) {
+    
+    // Validate and sanitize game parameter
+    if (gameParam) {
+      const { isValid, game, error } = validateGame(gameParam);
+      if (!isValid) {
+        return NextResponse.json({ error: `Invalid game: ${error}` }, { status: 400 });
+      }
       query.game = game;
     }
-    if (status) {
+    
+    // Validate and sanitize status parameter
+    if (statusParam) {
+      const { isValid, status, error } = validateStatus(statusParam);
+      if (!isValid) {
+        return NextResponse.json({ error: `Invalid status: ${error}` }, { status: 400 });
+      }
       query.status = status;
     }
+    
+    // Create safe query object
+    query = createSafeQuery(query);
 
     // Get tournaments with team counts
     const tournaments = await tournamentsCol.aggregate([

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongoose';
 import { Clan } from '@/lib/models/Clan';
 import { User } from '@/lib/models/User';
+import { validateObjectId, sanitizeInput, escapeRegex } from '@/lib/security-utils';
 
 // GET - Get clan details by ID
 export async function GET(
@@ -11,7 +12,13 @@ export async function GET(
   try {
     await connectToDatabase();
 
-    const clan = await Clan.findById(params.clanId)
+    // Validate clanId parameter
+    const { isValid, objectId, error } = validateObjectId(params.clanId);
+    if (!isValid) {
+      return NextResponse.json({ error: `Invalid clanId: ${error}` }, { status: 400 });
+    }
+
+    const clan = await Clan.findById(objectId)
       .populate('leader', 'username walletAddress country')
       .populate('members', 'username walletAddress country')
       .populate('joinRequests.user', 'username walletAddress country');
@@ -35,20 +42,27 @@ export async function PUT(
   try {
     await connectToDatabase();
 
-    const { walletAddress, ...updateData } = await request.json();
+    // Validate clanId parameter
+    const { isValid, objectId, error } = validateObjectId(params.clanId);
+    if (!isValid) {
+      return NextResponse.json({ error: `Invalid clanId: ${error}` }, { status: 400 });
+    }
+
+    const requestBody = await request.json();
+    const { walletAddress, ...updateData } = sanitizeInput(requestBody);
 
     if (!walletAddress) {
       return NextResponse.json({ error: 'Wallet address required' }, { status: 401 });
     }
 
     // Find the user
-    const user = await User.findOne({ walletAddress });
+    const user = await User.findOne({ walletAddress: walletAddress.toLowerCase() });
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // Find the clan and check if user is the leader
-    const clan = await Clan.findById(params.clanId);
+    const clan = await Clan.findById(objectId);
     if (!clan) {
       return NextResponse.json({ error: 'Clan not found' }, { status: 404 });
     }
@@ -81,11 +95,11 @@ export async function PUT(
     if (sanitizedData.name || sanitizedData.tag) {
       const existingClan = await Clan.findOne({
         $and: [
-          { _id: { $ne: params.clanId } },
+          { _id: { $ne: objectId } },
           {
             $or: [
-              ...(sanitizedData.name ? [{ name: { $regex: new RegExp(`^${sanitizedData.name}$`, 'i') } }] : []),
-              ...(sanitizedData.tag ? [{ tag: { $regex: new RegExp(`^${sanitizedData.tag}$`, 'i') } }] : [])
+              ...(sanitizedData.name ? [{ name: { $regex: new RegExp(`^${escapeRegex(sanitizedData.name)}$`, 'i') } }] : []),
+              ...(sanitizedData.tag ? [{ tag: { $regex: new RegExp(`^${escapeRegex(sanitizedData.tag)}$`, 'i') } }] : [])
             ]
           }
         ]
@@ -100,7 +114,7 @@ export async function PUT(
 
     // Update the clan
     const updatedClan = await Clan.findByIdAndUpdate(
-      params.clanId,
+      objectId,
       { ...sanitizedData, updatedAt: new Date() },
       { new: true }
     ).populate('leader', 'username walletAddress country')

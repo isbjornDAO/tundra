@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Temporarily disable for faster development
   eslint: {
     ignoreDuringBuilds: true,
   },

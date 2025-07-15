@@ -1,25 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectToDatabase from '@/lib/mongoose';
-import { User } from '@/lib/models/User';
+import { requireTeam1Host } from '@/lib/auth-middleware';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
 export async function GET(request: NextRequest) {
+  // Require Team1 host authentication
+  const auth = await requireTeam1Host(request);
+  if (auth instanceof NextResponse) {
+    return auth; // Return error response
+  }
+
   try {
     const { searchParams } = new URL(request.url);
-    const walletAddress = searchParams.get('walletAddress');
     const region = searchParams.get('region');
-    
-    if (!walletAddress) {
-      return NextResponse.json({ error: 'Wallet address required' }, { status: 400 });
-    }
-
-    // Authenticate Team1 host
-    await connectToDatabase();
-    const user = await User.findOne({ walletAddress: walletAddress.toLowerCase() });
-    if (!user || !user.isTeam1Host) {
-      return NextResponse.json({ error: 'Unauthorized: Team1 host access required' }, { status: 403 });
-    }
 
     const client = await clientPromise;
     const db = client.db("tundra");
@@ -103,18 +96,17 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  try {
-    const { matchId, winnerId, walletAddress, completedAt } = await request.json();
-    
-    if (!matchId || !winnerId || !walletAddress) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
+  // Require Team1 host authentication
+  const auth = await requireTeam1Host(request);
+  if (auth instanceof NextResponse) {
+    return auth; // Return error response
+  }
 
-    // Authenticate Team1 host
-    await connectToDatabase();
-    const user = await User.findOne({ walletAddress: walletAddress.toLowerCase() });
-    if (!user || !user.isTeam1Host) {
-      return NextResponse.json({ error: 'Unauthorized: Team1 host access required' }, { status: 403 });
+  try {
+    const { matchId, winnerId, completedAt } = await request.json();
+    
+    if (!matchId || !winnerId) {
+      return NextResponse.json({ error: 'Missing required fields: matchId, winnerId' }, { status: 400 });
     }
 
     const client = await clientPromise;
@@ -147,10 +139,10 @@ export async function PATCH(request: NextRequest) {
           loser,
           completedAt: new Date(completedAt || Date.now()),
           enteredBy: {
-            walletAddress: user.walletAddress,
-            displayName: user.displayName,
+            walletAddress: auth.user.walletAddress,
+            displayName: auth.user.displayName,
             isTeam1Host: true,
-            region: user.region
+            region: auth.user.region
           }
         } 
       }

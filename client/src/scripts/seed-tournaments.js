@@ -1,6 +1,11 @@
 const { MongoClient, ObjectId } = require('mongodb');
 
-const uri = "mongodb+srv://icebear:ArcticDream44@cluster0.ob8odne.mongodb.net/tundra?retryWrites=true&w=majority&appName=Cluster0";
+const uri = process.env.MONGODB_URI;
+
+if (!uri) {
+  console.error('❌ MONGODB_URI environment variable is required');
+  process.exit(1);
+}
 
 async function seedTournaments() {
   const client = new MongoClient(uri);

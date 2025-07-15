@@ -1,20 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongoose';
 import { Tournament } from '@/lib/models/Tournament';
+import { validateGame, validateStatus, sanitizeInput, validateCountryCode } from '@/lib/security-utils';
 
 export async function GET(request: NextRequest) {
   try {
     await connectToDatabase();
     
     const { searchParams } = new URL(request.url);
-    const game = searchParams.get('game');
-    const region = searchParams.get('region');
-    const status = searchParams.get('status');
+    const gameParam = searchParams.get('game');
+    const regionParam = searchParams.get('region');
+    const statusParam = searchParams.get('status');
     
     let query: any = {};
-    if (game) query.game = game;
-    if (region) query.region = region;
-    if (status) query.status = status;
+    
+    // Validate and sanitize game parameter
+    if (gameParam) {
+      const { isValid, game, error } = validateGame(gameParam);
+      if (!isValid) {
+        return NextResponse.json({ error: `Invalid game: ${error}` }, { status: 400 });
+      }
+      query.game = game;
+    }
+    
+    // Validate and sanitize region parameter
+    if (regionParam) {
+      const { isValid, country, error } = validateCountryCode(regionParam);
+      if (!isValid) {
+        return NextResponse.json({ error: `Invalid region: ${error}` }, { status: 400 });
+      }
+      query.region = country;
+    }
+    
+    // Validate and sanitize status parameter
+    if (statusParam) {
+      const { isValid, status, error } = validateStatus(statusParam);
+      if (!isValid) {
+        return NextResponse.json({ error: `Invalid status: ${error}` }, { status: 400 });
+      }
+      query.status = status;
+    }
     
     const tournaments = await Tournament.find(query)
       .sort({ createdAt: -1 });
@@ -44,9 +69,11 @@ export async function POST(request: NextRequest) {
   try {
     await connectToDatabase();
     
-    const data = await request.json();
-    const { game, region, maxTeams, prizePool } = data;
+    const requestBody = await request.json();
+    const sanitizedData = sanitizeInput(requestBody);
+    const { game, region, maxTeams, prizePool } = sanitizedData;
     
+    // Validate required fields
     if (!game || !region) {
       return NextResponse.json(
         { error: 'Game and region are required' },
@@ -54,25 +81,49 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Validate game
+    const { isValid: gameValid, game: validatedGame, error: gameError } = validateGame(game);
+    if (!gameValid) {
+      return NextResponse.json({ error: `Invalid game: ${gameError}` }, { status: 400 });
+    }
+    
+    // Validate region
+    const { isValid: regionValid, country: validatedRegion, error: regionError } = validateCountryCode(region);
+    if (!regionValid) {
+      return NextResponse.json({ error: `Invalid region: ${regionError}` }, { status: 400 });
+    }
+    
+    // Validate numeric fields
+    const validatedMaxTeams = Number(maxTeams) || 16;
+    const validatedPrizePool = Number(prizePool) || 5000;
+    
+    if (validatedMaxTeams < 4 || validatedMaxTeams > 64) {
+      return NextResponse.json({ error: 'Max teams must be between 4 and 64' }, { status: 400 });
+    }
+    
+    if (validatedPrizePool < 0 || validatedPrizePool > 1000000) {
+      return NextResponse.json({ error: 'Prize pool must be between 0 and 1,000,000' }, { status: 400 });
+    }
+    
     // Check if there's already an open tournament for this game/region
     const existingTournament = await Tournament.findOne({ 
-      game, 
-      region, 
+      game: validatedGame, 
+      region: validatedRegion, 
       status: { $in: ['open', 'full', 'active'] } 
     });
     
     if (existingTournament) {
       return NextResponse.json(
-        { error: `There is already an active ${game} tournament in ${region}` },
+        { error: `There is already an active ${validatedGame} tournament in ${validatedRegion}` },
         { status: 409 }
       );
     }
     
     const tournament = new Tournament({
-      game,
-      region,
-      maxTeams: maxTeams || 16,
-      prizePool: prizePool || 5000,
+      game: validatedGame,
+      region: validatedRegion,
+      maxTeams: validatedMaxTeams,
+      prizePool: validatedPrizePool,
       status: 'open'
     });
     

@@ -1,7 +1,12 @@
 const mongoose = require('mongoose');
 require('dotenv').config();
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/tundra';
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  console.error('❌ MONGODB_URI environment variable is required');
+  process.exit(1);
+}
 
 // Define schemas
 const ClanSchema = new mongoose.Schema({

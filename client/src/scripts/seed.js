@@ -1,6 +1,11 @@
 const { MongoClient } = require("mongodb");
 
-const uri = process.env.MONGODB_URI || "mongodb+srv://mach:eqpFFjgOBdZmTCYU@cluster0.bd0tytw.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const uri = process.env.MONGODB_URI;
+
+if (!uri) {
+  console.error('❌ MONGODB_URI environment variable is required');
+  process.exit(1);
+}
 
 const client = new MongoClient(uri);
 

@@ -637,7 +637,7 @@ function TournamentCard({ tournament, onGenerateBracket, generateBracketPending 
         <div className="flex gap-2 items-center">
           <span className="text-green-400 text-sm font-medium">✓ Bracket Generated</span>
           <button
-            onClick={() => window.open(`/tournament/bracket?tournamentId=${tournament._id}`, "_blank")}
+            onClick={() => window.open(`/tournaments/bracket?tournamentId=${tournament._id}`, "_blank")}
             className="py-1 px-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
           >
             View Bracket

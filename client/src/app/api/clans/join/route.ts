@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongoose';
 import { Clan } from '@/lib/models/Clan';
 import { User } from '@/lib/models/User';
+import { validateWalletAddress, validateObjectId, sanitizeInput } from '@/lib/security-utils';
 
 export async function POST(request: NextRequest) {
   try {
     await connectToDatabase();
     
-    const data = await request.json();
-    const { walletAddress, clanId, action } = data; // action: 'request' or 'leave'
+    const requestBody = await request.json();
+    const sanitizedData = sanitizeInput(requestBody);
+    const { walletAddress, clanId, action } = sanitizedData; // action: 'request' or 'leave'
     
     if (!walletAddress || !clanId || !action) {
       return NextResponse.json(
@@ -17,8 +19,26 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Validate wallet address
+    const { isValid: walletValid, address: validatedWallet, error: walletError } = validateWalletAddress(walletAddress);
+    if (!walletValid) {
+      return NextResponse.json({ error: `Invalid wallet address: ${walletError}` }, { status: 400 });
+    }
+    
+    // Validate clan ID
+    const { isValid: clanIdValid, objectId: validatedClanId, error: clanIdError } = validateObjectId(clanId);
+    if (!clanIdValid) {
+      return NextResponse.json({ error: `Invalid clan ID: ${clanIdError}` }, { status: 400 });
+    }
+    
+    // Validate action
+    const allowedActions = ['request', 'leave'];
+    if (!allowedActions.includes(action)) {
+      return NextResponse.json({ error: 'Invalid action. Must be "request" or "leave"' }, { status: 400 });
+    }
+    
     // Find the user
-    const user = await User.findOne({ walletAddress: walletAddress.toLowerCase() });
+    const user = await User.findOne({ walletAddress: validatedWallet });
     if (!user) {
       return NextResponse.json(
         { error: 'User not found' },
@@ -27,7 +47,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Find the clan
-    const clan = await Clan.findById(clanId).populate('members');
+    const clan = await Clan.findById(validatedClanId).populate('members');
     if (!clan) {
       return NextResponse.json(
         { error: 'Clan not found' },
@@ -80,7 +100,7 @@ export async function POST(request: NextRequest) {
       
     } else if (action === 'leave') {
       // Check if user is in this clan
-      if (user.clan?.toString() !== clanId) {
+      if (user.clan?.toString() !== validatedClanId.toString()) {
         return NextResponse.json(
           { error: 'You are not a member of this clan' },
           { status: 400 }

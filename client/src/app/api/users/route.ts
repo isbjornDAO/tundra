@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongoose';
 import { User } from '@/lib/models/User';
+import { validateWalletAddress, validateUsername, validateCountryCode, sanitizeInput } from '@/lib/security-utils';
 
 export async function GET(request: NextRequest) {
   try {
     await connectToDatabase();
     
     const { searchParams } = new URL(request.url);
-    const walletAddress = searchParams.get('walletAddress');
+    const walletAddressParam = searchParams.get('walletAddress');
     
-    if (walletAddress) {
+    if (walletAddressParam) {
+      // Validate wallet address
+      const { isValid, address, error } = validateWalletAddress(walletAddressParam);
+      if (!isValid) {
+        return NextResponse.json({ error: `Invalid wallet address: ${error}` }, { status: 400 });
+      }
+      
       const user = await User.findOne({ 
-        walletAddress: walletAddress.toLowerCase()
+        walletAddress: address
       });
       
       // Try to populate clan if it exists
@@ -47,8 +54,9 @@ export async function POST(request: NextRequest) {
   try {
     await connectToDatabase();
     
-    const data = await request.json();
-    const { walletAddress, username, displayName, email, country, avatar, bio } = data;
+    const requestBody = await request.json();
+    const sanitizedData = sanitizeInput(requestBody);
+    const { walletAddress, username, displayName, email, country, avatar, bio } = sanitizedData;
     
     // Validate required fields
     if (!walletAddress || !username || !country) {
@@ -57,21 +65,38 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Validate username format
-    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
     
-    if (!usernameRegex.test(username)) {
-      return NextResponse.json({ 
-        error: 'Username must be 3-20 characters and contain only letters, numbers, and underscores' 
-      }, { status: 400 });
+    // Validate wallet address
+    const { isValid: walletValid, address: validatedWallet, error: walletError } = validateWalletAddress(walletAddress);
+    if (!walletValid) {
+      return NextResponse.json({ error: `Invalid wallet address: ${walletError}` }, { status: 400 });
+    }
+    
+    // Validate username
+    const { isValid: usernameValid, username: validatedUsername, error: usernameError } = validateUsername(username);
+    if (!usernameValid) {
+      return NextResponse.json({ error: `Invalid username: ${usernameError}` }, { status: 400 });
+    }
+    
+    // Validate country
+    const { isValid: countryValid, country: validatedCountry, error: countryError } = validateCountryCode(country);
+    if (!countryValid) {
+      return NextResponse.json({ error: `Invalid country: ${countryError}` }, { status: 400 });
+    }
+    
+    // Validate email if provided
+    if (email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
+      }
     }
     
     // Check if user already exists
     const existingUserByWallet = await User.findOne({ 
-      walletAddress: walletAddress.toLowerCase()
+      walletAddress: validatedWallet
     });
-    const existingUserByUsername = await User.findOne({ username: username.toLowerCase() });
+    const existingUserByUsername = await User.findOne({ username: validatedUsername });
     
     
     // If wallet exists but has no username or invalid username, update the existing record
@@ -83,23 +108,23 @@ export async function POST(request: NextRequest) {
     if (existingUserByWallet && !hasValidUsername) {
       
       // Check if the username we want to add is taken by someone else
-      if (existingUserByUsername && existingUserByUsername.walletAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+      if (existingUserByUsername && existingUserByUsername.walletAddress !== validatedWallet) {
         return NextResponse.json({ error: 'Username is already taken. Please choose a different username.' }, { status: 409 });
       }
       
       // Update the existing user record
       const updateData: any = {
-        username: username.toLowerCase(),
-        displayName: displayName || username,
-        email: email || undefined,
-        country,
+        username: validatedUsername,
+        displayName: displayName || validatedUsername,
+        email: email ? email.toLowerCase() : undefined,
+        country: validatedCountry,
         avatar: avatar || '',
         bio: bio || '',
         updatedAt: new Date()
       };
       
       const updatedUser = await User.findOneAndUpdate(
-        { walletAddress: walletAddress.toLowerCase() },
+        { walletAddress: validatedWallet },
         updateData,
         { new: true }
       );
@@ -116,11 +141,11 @@ export async function POST(request: NextRequest) {
     }
     
     const userData: any = {
-      walletAddress: walletAddress.toLowerCase(),
-      username: username.toLowerCase(),
-      displayName: displayName || username, // Use username as fallback for display name
-      email: email || undefined,
-      country,
+      walletAddress: validatedWallet,
+      username: validatedUsername,
+      displayName: displayName || validatedUsername,
+      email: email ? email.toLowerCase() : undefined,
+      country: validatedCountry,
       avatar: avatar || '',
       bio: bio || '',
       stats: {
@@ -182,14 +207,21 @@ export async function PUT(request: NextRequest) {
   try {
     await connectToDatabase();
     
-    const data = await request.json();
-    const { walletAddress, displayName, email, avatar, bio } = data;
+    const requestBody = await request.json();
+    const sanitizedData = sanitizeInput(requestBody);
+    const { walletAddress, displayName, email, avatar, bio } = sanitizedData;
     
     if (!walletAddress) {
       return NextResponse.json(
         { error: 'Wallet address is required' },
         { status: 400 }
       );
+    }
+    
+    // Validate wallet address
+    const { isValid: walletValid, address: validatedWallet, error: walletError } = validateWalletAddress(walletAddress);
+    if (!walletValid) {
+      return NextResponse.json({ error: `Invalid wallet address: ${walletError}` }, { status: 400 });
     }
 
     // Validate email if provided
@@ -202,7 +234,7 @@ export async function PUT(request: NextRequest) {
       // Check if email is already taken by another user
       const existingEmail = await User.findOne({
         email: email.toLowerCase(),
-        walletAddress: { $ne: walletAddress.toLowerCase() }
+        walletAddress: { $ne: validatedWallet }
       });
       if (existingEmail) {
         return NextResponse.json({ error: 'Email already in use' }, { status: 409 });
@@ -220,7 +252,7 @@ export async function PUT(request: NextRequest) {
     if (data.stats !== undefined) updateData.stats = data.stats;
 
     const user = await User.findOneAndUpdate(
-      { walletAddress: walletAddress.toLowerCase() },
+      { walletAddress: validatedWallet },
       updateData,
       { new: true }
     );

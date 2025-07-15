@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { ObjectId, Db } from "mongodb";
+import { validateObjectId, validateWalletAddress, sanitizeInput } from "@/lib/security-utils";
 
 async function generateNextRoundMatches(bracketId: ObjectId, db: Db) {
   const matchesCol = db.collection("matches");
@@ -85,21 +86,32 @@ async function generateNextRoundMatches(bracketId: ObjectId, db: Db) {
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const bracketId = searchParams.get("bracketId");
-    const organizerAddress = searchParams.get("organizer");
+    const bracketIdParam = searchParams.get("bracketId");
+    const organizerParam = searchParams.get("organizer");
     
     const client = await clientPromise;
     const db = client.db("tundra");
     const matchesCol = db.collection("matches");
     
     let query = {};
-    if (bracketId) {
-      query = { bracketId: new ObjectId(bracketId) };
-    } else if (organizerAddress) {
+    
+    if (bracketIdParam) {
+      // Validate and sanitize bracketId
+      const { isValid, objectId, error } = validateObjectId(bracketIdParam);
+      if (!isValid) {
+        return NextResponse.json({ error: `Invalid bracketId: ${error}` }, { status: 400 });
+      }
+      query = { bracketId: objectId };
+    } else if (organizerParam) {
+      // Validate and sanitize organizer address
+      const { isValid, address, error } = validateWalletAddress(organizerParam);
+      if (!isValid) {
+        return NextResponse.json({ error: `Invalid organizer address: ${error}` }, { status: 400 });
+      }
       query = {
         $or: [
-          { "team1.organizer": organizerAddress },
-          { "team2.organizer": organizerAddress }
+          { "team1.organizer": address },
+          { "team2.organizer": address }
         ]
       };
     }
@@ -115,38 +127,67 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const { matchId, winnerId, reportedBy } = await request.json();
+    const requestBody = await request.json();
+    const { matchId, winnerId, reportedBy } = sanitizeInput(requestBody);
     
     if (!matchId || !winnerId || !reportedBy) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json({ error: "Missing required fields: matchId, winnerId, reportedBy" }, { status: 400 });
+    }
+
+    // Validate matchId
+    const { isValid: matchIdValid, objectId: matchObjectId, error: matchIdError } = validateObjectId(matchId);
+    if (!matchIdValid) {
+      return NextResponse.json({ error: `Invalid matchId: ${matchIdError}` }, { status: 400 });
+    }
+
+    // Validate winnerId (also an ObjectId)
+    const { isValid: winnerIdValid, objectId: winnerObjectId, error: winnerIdError } = validateObjectId(winnerId);
+    if (!winnerIdValid) {
+      return NextResponse.json({ error: `Invalid winnerId: ${winnerIdError}` }, { status: 400 });
+    }
+
+    // Validate reportedBy wallet address
+    const { isValid: reporterValid, address: reporterAddress, error: reporterError } = validateWalletAddress(reportedBy);
+    if (!reporterValid) {
+      return NextResponse.json({ error: `Invalid reporter address: ${reporterError}` }, { status: 400 });
     }
 
     const client = await clientPromise;
     const db = client.db("tundra");
     const matchesCol = db.collection("matches");
 
-    // Get match
-    const match = await matchesCol.findOne({ _id: new ObjectId(matchId) });
+    // Get match using validated ObjectId
+    const match = await matchesCol.findOne({ _id: matchObjectId });
     if (!match) {
       return NextResponse.json({ error: "Match not found" }, { status: 404 });
     }
 
     // Verify reporter is one of the team organizers
-    const isValidReporter = match.team1.organizer === reportedBy || match.team2.organizer === reportedBy;
+    const isValidReporter = 
+      match.team1?.organizer?.toLowerCase() === reporterAddress ||
+      match.team2?.organizer?.toLowerCase() === reporterAddress;
+      
     if (!isValidReporter) {
       return NextResponse.json({ error: "Unauthorized to report match result" }, { status: 403 });
     }
 
-    // Update match with winner
-    const winner = match.team1.id === winnerId ? match.team1 : match.team2;
+    // Verify winner is one of the participating teams
+    const winner = match.team1?.id === winnerId ? match.team1 : 
+                   match.team2?.id === winnerId ? match.team2 : null;
+                   
+    if (!winner) {
+      return NextResponse.json({ error: "Winner must be one of the participating teams" }, { status: 400 });
+    }
+
+    // Update match with winner using validated ObjectId
     await matchesCol.updateOne(
-      { _id: new ObjectId(matchId) },
+      { _id: matchObjectId },
       { 
         $set: { 
           winner,
           status: "completed",
           completedAt: new Date(),
-          reportedBy
+          reportedBy: reporterAddress
         } 
       }
     );

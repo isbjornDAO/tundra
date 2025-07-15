@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
+import { validateWalletAddress, validateGame, validateCountryCode, sanitizeInput } from '@/lib/security-utils';
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const walletAddress = searchParams.get('wallet');
+    const walletParam = searchParams.get('wallet');
 
-    if (!walletAddress) {
+    if (!walletParam) {
       return NextResponse.json({ error: 'Wallet address is required' }, { status: 400 });
+    }
+    
+    // Validate wallet address
+    const { isValid, address: walletAddress, error } = validateWalletAddress(walletParam);
+    if (!isValid) {
+      return NextResponse.json({ error: `Invalid wallet address: ${error}` }, { status: 400 });
     }
 
     const client = await clientPromise;
@@ -44,13 +51,20 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const walletAddress = searchParams.get('wallet');
+    const walletParam = searchParams.get('wallet');
 
-    if (!walletAddress) {
+    if (!walletParam) {
       return NextResponse.json({ error: 'Wallet address is required' }, { status: 400 });
     }
+    
+    // Validate wallet address
+    const { isValid, address: walletAddress, error: walletError } = validateWalletAddress(walletParam);
+    if (!isValid) {
+      return NextResponse.json({ error: `Invalid wallet address: ${walletError}` }, { status: 400 });
+    }
 
-    const body = await request.json();
+    const requestBody = await request.json();
+    const body = sanitizeInput(requestBody);
     const {
       displayName,
       bio,
@@ -70,9 +84,29 @@ export async function PUT(request: NextRequest) {
     if (displayName.length > 50) {
       return NextResponse.json({ error: 'Display name must be 50 characters or less' }, { status: 400 });
     }
+    
+    if (!/^[a-zA-Z0-9\s_-]+$/.test(displayName)) {
+      return NextResponse.json({ error: 'Display name contains invalid characters' }, { status: 400 });
+    }
 
     if (bio && bio.length > 500) {
       return NextResponse.json({ error: 'Bio must be 500 characters or less' }, { status: 400 });
+    }
+    
+    // Validate favorite game if provided
+    if (favoriteGame) {
+      const { isValid: gameValid, error: gameError } = validateGame(favoriteGame);
+      if (!gameValid) {
+        return NextResponse.json({ error: `Invalid favorite game: ${gameError}` }, { status: 400 });
+      }
+    }
+    
+    // Validate country if provided
+    if (country) {
+      const { isValid: countryValid, error: countryError } = validateCountryCode(country);
+      if (!countryValid) {
+        return NextResponse.json({ error: `Invalid country: ${countryError}` }, { status: 400 });
+      }
     }
 
     // Validate social media handles (optional)
@@ -136,10 +170,16 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const walletAddress = searchParams.get('wallet');
+    const walletParam = searchParams.get('wallet');
 
-    if (!walletAddress) {
+    if (!walletParam) {
       return NextResponse.json({ error: 'Wallet address is required' }, { status: 400 });
+    }
+    
+    // Validate wallet address
+    const { isValid, address: walletAddress, error } = validateWalletAddress(walletParam);
+    if (!isValid) {
+      return NextResponse.json({ error: `Invalid wallet address: ${error}` }, { status: 400 });
     }
 
     const client = await clientPromise;

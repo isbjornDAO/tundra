@@ -1,47 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectToDatabase from '@/lib/mongoose';
-import { User } from '@/lib/models/User';
+import { authenticateUser } from '@/lib/auth-middleware';
 
 export async function GET(request: NextRequest) {
+  // Require authentication to check admin status
+  const auth = await authenticateUser(request);
+  
+  if (!auth) {
+    return NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 }
+    );
+  }
+  
   try {
-    await connectToDatabase();
-    
-    const { searchParams } = new URL(request.url);
-    const walletAddress = searchParams.get('walletAddress');
-    
-    if (!walletAddress) {
-      return NextResponse.json(
-        { error: 'Wallet address is required' },
-        { status: 400 }
-      );
-    }
-    
-    const user = await User.findOne({ walletAddress: walletAddress.toLowerCase() });
-    
-    if (!user) {
-      return NextResponse.json({
-        isAdmin: false,
-        isClanLeader: false,
-        isTeam1Host: false,
-        role: null,
-        regions: []
-      });
-    }
-    
     // Determine role
     let role = null;
-    if (user.isAdmin) {
-      role = user.adminRegions.length === 0 ? 'super_admin' : 'regional_admin';
-    } else if (user.isTeam1Host) {
+    if (auth.user.isAdmin) {
+      role = auth.user.adminRegions.length === 0 ? 'super_admin' : 'regional_admin';
+    } else if (auth.user.isTeam1Host) {
       role = 'team1_host';
     }
     
     return NextResponse.json({
-      isAdmin: user.isAdmin,
-      isClanLeader: user.isClanLeader,
-      isTeam1Host: user.isTeam1Host,
+      walletAddress: auth.user.walletAddress,
+      isAdmin: auth.user.isAdmin,
+      isClanLeader: auth.user.isClanLeader,
+      isTeam1Host: auth.user.isTeam1Host,
       role: role,
-      regions: user.adminRegions || []
+      regions: auth.user.adminRegions || []
     });
   } catch (error) {
     console.error('Error checking admin status:', error);

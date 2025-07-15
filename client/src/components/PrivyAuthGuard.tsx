@@ -34,6 +34,8 @@ function AuthGuardContent({ children }: { children: React.ReactNode }) {
           const response = await fetch(`/api/users?walletAddress=${address}`);
           const data = await response.json();
           
+          console.log('PrivyAuthGuard user check:', { address, hasUser: !!data.user, hasUsername: !!data.user?.username });
+          
           if (data.user && data.user.username) {
             // User has completed signup
             setHasUsername(true);
@@ -41,20 +43,27 @@ function AuthGuardContent({ children }: { children: React.ReactNode }) {
           } else {
             // User exists but no username, or no user - redirect to login
             setHasUsername(false);
-            router.push('/login');
+            // Only redirect if we're not already on the login page
+            if (pathname !== '/login') {
+              router.push('/login');
+            }
             setChecking(false);
           }
         } catch (error) {
           console.error('Error checking user profile:', error);
-          // On error, redirect to login
-          router.push('/login');
+          // On error, redirect to login only if not already there
+          if (pathname !== '/login') {
+            router.push('/login');
+          }
           setChecking(false);
         }
       } else if (ready && authenticated && !address) {
         // Authenticated but no address yet, wait a bit
         setTimeout(() => {
           if (!address) {
-            router.push('/login');
+            if (pathname !== '/login') {
+              router.push('/login');
+            }
             setChecking(false);
           }
         }, 2000);

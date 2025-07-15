@@ -1,31 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongoose';
 import { Clan } from '@/lib/models/Clan';
-import { User } from '@/lib/models/User';
+import { requireAdmin } from '@/lib/auth-middleware';
 
 export async function PATCH(request: NextRequest) {
+  // Require admin authentication
+  const auth = await requireAdmin(request);
+  if (auth instanceof NextResponse) {
+    return auth; // Return error response
+  }
+
   try {
     await connectToDatabase();
     
-    const { clanId, action, walletAddress } = await request.json();
+    const { clanId, action } = await request.json();
     
-    if (!clanId || !action || !walletAddress) {
+    if (!clanId || !action) {
       return NextResponse.json(
-        { error: 'Missing required fields: clanId, action, walletAddress' },
+        { error: 'Missing required fields: clanId, action' },
         { status: 400 }
-      );
-    }
-
-    // Verify admin permissions
-    const admin = await User.findOne({ 
-      walletAddress: walletAddress.toLowerCase(),
-      isAdmin: true 
-    });
-    
-    if (!admin) {
-      return NextResponse.json(
-        { error: 'Access denied. Admin permissions required.' },
-        { status: 403 }
       );
     }
 
@@ -42,13 +35,13 @@ export async function PATCH(request: NextRequest) {
     if (action === 'approve') {
       // Approve the clan
       clan.isVerified = true;
-      clan.verifiedBy = admin._id;
+      clan.verifiedBy = auth.user._id;
       clan.verifiedAt = new Date();
       clan.updatedAt = new Date();
       
       await clan.save();
       
-      console.log(`Clan ${clan.name} approved by admin ${admin.username}`);
+      console.log(`Clan ${clan.name} approved by admin ${auth.user.walletAddress} (${auth.user.username || 'no username'})`);
       
       return NextResponse.json({ 
         success: true, 
@@ -60,7 +53,7 @@ export async function PATCH(request: NextRequest) {
       // For now, we'll just delete the clan. You could also add a "rejected" status
       await Clan.findByIdAndDelete(clanId);
       
-      console.log(`Clan ${clan.name} rejected and deleted by admin ${admin.username}`);
+      console.log(`Clan ${clan.name} rejected and deleted by admin ${auth.user.walletAddress} (${auth.user.username || 'no username'})`);
       
       return NextResponse.json({ 
         success: true, 

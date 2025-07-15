@@ -18,6 +18,7 @@ export default function AuthPage() {
 
   // Check for existing user when wallet connects
   useEffect(() => {
+    console.log('Login page auth state:', { authenticated, address, isCheckingAccount });
     if (authenticated && address && isCheckingAccount) {
       checkExistingUser();
     } else if (authenticated && !address && isCheckingAccount) {
@@ -41,7 +42,10 @@ export default function AuthPage() {
       
       if (data.user && data.user.username && data.user.country) {
         // User exists with username and country, redirect to home
-        router.push('/');
+        // Add small delay to ensure auth state is synced
+        setTimeout(() => {
+          router.push('/');
+        }, 100);
       } else if (data.user && (!data.user.username || !data.user.country)) {
         // User exists but has incomplete profile - disconnect wallet and show error
         console.log('User found but incomplete profile - disconnecting wallet');
@@ -67,8 +71,12 @@ export default function AuthPage() {
   };
 
   const handleConnectExistingWallet = async () => {
-    if (authenticated) {
-      router.push('/');
+    // Don't redirect immediately if authenticated - let the user check complete
+    if (authenticated && address) {
+      setIsLoading(true);
+      setIsCheckingAccount(true);
+      // Check if user exists first
+      await checkExistingUser();
       return;
     }
 

@@ -2,24 +2,46 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongoose';
 import { ClanRequest } from '@/lib/models/ClanRequest';
 import { User } from '@/lib/models/User';
+import { validateWalletAddress, validateCountryCode, sanitizeInput, escapeRegex } from '@/lib/security-utils';
 
 export async function GET(request: NextRequest) {
   try {
     await connectToDatabase();
     
     const { searchParams } = new URL(request.url);
-    const walletAddress = searchParams.get('walletAddress');
-    const status = searchParams.get('status');
-    const country = searchParams.get('country');
+    const walletAddressParam = searchParams.get('walletAddress');
+    const statusParam = searchParams.get('status');
+    const countryParam = searchParams.get('country');
     
     let query: any = {};
     
-    if (status) query.status = status;
-    if (country) query.country = country;
+    // Validate status parameter
+    if (statusParam) {
+      const allowedStatuses = ['pending', 'approved', 'rejected'];
+      const sanitizedStatus = sanitizeInput(statusParam);
+      if (!allowedStatuses.includes(sanitizedStatus)) {
+        return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+      }
+      query.status = sanitizedStatus;
+    }
+    
+    // Validate country parameter
+    if (countryParam) {
+      const { isValid, country, error } = validateCountryCode(countryParam);
+      if (!isValid) {
+        return NextResponse.json({ error: `Invalid country: ${error}` }, { status: 400 });
+      }
+      query.country = country;
+    }
     
     // If wallet address provided, check if user is admin to see all requests
-    if (walletAddress) {
-      const user = await User.findOne({ walletAddress: walletAddress.toLowerCase() });
+    if (walletAddressParam) {
+      const { isValid, address, error } = validateWalletAddress(walletAddressParam);
+      if (!isValid) {
+        return NextResponse.json({ error: `Invalid wallet address: ${error}` }, { status: 400 });
+      }
+      
+      const user = await User.findOne({ walletAddress: address });
       
       if (user?.isAdmin) {
         // Admin can see requests assigned to them or all if super admin
@@ -52,9 +74,10 @@ export async function POST(request: NextRequest) {
   try {
     await connectToDatabase();
     
-    const data = await request.json();
-    console.log('Received clan request data:', data);
-    const { walletAddress, clanName, clanTag, description, logo, country, region, locationProof } = data;
+    const requestBody = await request.json();
+    console.log('Received clan request data:', requestBody);
+    const sanitizedData = sanitizeInput(requestBody);
+    const { walletAddress, clanName, clanTag, description, logo, country, region, locationProof } = sanitizedData;
     
     console.log('Parsed fields:', { walletAddress, clanName, clanTag, country, region });
     
@@ -75,8 +98,37 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Validate wallet address
+    const { isValid: walletValid, address: validatedWallet, error: walletError } = validateWalletAddress(walletAddress);
+    if (!walletValid) {
+      return NextResponse.json({ error: `Invalid wallet address: ${walletError}` }, { status: 400 });
+    }
+    
+    // Validate country
+    const { isValid: countryValid, country: validatedCountry, error: countryError } = validateCountryCode(country);
+    if (!countryValid) {
+      return NextResponse.json({ error: `Invalid country: ${countryError}` }, { status: 400 });
+    }
+    
+    // Validate clan name and tag format
+    if (clanName.length < 3 || clanName.length > 50) {
+      return NextResponse.json({ error: 'Clan name must be 3-50 characters' }, { status: 400 });
+    }
+    
+    if (clanTag.length < 2 || clanTag.length > 5) {
+      return NextResponse.json({ error: 'Clan tag must be 2-5 characters' }, { status: 400 });
+    }
+    
+    if (!/^[a-zA-Z0-9\s_-]+$/.test(clanName)) {
+      return NextResponse.json({ error: 'Clan name contains invalid characters' }, { status: 400 });
+    }
+    
+    if (!/^[a-zA-Z0-9_-]+$/.test(clanTag)) {
+      return NextResponse.json({ error: 'Clan tag contains invalid characters' }, { status: 400 });
+    }
+    
     // Find the requesting user
-    const user = await User.findOne({ walletAddress: walletAddress.toLowerCase() });
+    const user = await User.findOne({ walletAddress: validatedWallet });
     if (!user) {
       return NextResponse.json(
         { error: 'User not found' },
@@ -100,8 +152,8 @@ export async function POST(request: NextRequest) {
     // Check if clan name or tag already exists
     const existingClanName = await ClanRequest.findOne({
       $or: [
-        { clanName: clanName },
-        { clanTag: clanTag }
+        { clanName: { $regex: new RegExp(`^${escapeRegex(clanName)}$`, 'i') } },
+        { clanTag: { $regex: new RegExp(`^${escapeRegex(clanTag)}$`, 'i') } }
       ],
       status: { $in: ['pending', 'approved'] }
     });
@@ -114,7 +166,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Find appropriate regional host for this country
-    const regionalHost = await findRegionalHost(country, region);
+    const regionalHost = await findRegionalHost(validatedCountry, region);
     console.log('Found regional host:', regionalHost);
     
     const clanRequest = new ClanRequest({
@@ -123,7 +175,7 @@ export async function POST(request: NextRequest) {
       clanTag,
       description,
       logo,
-      country,
+      country: validatedCountry,
       region,
       locationProof,
       assignedHost: regionalHost?._id || null // Allow null if no regional host found

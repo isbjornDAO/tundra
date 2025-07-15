@@ -1,23 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongoose';
 import { User } from '@/lib/models/User';
+import { requireSuperAdmin } from '@/lib/auth-middleware';
 
 export async function POST(request: NextRequest) {
+  // CRITICAL: Only super admins can grant/revoke admin privileges
+  const auth = await requireSuperAdmin(request);
+  if (auth instanceof NextResponse) {
+    return auth; // Return error response
+  }
+
   try {
     await connectToDatabase();
     
     const data = await request.json();
-    const { walletAddress, isAdmin, regions } = data;
+    const { targetWalletAddress, isAdmin, regions } = data;
     
-    if (!walletAddress) {
+    if (!targetWalletAddress) {
       return NextResponse.json(
-        { error: 'Wallet address is required' },
+        { error: 'Target wallet address is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Prevent self-modification for security
+    if (targetWalletAddress.toLowerCase() === auth.user.walletAddress.toLowerCase()) {
+      return NextResponse.json(
+        { error: 'Cannot modify your own admin privileges' },
         { status: 400 }
       );
     }
     
     const user = await User.findOneAndUpdate(
-      { walletAddress: walletAddress.toLowerCase() },
+      { walletAddress: targetWalletAddress.toLowerCase() },
       {
         isAdmin,
         adminRegions: regions || [],
@@ -33,7 +48,21 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    return NextResponse.json(user);
+    // Log admin action for audit trail
+    console.log(`Admin privilege ${isAdmin ? 'granted' : 'revoked'} for ${targetWalletAddress} by super admin ${auth.user.walletAddress}`);
+    
+    return NextResponse.json({
+      success: true,
+      user: {
+        _id: user._id,
+        walletAddress: user.walletAddress,
+        username: user.username,
+        displayName: user.displayName,
+        isAdmin: user.isAdmin,
+        adminRegions: user.adminRegions,
+        updatedAt: user.updatedAt
+      }
+    });
   } catch (error) {
     console.error('Error updating admin status:', error);
     return NextResponse.json({ error: 'Failed to update admin status' }, { status: 500 });
