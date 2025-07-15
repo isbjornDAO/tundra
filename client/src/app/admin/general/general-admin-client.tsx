@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import { useRouter } from 'next/navigation';
-import { WagmiGuard } from '@/components/WagmiGuard';
 import { Layout } from '@/components/Layout';
 
 interface User {
@@ -205,19 +204,16 @@ export default function GeneralAdminClient() {
 
   if (loading) {
     return (
-      <WagmiGuard>
         <Layout>
           <div className="flex items-center justify-center min-h-screen">
             <div className="text-lg text-white">Loading...</div>
           </div>
         </Layout>
-      </WagmiGuard>
     );
   }
 
   if (!isAuthorized) {
     return (
-      <WagmiGuard>
         <Layout>
           <div className="max-w-4xl mx-auto text-center">
             <div className="card p-8">
@@ -226,12 +222,10 @@ export default function GeneralAdminClient() {
             </div>
           </div>
         </Layout>
-      </WagmiGuard>
     );
   }
 
   return (
-    <WagmiGuard>
       <Layout title="Admin">
         <div className="max-w-7xl mx-auto">
           {/* Tab Navigation */}
@@ -517,6 +511,5 @@ export default function GeneralAdminClient() {
           )}
         </div>
       </Layout>
-    </WagmiGuard>
   );
 }

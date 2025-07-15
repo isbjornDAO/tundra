@@ -5,7 +5,6 @@ import { Layout } from '@/components/Layout';
 import { useTeam1Auth } from '@/hooks/useTeam1Auth';
 import { useResults, useStats } from '@/hooks/useTournaments';
 import { GAMES, type Game } from '@/types/tournament';
-import { WagmiGuard } from '@/components/WagmiGuard';
 import { AuthGuard } from '@/components/AuthGuard';
 
 export default function ResultsClient() {
@@ -75,18 +74,15 @@ export default function ResultsClient() {
 
   if (resultsLoading) {
     return (
-      <WagmiGuard>
         <AuthGuard>
           <Layout>
             <div className="text-white text-center py-8">Loading results...</div>
           </Layout>
         </AuthGuard>
-      </WagmiGuard>
     );
   }
 
   return (
-    <WagmiGuard>
     <AuthGuard>
       <Layout>
         <div className="max-w-6xl mx-auto">
@@ -327,6 +323,5 @@ export default function ResultsClient() {
         </div>
       </Layout>
     </AuthGuard>
-    </WagmiGuard>
   );
 }
