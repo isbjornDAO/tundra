@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongoose';
 import { User } from '@/lib/models/User';
-import { requireSuperAdmin } from '@/lib/auth-middleware';
+import { requireAdmin } from '@/lib/auth-middleware';
 
 export async function POST(request: NextRequest) {
-  // CRITICAL: Only super admins can grant/revoke admin privileges
-  const auth = await requireSuperAdmin(request);
+  // CRITICAL: Only admins can grant/revoke admin privileges
+  const auth = await requireAdmin(request);
   if (auth instanceof NextResponse) {
     return auth; // Return error response
   }
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Log admin action for audit trail
-    console.log(`Admin privilege ${isAdmin ? 'granted' : 'revoked'} for ${targetWalletAddress} by super admin ${auth.user.walletAddress}`);
+    console.log(`Admin privilege ${isAdmin ? 'granted' : 'revoked'} for ${targetWalletAddress} by admin ${auth.user.walletAddress}`);
     
     return NextResponse.json({
       success: true,

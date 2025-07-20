@@ -43,14 +43,8 @@ export async function GET(request: NextRequest) {
       
       const user = await User.findOne({ walletAddress: address });
       
-      if (user?.isAdmin) {
-        // Admin can see requests assigned to them or all if super admin
-        if (user.adminRegions && user.adminRegions.length > 0) {
-          // Regional admin - only see requests from their regions
-          const regionCountries = await getCountriesForRegions(user.adminRegions);
-          query.country = { $in: regionCountries };
-        }
-        // Super admin sees all (no additional filters)
+      if (user?.isAdmin || user?.isHost) {
+        // Admin and host can see all requests (no additional filters)
       } else {
         // Regular user can only see their own requests
         query.requestedBy = user._id;
@@ -219,10 +213,10 @@ export async function POST(request: NextRequest) {
 
 // Helper function to find regional host
 async function findRegionalHost(country: string, region: string) {
-  // First try to find a Team1 host specifically for this country
+  // First try to find a host specifically for this country
   let host = await User.findOne({
     $or: [
-      { isTeam1Host: true },
+      { isHost: true },
       { isAdmin: true }
     ],
     adminRegions: { $in: [region] },
@@ -233,18 +227,18 @@ async function findRegionalHost(country: string, region: string) {
   if (!host) {
     host = await User.findOne({
       $or: [
-        { isTeam1Host: true },
+        { isHost: true },
         { isAdmin: true }
       ],
       adminRegions: { $in: [region] }
     });
   }
   
-  // If no regional host found, just find any Team1 host or admin
+  // If no regional host found, just find any host or admin
   if (!host) {
     host = await User.findOne({
       $or: [
-        { isTeam1Host: true },
+        { isHost: true },
         { isAdmin: true }
       ]
     });

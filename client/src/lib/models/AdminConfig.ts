@@ -10,8 +10,8 @@ const AdminConfigSchema = new mongoose.Schema({
     regions: [String],
     role: {
       type: String,
-      enum: ['super_admin', 'regional_admin'],
-      default: 'regional_admin'
+      enum: ['admin', 'host'],
+      default: 'host'
     }
   }],
   regions: [{

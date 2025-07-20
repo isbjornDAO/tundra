@@ -1,27 +1,11 @@
 import { NextResponse } from "next/server";
 import connectToDatabase from "@/lib/mongoose";
 import { Tournament } from "@/lib/models/Tournament";
-import mongoose from "mongoose";
-import { validateObjectId, validateWalletAddress, validateCountryCode, sanitizeInput } from "@/lib/security-utils";
+import { TournamentRegistration } from "@/lib/models/TournamentRegistration";
+import { Clan } from "@/lib/models/Clan";
+import { User } from "@/lib/models/User";
+import { validateObjectId, validateWalletAddress, sanitizeInput } from "@/lib/security-utils";
 import { autoGenerateMatches } from "@/lib/tournament-utils";
-
-// Team schema
-const TeamSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  tournamentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tournament', required: true },
-  organizer: { type: String, required: true },
-  country: { type: String, required: true },
-  clanId: { type: String },
-  players: [{
-    id: String,
-    name: String,
-    walletAddress: String,
-    steamId: String
-  }],
-  registeredAt: { type: Date, default: Date.now }
-});
-
-const Team = mongoose.models.Team || mongoose.model('Team', TeamSchema);
 
 export async function POST(request: Request) {
   try {

@@ -53,7 +53,7 @@ function ConnectWalletContent() {
     try {
       const response = await fetch(`/api/admin/check?walletAddress=${address}`);
       const data = await response.json();
-      setIsSuperAdmin(data.role === 'super_admin');
+      setIsSuperAdmin(data.role === 'admin');
     } catch (error) {
       console.error('Error checking admin status:', error);
     }

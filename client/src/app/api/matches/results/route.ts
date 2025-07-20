@@ -42,9 +42,9 @@ export async function POST(request: NextRequest) {
 
     const { user } = authContext;
     
-    // Check if user is a regional admin/host
-    if (!user.isAdmin || !user.adminRegions || user.adminRegions.length === 0) {
-      return NextResponse.json({ error: "Only regional hosts can submit match results" }, { status: 403 });
+    // Check if user is an admin or host
+    if (!user.isAdmin && !user.isHost) {
+      return NextResponse.json({ error: "Only admins or hosts can submit match results" }, { status: 403 });
     }
 
     const requestBody = await request.json();
@@ -77,13 +77,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Match is not awaiting results" }, { status: 400 });
     }
 
-    // Check if user's region is authorized for this match
-    const userRegion = user.adminRegions[0]; // Take first admin region
-    if (!match.hostRegions.includes(userRegion)) {
-      return NextResponse.json({ 
-        error: `Only hosts from ${match.hostRegions.join(' or ')} can submit results for this match` 
-      }, { status: 403 });
-    }
+    // Admins can submit for any match, hosts can submit for any match
+    // (removed regional restrictions since we simplified the role system)
 
     // Check if this host has already submitted results
     const existingSubmission = match.resultsSubmitted.find(

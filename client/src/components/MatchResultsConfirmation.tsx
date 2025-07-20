@@ -43,8 +43,8 @@ export default function MatchResultsConfirmation() {
   const [selectedWinner, setSelectedWinner] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
 
-  // Check if user is a regional host
-  const isRegionalHost = user?.isAdmin && user?.adminRegions && user.adminRegions.length > 0;
+  // Check if user is an admin or host
+  const isRegionalHost = user?.isAdmin || user?.isHost;
 
   useEffect(() => {
     if (!isRegionalHost) {

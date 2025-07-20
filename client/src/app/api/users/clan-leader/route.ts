@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongoose';
 import { User } from '@/lib/models/User';
+import { requireAdmin } from '@/lib/auth-middleware';
 
 export async function POST(request: NextRequest) {
+  // Require admin privileges to modify clan leader status
+  const auth = await requireAdmin(request);
+  if (auth instanceof NextResponse) {
+    return auth; // Return error response
+  }
+
   try {
     await connectToDatabase();
     

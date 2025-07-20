@@ -167,6 +167,21 @@ export function validateCountryCode(country: string): { isValid: boolean; countr
     return { isValid: false, error: 'Invalid country code format (must be 2 letters)' };
   }
   
+  // List of supported country codes (matching our COUNTRIES list)
+  const SUPPORTED_COUNTRIES = [
+    'AF', 'AL', 'DZ', 'AR', 'AM', 'AU', 'AT', 'AZ', 'BH', 'BD', 'BY', 'BE', 
+    'BO', 'BA', 'BR', 'BG', 'KH', 'CA', 'CL', 'CN', 'CO', 'HR', 'CZ', 'DK', 
+    'EC', 'EG', 'EE', 'FI', 'FR', 'GE', 'DE', 'GH', 'GR', 'HU', 'IS', 'IN', 
+    'ID', 'IR', 'IQ', 'IE', 'IL', 'IT', 'JP', 'JO', 'KZ', 'KE', 'KW', 'LV', 
+    'LB', 'LT', 'LU', 'MY', 'MX', 'MA', 'NL', 'NZ', 'NG', 'NO', 'PK', 'PE', 
+    'PH', 'PL', 'PT', 'QA', 'RO', 'RU', 'SA', 'RS', 'SG', 'SK', 'SI', 'ZA', 
+    'KR', 'ES', 'SE', 'CH', 'TH', 'TR', 'UA', 'AE', 'GB', 'US', 'UY', 'VE', 'VN'
+  ];
+  
+  if (!SUPPORTED_COUNTRIES.includes(sanitized)) {
+    return { isValid: false, error: 'Unsupported country code' };
+  }
+  
   return { isValid: true, country: sanitized };
 }
 

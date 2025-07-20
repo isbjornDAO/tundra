@@ -51,10 +51,9 @@ export default function ResultsEntryModule({ match, onResultsSubmitted }: Result
   const [notes, setNotes] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Check if user is a regional host for this match
-  const isRegionalHost = user?.isAdmin && user?.adminRegions && user.adminRegions.length > 0;
-  const userRegion = user?.adminRegions?.[0];
-  const canSubmitForMatch = isRegionalHost && match.hostRegions?.includes(userRegion);
+  // Check if user is an admin or host for this match
+  const isRegionalHost = user?.isAdmin || user?.isHost;
+  const canSubmitForMatch = isRegionalHost; // Admins and hosts can submit for any match
 
   // Check if user has already submitted
   const hasUserSubmitted = match.resultsSubmitted?.some(

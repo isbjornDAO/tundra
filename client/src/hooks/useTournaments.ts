@@ -81,6 +81,30 @@ export const useGenerateBracket = () => {
   });
 };
 
+export const useDeleteTournament = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (data: { tournamentId: string; walletAddress: string }) => {
+      const response = await fetch(`/api/tournaments/mongo?tournamentId=${data.tournamentId}`, {
+        method: "DELETE",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${data.walletAddress}`
+        },
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete tournament");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tournaments"] });
+    },
+  });
+};
+
 export const useBracket = (tournamentId: string) => {
   return useQuery({
     queryKey: ["bracket", tournamentId],

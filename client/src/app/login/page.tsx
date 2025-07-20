@@ -16,22 +16,29 @@ export default function AuthPage() {
   const [isCheckingAccount, setIsCheckingAccount] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
 
-  // Check for existing user when wallet connects
+  // Check for existing user when wallet connects - simplified to avoid loops
   useEffect(() => {
-    console.log('Login page auth state:', { authenticated, address, isCheckingAccount });
-    if (authenticated && address && isCheckingAccount) {
+    console.log('Login page auth state:', { authenticated, address, ready });
+    
+    if (!ready) return;
+    
+    if (authenticated && address) {
+      console.log('User authenticated with address, checking profile...');
+      setIsLoading(true);
+      setIsCheckingAccount(true);
       checkExistingUser();
-    } else if (authenticated && !address && isCheckingAccount) {
+    } else if (authenticated && !address) {
+      // Wait a bit for address to be available
       const timeout = setTimeout(() => {
         if (authenticated && !address) {
           setError('Connected but unable to get wallet address. Please try again.');
           setIsLoading(false);
           setIsCheckingAccount(false);
         }
-      }, 3000);
+      }, 2000);
       return () => clearTimeout(timeout);
     }
-  }, [authenticated, address, isCheckingAccount]);
+  }, [ready, authenticated, address]);
 
   const checkExistingUser = async () => {
     if (!address) return;
@@ -40,21 +47,32 @@ export default function AuthPage() {
       const response = await fetch(`/api/users?walletAddress=${address}`);
       const data = await response.json();
       
+      console.log('User API response:', {
+        hasUser: !!data.user,
+        username: data.user?.username,
+        country: data.user?.country,
+        fullUser: data.user
+      });
+      
       if (data.user && data.user.username && data.user.country) {
-        // User exists with username and country, redirect to home
-        // Add small delay to ensure auth state is synced
-        setTimeout(() => {
-          router.push('/');
-        }, 100);
-      } else if (data.user && (!data.user.username || !data.user.country)) {
-        // User exists but has incomplete profile - disconnect wallet and show error
-        console.log('User found but incomplete profile - disconnecting wallet');
-        logout();
-        setError('Account found but incomplete. Please reconnect and complete signup.');
+        // User exists with complete profile, redirect to home
+        console.log('✅ Complete user found, redirecting to home');
+        setIsLoading(false);
+        setIsCheckingAccount(false);
+        router.push('/');
+      } else if (data.user) {
+        // User exists but has incomplete profile - allow them to complete it
+        console.log('⚠️ User found but incomplete profile:', {
+          hasUsername: !!data.user.username,
+          hasCountry: !!data.user.country
+        });
         setIsCheckingAccount(false);
         setIsLoading(false);
+        setShowSignupModal(true);
+        setError('Please complete your profile setup.');
       } else {
-        // No user found with this wallet, show signup modal
+        // No user found with this wallet, show signup modal for new user
+        console.log('❌ No user found, showing signup for new user');
         setIsCheckingAccount(false);
         setIsLoading(false);
         setShowSignupModal(true);
@@ -62,6 +80,7 @@ export default function AuthPage() {
       }
     } catch (error) {
       console.error('Error checking user:', error);
+      
       // On error, show signup modal
       setIsCheckingAccount(false);
       setIsLoading(false);
@@ -71,6 +90,9 @@ export default function AuthPage() {
   };
 
   const handleConnectExistingWallet = async () => {
+    // Clear any previous errors
+    setError('');
+    
     // Don't redirect immediately if authenticated - let the user check complete
     if (authenticated && address) {
       setIsLoading(true);
@@ -82,10 +104,10 @@ export default function AuthPage() {
 
     setIsLoading(true);
     setIsCheckingAccount(true);
-    setError('');
 
     try {
       await login();
+      // After login, the useEffect will handle the user check
     } catch (error) {
       console.error('Login error:', error);
       setError('Failed to connect wallet. Please try again.');

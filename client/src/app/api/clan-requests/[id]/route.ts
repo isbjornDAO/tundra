@@ -25,12 +25,12 @@ export async function PUT(
     // Find the reviewer
     const reviewer = await User.findOne({ 
       walletAddress: reviewerWallet.toLowerCase(),
-      isAdmin: true 
+      $or: [{ isAdmin: true }, { isHost: true }]
     });
     
     if (!reviewer) {
       return NextResponse.json(
-        { error: 'Unauthorized - admin access required' },
+        { error: 'Unauthorized - admin or host access required' },
         { status: 403 }
       );
     }
@@ -53,14 +53,12 @@ export async function PUT(
       );
     }
     
-    // Check if reviewer has authority for this region/country
-    const canReview = reviewer.adminRegions.length === 0 || // Super admin
-                      reviewer.adminRegions.includes(clanRequest.region) ||
-                      reviewer.country === clanRequest.country;
+    // Admins can review all requests, hosts can review all requests too
+    const canReview = reviewer.isAdmin || reviewer.isHost;
     
     if (!canReview) {
       return NextResponse.json(
-        { error: 'You do not have authority to review requests for this region' },
+        { error: 'You do not have authority to review clan requests' },
         { status: 403 }
       );
     }

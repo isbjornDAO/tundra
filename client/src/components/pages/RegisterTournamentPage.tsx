@@ -251,32 +251,27 @@ export default function RegisterTournamentPage() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/tournaments/teams', {
+      const response = await fetch('/api/tournaments/clans', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tournamentId: selectedTournament._id,
-          team: {
-            name: `[${selectedClan?.tag}] ${selectedClan?.name}`,
-            country: selectedClan?.country,
-            organizer: address,
-            clanId: selectedClan?._id,
-            players: selectedMembers.map((member, i) => ({
-              id: member._id,
-              name: member.displayName,
-              walletAddress: member.walletAddress,
-              steamId: '', // Can be added later if needed
-            })),
-          },
+          clanId: selectedClan?._id,
+          organizer: address,
+          selectedPlayers: selectedMembers.map((member) => ({
+            userId: member._id,
+            walletAddress: member.walletAddress,
+            displayName: member.displayName
+          }))
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to register team');
+        throw new Error(errorData.error || 'Failed to register clan');
       }
 
-      alert(`Team "[${selectedClan?.tag}] ${selectedClan?.name}" successfully registered for ${selectedGame} tournament!`);
+      alert(`Clan "${selectedClan?.tag}" successfully registered for ${selectedGame} tournament!`);
       
       // Clear localStorage and reset form
       localStorage.removeItem('tournamentRegistration');

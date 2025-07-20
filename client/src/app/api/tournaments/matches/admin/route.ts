@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTeam1Host } from '@/lib/auth-middleware';
+import { requireHost } from '@/lib/auth-middleware';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
 export async function GET(request: NextRequest) {
-  // Require Team1 host authentication
-  const auth = await requireTeam1Host(request);
+  // Require host authentication
+  const auth = await requireHost(request);
   if (auth instanceof NextResponse) {
     return auth; // Return error response
   }
@@ -96,8 +96,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  // Require Team1 host authentication
-  const auth = await requireTeam1Host(request);
+  // Require host authentication
+  const auth = await requireHost(request);
   if (auth instanceof NextResponse) {
     return auth; // Return error response
   }
@@ -141,7 +141,7 @@ export async function PATCH(request: NextRequest) {
           enteredBy: {
             walletAddress: auth.user.walletAddress,
             displayName: auth.user.displayName,
-            isTeam1Host: true,
+            isHost: true,
             region: auth.user.region
           }
         } 

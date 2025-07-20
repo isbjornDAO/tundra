@@ -1,6 +1,13 @@
 const { MongoClient } = require('mongodb');
+require('dotenv').config();
 
-const uri = "mongodb+srv://icebear:sBl63aOuw5R3RjiC@cluster0.ob8odne.mongodb.net/tundra?retryWrites=true&w=majority&appName=Cluster0";
+// Use environment variable for MongoDB URI
+const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/tundra';
+
+if (!process.env.MONGODB_URI) {
+  console.warn('⚠️  MONGODB_URI environment variable not set. Using local fallback.');
+  console.warn('   Please set MONGODB_URI in your .env file for production use.');
+}
 
 async function testConnection() {
   try {

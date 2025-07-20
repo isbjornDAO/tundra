@@ -515,7 +515,7 @@ export function ClanPage({ walletAddress }: ClanPageProps) {
                   </div>
                   <div>
                     <div className="text-white font-medium">vs Thunder Clan</div>
-                    <div className="text-muted text-sm">CS2 Tournament • 2 days ago</div>
+                    <div className="text-muted text-sm">Off the Grid Tournament • 2 days ago</div>
                   </div>
                 </div>
                 <span className="text-green-400 font-medium">Victory</span>
@@ -527,7 +527,7 @@ export function ClanPage({ walletAddress }: ClanPageProps) {
                   </div>
                   <div>
                     <div className="text-white font-medium">vs Shadow Legion</div>
-                    <div className="text-muted text-sm">Valorant Tournament • 5 days ago</div>
+                    <div className="text-muted text-sm">Shatterline Tournament • 5 days ago</div>
                   </div>
                 </div>
                 <span className="text-red-400 font-medium">Defeat</span>
@@ -539,7 +539,7 @@ export function ClanPage({ walletAddress }: ClanPageProps) {
                   </div>
                   <div>
                     <div className="text-white font-medium">vs Fire Hawks</div>
-                    <div className="text-muted text-sm">League of Legends • 1 week ago</div>
+                    <div className="text-muted text-sm">Cozyverse • 1 week ago</div>
                   </div>
                 </div>
                 <span className="text-green-400 font-medium">Victory</span>

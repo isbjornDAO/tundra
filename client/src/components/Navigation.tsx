@@ -12,14 +12,13 @@ export function Navigation() {
   const { address } = useAccount();
   const [isAdmin, setIsAdmin] = useState(false);
   const [isClanLeader, setIsClanLeader] = useState(false);
-  const [isTeam1Host, setIsTeam1Host] = useState(false);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isHost, setIsHost] = useState(false);
   
   const tournamentItems = [
     { href: '/tournaments/register', label: 'Register', icon: '📝' },
     { href: '/tournaments/bracket', label: 'Brackets', icon: '🏆' },
     { href: '/tournaments/results', label: 'Results', icon: '📊' },
-    ...(isTeam1Host || isAdmin ? [{ href: '/tournaments/host', label: 'Host', icon: '🎯' }] : []),
+    ...(isHost || isAdmin ? [{ href: '/tournaments/host', label: 'Host', icon: '🎯' }] : []),
   ];
 
   // Check if current path is tournament-related
@@ -53,8 +52,7 @@ export function Navigation() {
       const data = await response.json();
       setIsAdmin(data.isAdmin);
       setIsClanLeader(data.isClanLeader);
-      setIsTeam1Host(data.isTeam1Host);
-      setIsSuperAdmin(data.role === 'super_admin');
+      setIsHost(data.isHost);
     } catch (error) {
       console.error('Error checking admin status:', error);
     }

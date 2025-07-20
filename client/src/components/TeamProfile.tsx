@@ -35,14 +35,14 @@ const mockTeamData: TeamStats = {
   ],
   recentForm: ['W', 'W', 'L', 'W', 'W'],
   achievements: [
-    { id: '1', title: 'Champions League Winner', description: 'Won the CS2 Champions League', icon: '🏆', rarity: 'legendary', unlockedAt: new Date('2024-01-15') },
+    { id: '1', title: 'Champions League Winner', description: 'Won the Off the Grid Champions League', icon: '🏆', rarity: 'legendary', unlockedAt: new Date('2024-01-15') },
     { id: '2', title: 'Perfect Season', description: 'Won 10 tournaments in a row', icon: '🔥', rarity: 'epic', unlockedAt: new Date('2024-01-01') }
   ]
 };
 
 const mockTeamHistory = [
-  { id: '1', tournament: 'CS2 Champions', placement: 1, prize: '$5,000', date: new Date('2024-01-15') },
-  { id: '2', tournament: 'Winter Cup CS2', placement: 3, prize: '$1,500', date: new Date('2024-01-01') },
+  { id: '1', tournament: 'Off the Grid Champions', placement: 1, prize: '$5,000', date: new Date('2024-01-15') },
+  { id: '2', tournament: 'Winter Cup Off the Grid', placement: 3, prize: '$1,500', date: new Date('2024-01-01') },
   { id: '3', tournament: 'Regional Masters', placement: 1, prize: '$3,000', date: new Date('2023-12-20') },
   { id: '4', tournament: 'Holiday Tournament', placement: 2, prize: '$2,000', date: new Date('2023-12-10') },
   { id: '5', tournament: 'Fall Championship', placement: 1, prize: '$4,000', date: new Date('2023-11-25') }

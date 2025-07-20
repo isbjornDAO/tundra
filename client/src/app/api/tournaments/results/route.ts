@@ -129,11 +129,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Authenticate Team1 host
+    // Authenticate host
     await connectToDatabase();
     const user = await User.findOne({ walletAddress: walletAddress.toLowerCase() });
-    if (!user || !user.isTeam1Host) {
-      return NextResponse.json({ error: "Unauthorized: Team1 host access required" }, { status: 403 });
+    if (!user || !user.isHost) {
+      return NextResponse.json({ error: "Unauthorized: Host access required" }, { status: 403 });
     }
 
     const client = await clientPromise;
@@ -148,8 +148,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Tournament not found" }, { status: 404 });
     }
 
-    // Check if Team1 host can enter results for this tournament's region
-    // For now, allow all Team1 hosts to enter results globally
+    // Check if host can enter results for this tournament's region
+    // For now, allow all hosts to enter results globally
     // TODO: Implement region-based restrictions if needed
     // if (user.region && tournament.region !== user.region) {
     //   return NextResponse.json({ error: "Unauthorized: Cannot enter results for tournaments outside your region" }, { status: 403 });
@@ -176,7 +176,7 @@ export async function POST(request: Request) {
       enteredBy: {
         walletAddress: user.walletAddress,
         displayName: user.displayName,
-        isTeam1Host: true,
+        isHost: true,
         region: user.region
       }
     };

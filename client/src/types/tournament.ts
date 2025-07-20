@@ -65,16 +65,18 @@ export interface TournamentSummary {
   createdAt: Date;
 }
 
-export const GAMES = [
-  'CS2',
-  'Valorant',
-  'League of Legends',
-  'Dota 2',
+export const SUPPORTED_GAMES = [
+  'Off the Grid',
+  'Shatterline', 
+  'Cozyverse',
   'Rocket League',
-  'Fortnite'
+  'Fortnite',
+  'Apex Legends',
+  'Call of Duty',
+  'Dota 2'
 ] as const;
 
-export type Game = typeof GAMES[number];
+export type Game = typeof SUPPORTED_GAMES[number];
 
 export const REGIONS = [
   'North America',

@@ -179,7 +179,7 @@ export function UserSignupModal({ isOpen, walletAddress, onSignupComplete, onClo
             >
               <option value="">Select your country</option>
               {COUNTRIES.map((country) => (
-                <option key={country.name} value={country.name} className="text-black">
+                <option key={country.code} value={country.code} className="text-black">
                   {country.flag} {country.name}
                 </option>
               ))}

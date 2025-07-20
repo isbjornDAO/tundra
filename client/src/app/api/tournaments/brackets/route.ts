@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
+import connectToDatabase from '@/lib/mongoose';
+import { Tournament } from '@/lib/models/Tournament';
+import { Team } from '@/lib/models/Team';
+import { Bracket } from '@/lib/models/Bracket';
+import { Match } from '@/lib/models/Match';
 
 export async function POST(request: Request) {
   try {
@@ -90,6 +93,8 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
+    await connectToDatabase();
+    
     const { searchParams } = new URL(request.url);
     const tournamentId = searchParams.get("tournamentId");
     
@@ -97,57 +102,39 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Tournament ID required" }, { status: 400 });
     }
 
-    const client = await clientPromise;
-    const db = client.db("tundra");
-    const bracketsCol = db.collection("brackets");
-    const matchesCol = db.collection("matches");
-    const tournamentsCol = db.collection("tournaments");
+    console.log('Looking for bracket with tournamentId:', tournamentId);
 
     // First, check if the tournament exists and has a bracketId reference
-    const tournament = await tournamentsCol.findOne({ _id: new ObjectId(tournamentId) });
+    const tournament = await Tournament.findById(tournamentId);
+    console.log('Found tournament:', !!tournament, 'bracketId:', tournament?.bracketId);
 
     let bracket = null;
     let matches = [];
 
     if (tournament?.bracketId) {
       // If tournament has bracketId, use it to find the bracket
-      bracket = await bracketsCol.findOne({ _id: new ObjectId(tournament.bracketId) });
+      bracket = await Bracket.findById(tournament.bracketId);
       
       if (bracket) {
-        matches = await matchesCol.find({ bracketId: bracket._id }).toArray();
+        matches = await Match.find({ bracketId: bracket._id });
       }
-    } else {
+    } else if (tournament) {
       // Otherwise, search for bracket by tournamentId
-      bracket = await bracketsCol.findOne({ 
-        tournamentId: new ObjectId(tournamentId) 
-      });
+      bracket = await Bracket.findOne({ tournamentId: tournament._id });
       
       if (bracket) {
-        matches = await matchesCol.find({ bracketId: bracket._id }).toArray();
+        matches = await Match.find({ bracketId: bracket._id });
       }
     }
 
     if (!bracket) {
-      // Try alternative approaches
-      
-      // 1. Maybe the tournamentId is actually a bracketId
-      const bracketById = await bracketsCol.findOne({ 
-        _id: new ObjectId(tournamentId) 
-      });
-      
-      if (bracketById) {
-        const matchesByBracketId = await matchesCol.find({ 
-          bracketId: bracketById._id 
-        }).toArray();
-        return NextResponse.json({ bracket: bracketById, matches: matchesByBracketId });
-      }
-
-      // 2. Search for any bracket that might be related to this tournament by checking all brackets
-      const allBrackets = await bracketsCol.find({}).toArray();
+      // Try to find any bracket that might be related
+      const allBrackets = await Bracket.find({});
+      console.log('All brackets:', allBrackets.map(b => ({ id: b._id, tournamentId: b.tournamentId })));
       
       for (const b of allBrackets) {
         if (b.tournamentId && b.tournamentId.toString() === tournamentId) {
-          const relatedMatches = await matchesCol.find({ bracketId: b._id }).toArray();
+          const relatedMatches = await Match.find({ bracketId: b._id });
           return NextResponse.json({ bracket: b, matches: relatedMatches });
         }
       }
@@ -155,7 +142,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ 
         error: "Bracket not found", 
         tournamentId, 
-        tournament,
+        tournament: !!tournament,
         allBracketsCount: allBrackets.length,
         debug: {
           searchedTournamentId: tournamentId,
@@ -168,6 +155,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ bracket, matches });
   } catch (error) {
     console.error("Error fetching bracket:", error);
-    return NextResponse.json({ error: "Internal server error", details: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error", details: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
   }
 }

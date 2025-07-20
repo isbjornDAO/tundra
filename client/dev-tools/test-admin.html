@@ -69,7 +69,13 @@
     <div id="result" class="result"></div>
 
     <script>
-        const API_BASE = 'http://localhost:3001/api';
+        // Configuration - can be modified for different environments
+        const API_BASE = process?.env?.NODE_ENV === 'production' 
+            ? '/api' 
+            : 'http://localhost:3001/api';
+        
+        // Fallback for browser environment
+        const API_URL = typeof process !== 'undefined' ? API_BASE : 'http://localhost:3001/api';
         
         async function createTournament() {
             const game = document.getElementById('game').value;
@@ -81,7 +87,7 @@
             }
             
             try {
-                const response = await fetch(`${API_BASE}/tournaments`, {
+                const response = await fetch(`${API_URL}/tournaments`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -105,7 +111,7 @@
         
         async function fetchTournaments() {
             try {
-                const response = await fetch(`${API_BASE}/tournaments`);
+                const response = await fetch(`${API_URL}/tournaments`);
                 const result = await response.json();
                 document.getElementById('result').innerHTML = 
                     `<h3>Tournaments:</h3><pre>${JSON.stringify(result, null, 2)}</pre>`;

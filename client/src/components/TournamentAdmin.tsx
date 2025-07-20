@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useAccount } from 'wagmi';
-import { useTournaments, useCreateTournament, useGenerateBracket, useTeams } from "@/hooks/useTournaments";
-import { GAMES, type Game } from "@/types/tournament";
+import { useTournaments, useCreateTournament, useGenerateBracket, useDeleteTournament, useTeams } from "@/hooks/useTournaments";
+import { SUPPORTED_GAMES, type Game } from "@/types/tournament";
 
 interface AdminData {
   isAdmin: boolean;
   isClanLeader: boolean;
-  isTeam1Host: boolean;
-  role: 'super_admin' | 'regional_admin' | 'team1_host' | null;
+  isHost: boolean;
+  role: 'admin' | 'host' | null;
   regions: string[];
 }
 
@@ -67,6 +67,7 @@ export function TournamentAdmin() {
   const { data: tournamentsData, refetch } = useTournaments();
   const createTournament = useCreateTournament();
   const generateBracket = useGenerateBracket();
+  const deleteTournament = useDeleteTournament();
   
   const [selectedGame, setSelectedGame] = useState<Game | "">("");
   const [maxTeams, setMaxTeams] = useState(16);
@@ -208,8 +209,8 @@ export function TournamentAdmin() {
 
 
 
-  // Filter tournaments by admin regions - Team1 hosts see all tournaments
-  const filteredTournaments = adminData?.role === 'super_admin' || adminData?.isTeam1Host
+  // Filter tournaments by admin regions - Admins and hosts see all tournaments
+  const filteredTournaments = adminData?.isAdmin || adminData?.isHost
     ? tournaments 
     : tournaments.filter(t => adminData?.regions.includes(t.region));
 
@@ -243,6 +244,22 @@ export function TournamentAdmin() {
     }
   };
 
+  const handleDeleteTournament = async (tournamentId: string, tournamentName: string) => {
+    if (!address) return;
+    
+    const confirmed = confirm(`Are you sure you want to delete the ${tournamentName} tournament? This action cannot be undone.`);
+    if (!confirmed) return;
+    
+    try {
+      await deleteTournament.mutateAsync({ tournamentId, walletAddress: address });
+      alert("Tournament deleted successfully!");
+      refetch();
+    } catch (error) {
+      console.error("Failed to delete tournament:", error);
+      alert(`Failed to delete tournament: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto p-6">
@@ -252,12 +269,12 @@ export function TournamentAdmin() {
   }
 
   // Check if user has permissions to access this page
-  if (!adminData?.isAdmin && !adminData?.isTeam1Host) {
+  if (!adminData?.isHost && !adminData?.isAdmin) {
     return (
       <div className="max-w-4xl mx-auto p-6">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-white mb-4">Access Denied</h2>
-          <p className="text-gray-400">You need admin or Team1 Host permissions to access this page.</p>
+          <p className="text-gray-400">You need Host or Admin permissions to access this page.</p>
         </div>
       </div>
     );
@@ -268,10 +285,7 @@ export function TournamentAdmin() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-white">Host</h1>
         <div className="text-sm text-gray-400">
-          Role: {adminData?.role === 'super_admin' ? 'Super Admin' : adminData?.role === 'regional_admin' ? 'Regional Admin' : adminData?.role === 'team1_host' ? 'Team1 Host' : 'User'}
-          {adminData?.role === 'regional_admin' && (
-            <div>Regions: {adminData.regions.join(', ')}</div>
-          )}
+          Role: {adminData?.role === 'admin' ? 'Admin' : adminData?.role === 'host' ? 'Host' : 'User'}
         </div>
       </div>
 
@@ -330,7 +344,7 @@ export function TournamentAdmin() {
               className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="" className="text-black">Select Game</option>
-              {GAMES.map((game) => (
+              {SUPPORTED_GAMES.map((game) => (
                 <option key={game} value={game} className="text-black">
                   {game}
                 </option>
@@ -373,16 +387,15 @@ export function TournamentAdmin() {
                   key={tournament._id}
                   tournament={tournament}
                   onGenerateBracket={handleGenerateBracket}
+                  onDeleteTournament={handleDeleteTournament}
                   generateBracketPending={generateBracket.isPending}
+                  deleteTournamentPending={deleteTournament.isPending}
                 />
               ))}
               
               {filteredTournaments.length === 0 && (
                 <p className="text-gray-400 text-center py-8">
-                  {adminData?.role === 'regional_admin' 
-                    ? `No tournaments found in your regions: ${adminData.regions.join(', ')}` 
-                    : 'No tournaments found'
-                  }
+                  No tournaments found
                 </p>
               )}
             </div>
@@ -559,10 +572,12 @@ export function TournamentAdmin() {
 interface TournamentCardProps {
   tournament: any;
   onGenerateBracket: (tournamentId: string) => void;
+  onDeleteTournament: (tournamentId: string, tournamentName: string) => void;
   generateBracketPending: boolean;
+  deleteTournamentPending: boolean;
 }
 
-function TournamentCard({ tournament, onGenerateBracket, generateBracketPending }: TournamentCardProps) {
+function TournamentCard({ tournament, onGenerateBracket, onDeleteTournament, generateBracketPending, deleteTournamentPending }: TournamentCardProps) {
   const { data: teamsData } = useTeams(tournament._id);
   const teams = teamsData?.teams || [];
 
@@ -622,6 +637,19 @@ function TournamentCard({ tournament, onGenerateBracket, generateBracketPending 
           {tournament.maxTeams - tournament.registeredTeams}
         </div>
       </div>
+
+      {/* Delete button - only show for tournaments that are not full/active/completed */}
+      {(tournament.status === "open") && (
+        <div className="mb-4">
+          <button
+            onClick={() => onDeleteTournament(tournament._id, tournament.game)}
+            disabled={deleteTournamentPending}
+            className="py-2 px-4 bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white font-medium rounded-md transition-colors"
+          >
+            {deleteTournamentPending ? "Deleting..." : "Delete Tournament"}
+          </button>
+        </div>
+      )}
 
       {tournament.status === "full" && !tournament.bracketId && (
         <button

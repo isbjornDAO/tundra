@@ -5,6 +5,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Navigation } from '@/components/Navigation';
 import { SimpleTournamentMap } from '@/components/SimpleTournamentMap';
+import { TournamentSetupGuide } from '@/components/TournamentSetupGuide';
 
 // Make ConnectWallet client-side only to prevent wagmi SSR issues
 const ConnectWallet = dynamic(() => import('@/components/ConnectWallet').then(mod => ({ default: mod.ConnectWallet })), {
@@ -211,7 +212,7 @@ export default function Home() {
                 <div className="min-w-0">
                   <h3 className="heading-sm mb-3">Multiple Games</h3>
                   <p className="text-body mb-4">
-                    Support for CS2, Valorant, League of Legends, Dota 2, 
+                    Support for Off the Grid, Shatterline, Cozyverse, Dota 2, 
                     Rocket League, and Fortnite tournaments.
                   </p>
                   <a href="/tournaments/register" className="inline-flex items-center text-green-400 hover:text-green-300 text-sm font-medium">
@@ -248,6 +249,7 @@ export default function Home() {
             </div>
           </div>
 
+
           {/* CTA Section */}
           <div className="card text-center mb-24">
             <h2 className="heading-lg mb-4">Ready to Compete?</h2>
@@ -263,8 +265,22 @@ export default function Home() {
                 Learn More
               </a>
             </div>
+            
+            {/* Setup Guide for New Users */}
+            {!user && (
+              <div className="mt-8 p-4 bg-blue-600/10 border border-blue-600/20 rounded-lg">
+                <h3 className="text-lg font-semibold text-white mb-2">New to Tundra?</h3>
+                <p className="text-sm text-gray-300 mb-3">
+                  Follow our step-by-step guide to get started with tournament competition.
+                </p>
+                <TournamentSetupGuide currentStep="wallet" />
+              </div>
+            )}
           </div>
         </main>
+        
+        {/* Setup Guide for authenticated users */}
+        {user && <TournamentSetupGuide currentStep={user.clan ? 'tournament' : 'clan'} />}
         
         <style jsx global>{`
           @keyframes snowfall {

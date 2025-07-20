@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
-import { inMemoryDB } from "@/lib/in-memory-db";
+import connectToDatabase from '@/lib/mongoose';
+import { Tournament } from '@/lib/models/Tournament';
 import { validateGame, sanitizeInput } from "@/lib/security-utils";
-// import clientPromise from "@/lib/mongodb";
-// import { ObjectId } from "mongodb";
 
 export async function GET() {
   try {
+    await connectToDatabase();
     console.log("GET /api/tournaments called");
-    const tournaments = await inMemoryDB.findTournaments();
+    
+    const tournaments = await Tournament.find({}).sort({ createdAt: -1 });
     console.log("Found tournaments:", tournaments.length);
+    
     return NextResponse.json({ tournaments });
   } catch (error) {
     console.error("Error fetching tournaments:", error);
@@ -18,11 +20,13 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    await connectToDatabase();
     console.log("POST /api/tournaments called");
+    
     const requestBody = await request.json();
     const sanitizedData = sanitizeInput(requestBody);
-    const { game, maxTeams = 16 } = sanitizedData;
-    console.log("Request data:", { game, maxTeams });
+    const { game, region = "Global", maxTeams = 16 } = sanitizedData;
+    console.log("Request data:", { game, region, maxTeams });
     
     if (!game) {
       return NextResponse.json({ error: "Game is required" }, { status: 400 });
@@ -41,7 +45,7 @@ export async function POST(request: Request) {
     }
 
     // Check if tournament already exists for this game
-    const existingTournament = await inMemoryDB.findOneTournament({ 
+    const existingTournament = await Tournament.findOne({ 
       game: validatedGame, 
       status: { $in: ["open", "full", "active"] } 
     });
@@ -50,21 +54,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Active tournament already exists for this game" }, { status: 400 });
     }
 
-    const tournamentDoc = {
+    const tournament = new Tournament({
       game: validatedGame,
+      region,
       maxTeams: validatedMaxTeams,
       registeredTeams: 0,
-      status: "open" as const,
-      createdAt: new Date(),
-    };
+      status: "open",
+      prizePool: 5000
+    });
 
-    console.log("Creating tournament:", tournamentDoc);
-    const result = await inMemoryDB.insertTournament(tournamentDoc);
-    console.log("Tournament created with ID:", result.insertedId);
+    console.log("Creating tournament:", tournament);
+    const savedTournament = await tournament.save();
+    console.log("Tournament created with ID:", savedTournament._id);
 
     return NextResponse.json({ 
       success: true, 
-      tournamentId: result.insertedId,
+      tournamentId: savedTournament._id,
+      tournament: savedTournament,
       message: "Tournament created successfully" 
     });
   } catch (error) {

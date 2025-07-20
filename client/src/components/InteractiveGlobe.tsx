@@ -6,8 +6,8 @@ import { useState, useEffect, useRef } from 'react';
 const liveEvents = [
   {
     id: 'na-cs2',
-    name: 'CS2 NA Championship',
-    game: 'CS2',
+    name: 'Off the Grid NA Championship',
+    game: 'Off the Grid',
     region: 'North America',
     teams: 12,
     viewers: 15432,
@@ -16,8 +16,8 @@ const liveEvents = [
   },
   {
     id: 'eu-valorant',
-    name: 'Valorant EU Masters',
-    game: 'Valorant',
+    name: 'Shatterline EU Masters',
+    game: 'Shatterline',
     region: 'Europe',
     teams: 8,
     viewers: 23651,
@@ -27,7 +27,7 @@ const liveEvents = [
   {
     id: 'apac-lol',
     name: 'League APAC Finals',
-    game: 'League of Legends',
+    game: 'Cozyverse',
     region: 'Asia Pacific',
     teams: 16,
     viewers: 45230,
@@ -56,8 +56,8 @@ const liveEvents = [
   },
   {
     id: 'jp-valorant',
-    name: 'Valorant Japan Cup',
-    game: 'Valorant',
+    name: 'Shatterline Japan Cup',
+    game: 'Shatterline',
     region: 'Japan',
     teams: 6,
     viewers: 18945,

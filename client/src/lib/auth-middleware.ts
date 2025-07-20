@@ -13,18 +13,15 @@ export interface AuthenticatedUser {
   username?: string;
   displayName?: string;
   isAdmin: boolean;
-  isTeam1Host: boolean;
+  isHost: boolean;
   isClanLeader: boolean;
-  adminRegions: string[];
   region?: string;
 }
 
 export interface AuthContext {
   user: AuthenticatedUser;
   isAdmin: boolean;
-  isTeam1Host: boolean;
-  isSuperAdmin: boolean;
-  isRegionalAdmin: boolean;
+  isHost: boolean;
 }
 
 /**
@@ -97,18 +94,15 @@ export async function authenticateUser(request: NextRequest): Promise<AuthContex
       username: user.username,
       displayName: user.displayName,
       isAdmin: user.isAdmin || false,
-      isTeam1Host: user.isTeam1Host || false,
+      isHost: user.isHost || false,
       isClanLeader: user.isClanLeader || false,
-      adminRegions: user.adminRegions || [],
       region: user.region,
     };
     
     return {
       user: authUser,
       isAdmin: authUser.isAdmin,
-      isTeam1Host: authUser.isTeam1Host,
-      isSuperAdmin: authUser.isAdmin && authUser.adminRegions.length === 0,
-      isRegionalAdmin: authUser.isAdmin && authUser.adminRegions.length > 0,
+      isHost: authUser.isHost,
     };
   } catch (error) {
     console.error('Authentication error:', error);
@@ -153,18 +147,18 @@ export async function requireAdmin(request: NextRequest): Promise<AuthContext | 
 }
 
 /**
- * Require Team1 host privileges
+ * Require host privileges (admins also have host access)
  */
-export async function requireTeam1Host(request: NextRequest): Promise<AuthContext | NextResponse> {
+export async function requireHost(request: NextRequest): Promise<AuthContext | NextResponse> {
   const auth = await requireAuth(request);
   
   if (auth instanceof NextResponse) {
     return auth; // Authentication failed
   }
   
-  if (!auth.isTeam1Host) {
+  if (!auth.isHost && !auth.isAdmin) {
     return NextResponse.json(
-      { error: 'Team1 host privileges required.' },
+      { error: 'Host or Admin privileges required.' },
       { status: 403 }
     );
   }
@@ -172,25 +166,6 @@ export async function requireTeam1Host(request: NextRequest): Promise<AuthContex
   return auth;
 }
 
-/**
- * Require super admin privileges (admin with no regional restrictions)
- */
-export async function requireSuperAdmin(request: NextRequest): Promise<AuthContext | NextResponse> {
-  const auth = await requireAdmin(request);
-  
-  if (auth instanceof NextResponse) {
-    return auth; // Authentication or admin check failed
-  }
-  
-  if (!auth.isSuperAdmin) {
-    return NextResponse.json(
-      { error: 'Super admin privileges required.' },
-      { status: 403 }
-    );
-  }
-  
-  return auth;
-}
 
 /**
  * Create a 401 Unauthorized response

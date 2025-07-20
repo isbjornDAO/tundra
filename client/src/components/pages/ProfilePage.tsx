@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { usePlayerProfile } from '@/hooks/usePlayerProfile';
+import { useAccount } from 'wagmi';
+import GeneralAdminClient from '@/app/admin/general/general-admin-client';
 
 interface ProfilePageProps {
   walletAddress?: string;
@@ -70,10 +72,24 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user,
   const [saveError, setSaveError] = useState('');
   const [profilePhoto, setProfilePhoto] = useState<string>('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'achievements' | 'activity'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'achievements' | 'activity' | 'admin'>('overview');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const { address } = useAccount();
 
   const profileData = user || userData || defaultUserData;
   const xpProgress = profileData.stats ? (profileData.stats.xp / (profileData.stats.level * 1000)) * 100 : (profileData.xp / profileData.xpToNextLevel) * 100;
+
+  // Check admin permissions
+  useEffect(() => {
+    if (address) {
+      fetch(`/api/admin/check?walletAddress=${address}`)
+        .then(res => res.json())
+        .then(data => {
+          setIsAdmin(data.isAdmin || false);
+        })
+        .catch(err => console.error('Error checking admin status:', err));
+    }
+  }, [address]);
 
   useEffect(() => {
     if (user) {
@@ -174,6 +190,12 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user,
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'admin':
+        return (
+          <div className="space-y-6">
+            <GeneralAdminClient />
+          </div>
+        );
       case 'achievements':
         return (
           <div className="space-y-6">
@@ -446,7 +468,8 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user,
           {[
             { id: 'overview', label: 'Overview', icon: '📊' },
             { id: 'achievements', label: 'Achievements', icon: '🏆' },
-            { id: 'activity', label: 'Activity', icon: '📈' }
+            { id: 'activity', label: 'Activity', icon: '📈' },
+            ...(isAdmin ? [{ id: 'admin', label: 'Admin', icon: '⚙️' }] : [])
           ].map((tab) => (
             <button
               key={tab.id}

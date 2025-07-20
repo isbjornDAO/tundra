@@ -17,8 +17,20 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: `Invalid wallet address: ${error}` }, { status: 400 });
       }
       
+      console.log('API: Looking for user with wallet address:', {
+        original: walletAddressParam,
+        validated: address,
+        query: address
+      });
+      
       const user = await User.findOne({ 
         walletAddress: address
+      });
+      
+      console.log('API: User search result:', {
+        found: !!user,
+        username: user?.username,
+        country: user?.country
       });
       
       // Try to populate clan if it exists
@@ -41,12 +53,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ user });
     }
     
-    // Return all users for admin view
-    const users = await User.find({});
+    // Return all users for admin view with clan information populated
+    const users = await User.find({}).populate({
+      path: 'clan',
+      select: 'name tag'
+    });
     return NextResponse.json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
-    return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
+    console.error('Error details:', JSON.stringify(error, null, 2));
+    return NextResponse.json({ 
+      error: 'Failed to fetch users',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }
 
@@ -248,7 +267,7 @@ export async function PUT(request: NextRequest) {
     if (avatar !== undefined) updateData.avatar = avatar;
     if (bio !== undefined) updateData.bio = bio;
     if (data.isClanLeader !== undefined) updateData.isClanLeader = data.isClanLeader;
-    if (data.isTeam1Host !== undefined) updateData.isTeam1Host = data.isTeam1Host;
+    if (data.isHost !== undefined) updateData.isHost = data.isHost;
     if (data.stats !== undefined) updateData.stats = data.stats;
 
     const user = await User.findOneAndUpdate(

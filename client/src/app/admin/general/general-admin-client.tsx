@@ -5,11 +5,13 @@ import { useAccount } from 'wagmi';
 import { useRouter } from 'next/navigation';
 import { WagmiGuard } from '@/components/WagmiGuard';
 import { Layout } from '@/components/Layout';
+import { COUNTRY_CODE_TO_NAME, COUNTRY_NAME_TO_CODE } from '@/types/countries';
 
 interface User {
   _id: string;
   walletAddress: string;
   displayName: string;
+  country: string;
   isAdmin: boolean;
   isClanLeader: boolean;
   adminRegions: string[];
@@ -35,6 +37,47 @@ interface Clan {
   createdAt: string;
   updatedAt: string;
 }
+
+// Function to get flag emoji from country name or code
+const getCountryFlag = (country: string): string => {
+  if (!country) return '🌍';
+  
+  // If it's already a 2-letter code, use it directly
+  if (country.length === 2) {
+    const codePoints = country
+      .toUpperCase()
+      .split('')
+      .map(char => 127397 + char.charCodeAt(0));
+    return String.fromCodePoint(...codePoints);
+  }
+  
+  // If it's a country name, convert to code using the imported mapping
+  const countryCode = COUNTRY_NAME_TO_CODE[country];
+  if (!countryCode) {
+    console.log('Unknown country name:', country);
+    return '🌍';
+  }
+  
+  const codePoints = countryCode
+    .toUpperCase()
+    .split('')
+    .map(char => 127397 + char.charCodeAt(0));
+  
+  return String.fromCodePoint(...codePoints);
+};
+
+// Function to get country display name (for tooltips)
+const getCountryDisplayName = (country: string): string => {
+  if (!country) return 'Unknown';
+  
+  // If it's a 2-letter code, convert to name
+  if (country.length === 2) {
+    return COUNTRY_CODE_TO_NAME[country.toUpperCase()] || country;
+  }
+  
+  // If it's already a name, return as-is
+  return country;
+};
 
 export default function GeneralAdminClient() {
   const { address } = useAccount();
@@ -65,7 +108,7 @@ export default function GeneralAdminClient() {
     try {
       const response = await fetch(`/api/admin/check?walletAddress=${address}`);
       const data = await response.json();
-      setIsAuthorized(data.isAdmin && data.role === 'super_admin');
+      setIsAuthorized(data.isAdmin);
       setLoading(false);
     } catch (error) {
       console.error('Error checking authorization:', error);
@@ -148,10 +191,13 @@ export default function GeneralAdminClient() {
   const handleApproveClan = async (clanId: string) => {
     try {
       setApprovingClan(clanId);
+      console.log('Approving clan:', clanId, 'with address:', address);
+      
       const response = await fetch('/api/clans/admin', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${address}`,
         },
         body: JSON.stringify({
           clanId,
@@ -161,9 +207,13 @@ export default function GeneralAdminClient() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to approve clan');
+        const errorData = await response.json();
+        console.error('Clan approval failed:', errorData);
+        throw new Error(errorData.error || 'Failed to approve clan');
       }
 
+      const result = await response.json();
+      console.log('Clan approval success:', result);
       await fetchData();
       
     } catch (error) {
@@ -177,10 +227,13 @@ export default function GeneralAdminClient() {
   const handleRejectClan = async (clanId: string) => {
     try {
       setApprovingClan(clanId);
+      console.log('Rejecting clan:', clanId, 'with address:', address);
+      
       const response = await fetch('/api/clans/admin', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${address}`,
         },
         body: JSON.stringify({
           clanId,
@@ -190,9 +243,13 @@ export default function GeneralAdminClient() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to reject clan');
+        const errorData = await response.json();
+        console.error('Clan rejection failed:', errorData);
+        throw new Error(errorData.error || 'Failed to reject clan');
       }
 
+      const result = await response.json();
+      console.log('Clan rejection success:', result);
       await fetchData();
       
     } catch (error) {
@@ -261,6 +318,7 @@ export default function GeneralAdminClient() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-white/10">
+                      <th className="text-left py-3 px-4 text-sm text-muted">Country</th>
                       <th className="text-left py-3 px-4 text-sm text-muted">Display Name</th>
                       <th className="text-left py-3 px-4 text-sm text-muted">Wallet</th>
                       <th className="text-left py-3 px-4 text-sm text-muted">Clan</th>
@@ -272,7 +330,19 @@ export default function GeneralAdminClient() {
                   <tbody>
                     {users.map((user) => (
                       <tr key={user._id} className="border-b border-white/5 hover:bg-white/5">
-                        <td className="py-3 px-4 text-white">{user.displayName}</td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="relative group inline-block">
+                            <span className="text-xl cursor-default">
+                              {getCountryFlag(user.country)}
+                            </span>
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                              {getCountryDisplayName(user.country)}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-white">
+                          {user.displayName}
+                        </td>
                         <td className="py-3 px-4 text-muted text-sm">
                           {user.walletAddress.slice(0, 6)}...{user.walletAddress.slice(-4)}
                         </td>

@@ -16,16 +16,16 @@ export async function GET(request: NextRequest) {
     // Determine role
     let role = null;
     if (auth.user.isAdmin) {
-      role = auth.user.adminRegions.length === 0 ? 'super_admin' : 'regional_admin';
-    } else if (auth.user.isTeam1Host) {
-      role = 'team1_host';
+      role = 'admin';
+    } else if (auth.user.isHost) {
+      role = 'host';
     }
     
     return NextResponse.json({
       walletAddress: auth.user.walletAddress,
       isAdmin: auth.user.isAdmin,
       isClanLeader: auth.user.isClanLeader,
-      isTeam1Host: auth.user.isTeam1Host,
+      isHost: auth.user.isHost,
       role: role,
       regions: auth.user.adminRegions || []
     });

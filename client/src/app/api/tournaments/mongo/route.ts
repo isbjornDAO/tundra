@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongoose';
 import { Tournament } from '@/lib/models/Tournament';
-import { validateGame, validateStatus, sanitizeInput, validateCountryCode } from '@/lib/security-utils';
+import { TournamentRegistration } from '@/lib/models/TournamentRegistration';
+import { validateGame, validateStatus, sanitizeInput, validateCountryCode, validateObjectId, validateWalletAddress } from '@/lib/security-utils';
+import { requireHost } from '@/lib/auth-middleware';
 
 export async function GET(request: NextRequest) {
   try {
@@ -133,5 +135,58 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating tournament:', error);
     return NextResponse.json({ error: 'Failed to create tournament' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    // Require Host privileges
+    const auth = await requireHost(request);
+    if (auth instanceof NextResponse) {
+      return auth; // Return error response
+    }
+
+    await connectToDatabase();
+    
+    const { searchParams } = new URL(request.url);
+    const tournamentIdParam = searchParams.get('tournamentId');
+    
+    if (!tournamentIdParam) {
+      return NextResponse.json({ error: 'Tournament ID is required' }, { status: 400 });
+    }
+    
+    // Validate tournament ID
+    const { isValid, objectId, error } = validateObjectId(tournamentIdParam);
+    if (!isValid) {
+      return NextResponse.json({ error: `Invalid tournament ID: ${error}` }, { status: 400 });
+    }
+    
+    // Find the tournament
+    const tournament = await Tournament.findById(objectId);
+    if (!tournament) {
+      return NextResponse.json({ error: 'Tournament not found' }, { status: 404 });
+    }
+    
+    // Check if tournament can be deleted (only before it gets full)
+    if (tournament.status === 'full' || tournament.status === 'active' || tournament.status === 'completed') {
+      return NextResponse.json({ 
+        error: 'Cannot delete tournament that is full, active, or completed' 
+      }, { status: 400 });
+    }
+    
+    // Delete all clan registrations for this tournament
+    await TournamentRegistration.deleteMany({ tournamentId: objectId });
+    
+    // Delete the tournament
+    await Tournament.findByIdAndDelete(objectId);
+    
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Tournament deleted successfully' 
+    });
+    
+  } catch (error) {
+    console.error('Error deleting tournament:', error);
+    return NextResponse.json({ error: 'Failed to delete tournament' }, { status: 500 });
   }
 }

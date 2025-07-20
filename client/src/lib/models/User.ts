@@ -48,7 +48,7 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  isTeam1Host: {
+  isHost: {
     type: Boolean,
     default: false
   },
