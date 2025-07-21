@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Layout } from '@/components/Layout';
-import { WagmiGuard } from '@/components/WagmiGuard';
 import { useTeam1Auth } from '@/hooks/useTeam1Auth';
 import { useTournaments, useBracket, useMatches } from '@/hooks/useTournaments';
-
-const GAMES = ['Off the Grid', 'Shatterline', 'Cozyverse', 'Rocket League', 'Fortnite', 'Apex Legends', 'Call of Duty'];
+import { type BracketMatch, SUPPORTED_GAMES } from '@/types/tournament';
+import TimeCoordinationModule from '@/components/bracket/TimeCoordinationModule';
+import ResultsEntryModule from '@/components/bracket/ResultsEntryModule';
 
 interface Match {
   _id: string;
@@ -154,21 +154,18 @@ function TournamentBracketsContent() {
 
   if (!mounted || tournamentsLoading) {
     return (
-      <WagmiGuard>
-        <Layout>
-          <div className="flex items-center justify-center min-h-screen">
-            <div className="text-lg text-white">Loading...</div>
-          </div>
-        </Layout>
-      </WagmiGuard>
+      <Layout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-lg text-white">Loading...</div>
+        </div>
+      </Layout>
     );
   }
 
   const tournaments = tournamentsData?.tournaments || [];
 
   return (
-    <WagmiGuard>
-      <Layout>
+    <Layout>
         <div className="container mx-auto px-4 py-8">
           {/* Header */}
           <div className="text-center mb-8">
@@ -180,7 +177,7 @@ function TournamentBracketsContent() {
           <div className="mb-8">
             <h2 className="text-xl font-semibold text-white mb-4">Select Game</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              {GAMES.map((game) => {
+              {SUPPORTED_GAMES.map((game: string) => {
                 const tournament = tournaments.find(t => t.game === game);
                 const isAvailable = tournament && (tournament.status === 'active' || tournament.status === 'full' || tournament.status === 'open');
                 
@@ -361,7 +358,6 @@ function TournamentBracketsContent() {
           )}
         </div>
       </Layout>
-    </WagmiGuard>
   );
 }
 
