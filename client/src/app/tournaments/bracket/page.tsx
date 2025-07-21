@@ -95,6 +95,16 @@ function TournamentBracketsContent() {
     }
   };
 
+  if (!mounted || tournamentsLoading) {
+    return (
+        <Layout>
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="text-lg text-white">Loading...</div>
+          </div>
+        </Layout>
+    );
+  }
+
   // Propose time function
   const handleProposeTime = async (matchId: string, time: string) => {
     if (!address || !time) return;

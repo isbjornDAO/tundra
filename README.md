@@ -38,6 +38,6 @@ Personalized user spaces featuring:
 - Customizable polar bear avatars
 - Snow den decorations
 
-Arctic cosmetics can be minted with rewards earnt from XP.
+Arctic cosmetics can be minted with rewards with XP.
 
 ## Built with 🐻‍❄️ by Isbjorn

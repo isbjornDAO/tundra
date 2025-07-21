@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
-import { WagmiGuard } from '@/components/WagmiGuard';
 import { useTeam1Auth } from '@/hooks/useTeam1Auth';
 import { useTournaments, useMatches } from '@/hooks/useTournaments';
+import { SUPPORTED_GAMES, type Game } from '@/types/tournament';
+import MatchResultsConfirmation from '@/components/MatchResultsConfirmation';
 
-const GAMES = ['Off the Grid', 'Shatterline', 'Cozyverse', 'Rocket League', 'Fortnite', 'Apex Legends', 'Call of Duty'];
+
 
 interface Match {
   _id: string;
@@ -90,21 +91,18 @@ function ResultsContent() {
 
   if (!mounted || tournamentsLoading) {
     return (
-      <WagmiGuard>
-        <Layout>
-          <div className="flex items-center justify-center min-h-screen">
-            <div className="text-lg text-white">Loading...</div>
-          </div>
-        </Layout>
-      </WagmiGuard>
+      <Layout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-lg text-white">Loading...</div>
+        </div>
+      </Layout>
     );
   }
 
   const displayTournaments = getMatchesForDisplay();
 
   return (
-    <WagmiGuard>
-      <Layout>
+    <Layout>
         <div className="container mx-auto px-4 py-8">
           {/* Header */}
           <div className="text-center mb-8">
@@ -126,7 +124,7 @@ function ResultsContent() {
               >
                 All Games
               </button>
-              {GAMES.map((game) => (
+              {SUPPORTED_GAMES.map((game: string) => (
                 <button
                   key={game}
                   onClick={() => setSelectedGame(game)}
@@ -163,7 +161,6 @@ function ResultsContent() {
           )}
         </div>
       </Layout>
-    </WagmiGuard>
   );
 }
 
