@@ -21,8 +21,16 @@ const TournamentRegistrationSchema = new mongoose.Schema({
       ref: 'User',
       required: true
     },
+    username: {
+      type: String,
+      required: true
+    },
+    displayName: String,
     walletAddress: String,
-    displayName: String
+    registeredAt: {
+      type: Date,
+      default: Date.now
+    }
   }],
   registeredAt: {
     type: Date,

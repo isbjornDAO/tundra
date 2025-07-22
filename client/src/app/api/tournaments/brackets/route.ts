@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import connectToDatabase from '@/lib/mongoose';
+import clientPromise from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 import { Tournament } from '@/lib/models/Tournament';
-import { Team } from '@/lib/models/Team';
 import { Bracket } from '@/lib/models/Bracket';
 import { Match } from '@/lib/models/Match';
+import { Clan } from '@/lib/models/Clan';
 
 export async function POST(request: Request) {
   try {
@@ -17,7 +19,8 @@ export async function POST(request: Request) {
     const db = client.db("tundra");
     // Mongoose uses pluralized collection names by default
     const tournamentsCol = db.collection("tournaments");
-    const teamsCol = db.collection("teams");
+    const clansCol = db.collection("clans");
+    const registrationsCol = db.collection("tournamentregistrations");
     const bracketsCol = db.collection("brackets");
     const matchesCol = db.collection("matches");
 
@@ -33,17 +36,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Tournament not ready for bracket generation" }, { status: 400 });
     }
 
-    const teams = await teamsCol.find({ tournamentId: new ObjectId(tournamentId) }).toArray();
+    // Get registered clans for this tournament
+    const registrations = await registrationsCol.find({ 
+      tournamentId: new ObjectId(tournamentId),
+      status: "registered" 
+    }).toArray();
     
-    if (teams.length < 2) {
-      return NextResponse.json({ error: "Not enough teams for bracket" }, { status: 400 });
+    const clanIds = registrations.map(reg => reg.clanId);
+    const clans = await clansCol.find({ _id: { $in: clanIds } }).toArray();
+    
+    if (clans.length < 2) {
+      return NextResponse.json({ error: "Not enough clans for bracket" }, { status: 400 });
     }
 
     // Generate bracket
-    const shuffledTeams = teams.sort(() => Math.random() - 0.5);
+    const shuffledClans = clans.sort(() => Math.random() - 0.5);
     const bracketDoc = {
       tournamentId: new ObjectId(tournamentId),
-      teams: shuffledTeams,
+      clans: shuffledClans,
       status: "active",
       createdAt: new Date(),
     };
@@ -52,19 +62,33 @@ export async function POST(request: Request) {
 
     // Generate matches
     const matches = [];
-    const rounds = Math.ceil(Math.log2(teams.length));
+    const rounds = Math.ceil(Math.log2(clans.length));
     
     // First round matches
-    for (let i = 0; i < shuffledTeams.length; i += 2) {
-      if (i + 1 < shuffledTeams.length) {
+    for (let i = 0; i < shuffledClans.length; i += 2) {
+      if (i + 1 < shuffledClans.length) {
+        // Get registered players for each clan from tournament registrations
+        const clan1Registration = registrations.find(reg => reg.clanId.toString() === shuffledClans[i]._id.toString());
+        const clan2Registration = registrations.find(reg => reg.clanId.toString() === shuffledClans[i + 1]._id.toString());
+        
         matches.push({
           bracketId: bracketResult.insertedId,
-          team1: shuffledTeams[i],
-          team2: shuffledTeams[i + 1],
+          clan1: shuffledClans[i]._id,
+          clan2: shuffledClans[i + 1]._id,
+          rosters: {
+            clan1: clan1Registration?.selectedPlayers?.map(player => ({
+              userId: player.userId,
+              username: player.username,
+              confirmed: true
+            })) || [],
+            clan2: clan2Registration?.selectedPlayers?.map(player => ({
+              userId: player.userId,
+              username: player.username,
+              confirmed: true
+            })) || []
+          },
           round: "first",
-          status: "pending",
-          organizer1Approved: false,
-          organizer2Approved: false,
+          status: "scheduling",
           createdAt: new Date(),
         });
       }

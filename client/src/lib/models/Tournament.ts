@@ -5,10 +5,6 @@ const TournamentSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  region: {
-    type: String,
-    required: true
-  },
   maxTeams: {
     type: Number,
     default: 16
@@ -44,7 +40,7 @@ const TournamentSchema = new mongoose.Schema({
   }
 });
 
-TournamentSchema.index({ game: 1, region: 1 });
+TournamentSchema.index({ game: 1 });
 TournamentSchema.index({ status: 1 });
 
 export const Tournament = mongoose.models.Tournament || mongoose.model('Tournament', TournamentSchema);

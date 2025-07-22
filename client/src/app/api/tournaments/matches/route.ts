@@ -45,8 +45,8 @@ async function generateNextRoundMatches(bracketId: ObjectId, db: Db) {
           if (i + 1 < winners.length) {
             nextRoundMatches.push({
               bracketId,
-              team1: winners[i],
-              team2: winners[i + 1],
+              clan1: winners[i],
+              clan2: winners[i + 1],
               round: nextRoundName,
               status: "pending",
               organizer1Approved: false,
@@ -117,6 +117,112 @@ export async function GET(request: Request) {
     }
 
     const matches = await matchesCol.find(query).sort({ createdAt: 1 }).toArray();
+    
+    // Update match statuses: ready -> active when scheduled time has passed
+    const now = new Date();
+    const matchesToUpdate = matches.filter(match => 
+      match.status === 'ready' && 
+      match.scheduledAt && 
+      new Date(match.scheduledAt) <= now
+    );
+    
+    if (matchesToUpdate.length > 0) {
+      const matchIdsToUpdate = matchesToUpdate.map(m => m._id);
+      await matchesCol.updateMany(
+        { _id: { $in: matchIdsToUpdate } },
+        { $set: { status: 'active' } }
+      );
+      
+      // Update the matches array to reflect the new status
+      matches.forEach(match => {
+        if (matchesToUpdate.some(m => m._id.toString() === match._id.toString())) {
+          match.status = 'active';
+        }
+      });
+    }
+    
+    // Populate team/clan data for each match
+    const teamsCol = db.collection("teams");
+    const clansCol = db.collection("clans");
+    
+    for (let match of matches) {
+      // Handle new format: clan1/clan2
+      if (match.clan1 && match.clan1 !== null) {
+        let clan1 = null;
+        const clan1Id = match.clan1.toString();
+        
+        // Try as ObjectId first
+        try {
+          clan1 = await clansCol.findOne({ _id: new ObjectId(clan1Id) });
+        } catch (e) {
+          // If ObjectId fails, try as string
+          clan1 = await clansCol.findOne({ _id: clan1Id });
+        }
+        
+        if (clan1) {
+          match.clan1 = {
+            _id: clan1._id,
+            name: clan1.name,
+            tag: clan1.tag,
+            leader: clan1.leader
+          };
+        }
+      }
+      
+      if (match.clan2 && match.clan2 !== null) {
+        let clan2 = null;
+        const clan2Id = match.clan2.toString();
+        
+        // Try as ObjectId first
+        try {
+          clan2 = await clansCol.findOne({ _id: new ObjectId(clan2Id) });
+        } catch (e) {
+          // If ObjectId fails, try as string
+          clan2 = await clansCol.findOne({ _id: clan2Id });
+        }
+        
+        if (clan2) {
+          match.clan2 = {
+            _id: clan2._id,
+            name: clan2.name,
+            tag: clan2.tag,
+            leader: clan2.leader
+          };
+        }
+      }
+      
+      // Handle old format: team1/team2
+      if (match.team1 && match.team1 !== null) {
+        let team1 = null;
+        const team1Id = match.team1.toString();
+        
+        // Try as ObjectId first
+        try {
+          team1 = await teamsCol.findOne({ _id: new ObjectId(team1Id) });
+        } catch (e) {
+          // If ObjectId fails, try as string
+          team1 = await teamsCol.findOne({ _id: team1Id });
+        }
+        
+        if (team1) match.team1 = team1;
+      }
+      
+      // Handle team2
+      if (match.team2 && match.team2 !== null) {
+        let team2 = null;
+        const team2Id = match.team2.toString();
+        
+        // Try as ObjectId first
+        try {
+          team2 = await teamsCol.findOne({ _id: new ObjectId(team2Id) });
+        } catch (e) {
+          // If ObjectId fails, try as string
+          team2 = await teamsCol.findOne({ _id: team2Id });
+        }
+        
+        if (team2) match.team2 = team2;
+      }
+    }
 
     return NextResponse.json({ matches });
   } catch (error) {

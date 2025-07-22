@@ -155,7 +155,7 @@ describe('Tundra Tournament Platform - End-to-End Workflows', () => {
           tournamentId: 'tournament123',
           tournament: {
             _id: 'tournament123',
-            game: 'Valorant',
+            game: 'Rocket League',
             region: 'Global',
             maxTeams: 16,
             registeredTeams: 0,
@@ -166,7 +166,7 @@ describe('Tundra Tournament Platform - End-to-End Workflows', () => {
       });
 
       const tournamentData = {
-        game: 'Valorant',
+        game: 'Rocket League',
         region: 'Global',
         maxTeams: 16
       };
@@ -404,8 +404,8 @@ describe('Tundra Tournament Platform - End-to-End Workflows', () => {
             totalPrizeMoney: 25000
           },
           gameBreakdown: [
-            { game: 'Valorant', total: 2, active: 1 },
-            { game: 'CS2', total: 3, active: 0 }
+            { game: 'Rocket League', total: 2, active: 1 },
+            { game: 'Dota 2', total: 3, active: 0 }
           ]
         })
       });
@@ -483,7 +483,7 @@ describe('Tundra Tournament Platform - End-to-End Workflows', () => {
 
       // Execute the workflow
       const workflows = [
-        fetch('/api/tournaments', { method: 'POST', body: JSON.stringify({ game: 'Valorant' }) }),
+        fetch('/api/tournaments', { method: 'POST', body: JSON.stringify({ game: 'Rocket League' }) }),
         fetch('/api/tournaments/teams', { method: 'POST', body: JSON.stringify({ name: 'Team A' }) }),
         fetch('/api/tournaments/teams', { method: 'POST', body: JSON.stringify({ name: 'Team B' }) }),
         fetch('/api/tournaments/brackets', { method: 'POST', body: JSON.stringify({ tournamentId: 'tournament123' }) }),

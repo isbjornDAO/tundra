@@ -54,22 +54,29 @@ export default function AuthPage() {
         fullUser: data.user
       });
       
-      if (data.user && data.user.username && data.user.country) {
-        // User exists with complete profile, redirect to home
-        console.log('✅ Complete user found, redirecting to home');
-        setIsLoading(false);
-        setIsCheckingAccount(false);
-        router.push('/');
-      } else if (data.user) {
-        // User exists but has incomplete profile - allow them to complete it
-        console.log('⚠️ User found but incomplete profile:', {
-          hasUsername: !!data.user.username,
-          hasCountry: !!data.user.country
-        });
-        setIsCheckingAccount(false);
-        setIsLoading(false);
-        setShowSignupModal(true);
-        setError('Please complete your profile setup.');
+      if (data.user) {
+        // User exists - check if profile is complete
+        const hasCompleteProfile = data.user.username && data.user.country;
+        
+        if (hasCompleteProfile) {
+          // User exists with complete profile, redirect to home
+          console.log('✅ Complete user found, redirecting to home');
+          setIsLoading(false);
+          setIsCheckingAccount(false);
+          router.push('/');
+        } else {
+          // User exists but has incomplete profile - show completion form
+          console.log('⚠️ Existing user found but incomplete profile:', {
+            walletAddress: data.user.walletAddress,
+            hasUsername: !!data.user.username,
+            hasCountry: !!data.user.country,
+            userId: data.user._id
+          });
+          setIsCheckingAccount(false);
+          setIsLoading(false);
+          setShowSignupModal(true);
+          setError('Welcome back! Please complete your profile setup.');
+        }
       } else {
         // No user found with this wallet, show signup modal for new user
         console.log('❌ No user found, showing signup for new user');

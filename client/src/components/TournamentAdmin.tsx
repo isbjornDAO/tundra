@@ -25,7 +25,7 @@ interface Team {
 interface Match {
   _id: string;
   round: string;
-  status: 'pending' | 'scheduled' | 'completed';
+  status: 'scheduling' | 'ready' | 'active' | 'completed';
   scheduledAt?: string;
   completedAt?: string;
   team1: {
@@ -165,6 +165,43 @@ export function TournamentAdmin() {
     }
   };
 
+  const handleResolveConflict = async (matchId: string, winnerId: string) => {
+    if (!address) return;
+    
+    setSubmitting(matchId);
+    
+    try {
+      const response = await fetch('/api/tournaments/matches/admin', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          matchId,
+          winnerId,
+          walletAddress: address,
+          resolveConflict: true,
+          completedAt: new Date().toISOString()
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to resolve conflict');
+      }
+
+      await response.json();
+      
+      // Refresh tournaments to show updated results
+      await fetchHostTournaments();
+      
+    } catch (error) {
+      console.error('Error resolving conflict:', error);
+      alert(`Error resolving conflict: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setSubmitting(null);
+    }
+  };
 
   const handleScheduleMatch = async (matchId: string, scheduledTime: string) => {
     try {
@@ -209,10 +246,8 @@ export function TournamentAdmin() {
 
 
 
-  // Filter tournaments by admin regions - Admins and hosts see all tournaments
-  const filteredTournaments = adminData?.isAdmin || adminData?.isHost
-    ? tournaments 
-    : tournaments.filter(t => adminData?.regions.includes(t.region));
+  // All tournaments are global - Admins and hosts see all tournaments
+  const filteredTournaments = tournaments;
 
 
   const handleCreateTournament = async () => {
@@ -221,15 +256,23 @@ export function TournamentAdmin() {
     try {
       await createTournament.mutateAsync({
         game: selectedGame,
-        region: "Global", // Default region since we removed region selection
         maxTeams,
       });
       alert("Tournament created successfully!");
       setSelectedGame("");
       setMaxTeams(16);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create tournament:", error);
-      alert("Failed to create tournament");
+      
+      // Extract the error message from the API response
+      let errorMessage = "Failed to create tournament";
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      alert(errorMessage);
     }
   };
 
@@ -416,7 +459,7 @@ export function TournamentAdmin() {
                   <div className="flex justify-between items-center mb-4">
                     <div>
                       <h3 className="text-lg font-semibold text-white">{tournament.tournament.game}</h3>
-                      <p className="text-gray-300">Region: {tournament.tournament.region}</p>
+                      <p className="text-gray-300">Global Tournament</p>
                     </div>
                     <span className={`px-2 py-1 rounded text-xs font-medium ${tournament.tournament.status === 'active' ? 'bg-green-600 text-white' : 'bg-gray-600 text-white'}`}>
                       {tournament.tournament.status.toUpperCase()}
@@ -445,14 +488,44 @@ export function TournamentAdmin() {
                                 </div>
                               )}
                               
-                              {match.status === 'scheduled' && match.scheduledAt && (
+                              {match.status === 'results_conflict' && (
+                                <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 mb-3">
+                                  <div className="text-red-400 text-sm font-medium mb-2">
+                                    ⚠️ RESULTS CONFLICT DETECTED
+                                  </div>
+                                  <div className="text-gray-300 text-xs mb-2">
+                                    Both teams submitted different scores. Admin resolution required.
+                                  </div>
+                                  {match.conflictData && (
+                                    <div className="text-xs text-gray-400 space-y-1">
+                                      <div>📊 Submission 1: {match.conflictData.submission1?.score?.clan1Score || 0} - {match.conflictData.submission1?.score?.clan2Score || 0}</div>
+                                      <div>📊 Submission 2: {match.conflictData.submission2?.score?.clan1Score || 0} - {match.conflictData.submission2?.score?.clan2Score || 0}</div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {match.status === 'results_pending' && (
                                 <div className="text-blue-400 text-sm">
-                                  📅 Scheduled: {new Date(match.scheduledAt).toLocaleString()}
+                                  ⏳ Waiting for both teams to submit results
+                                </div>
+                              )}
+                              
+                              {(match.status === 'ready' || match.status === 'active') && match.scheduledAt && (
+                                <div className={`text-sm ${match.status === 'active' ? 'text-red-400' : 'text-blue-400'}`}>
+                                  {match.status === 'active' ? '🔴 LIVE: ' : '📅 Scheduled: '}
+                                  {new Date(match.scheduledAt).toLocaleString()}
+                                </div>
+                              )}
+                              
+                              {match.status === 'scheduling' && (
+                                <div className="text-yellow-400 text-sm">
+                                  ⏳ Teams are coordinating match time
                                 </div>
                               )}
                             </div>
                             
-                            {match.status === 'pending' && match.team1 && match.team2 && (
+                            {(match.status === 'ready' || match.status === 'active') && match.team1 && match.team2 && (
                               <div className="flex gap-2 ml-4">
                                 <button
                                   onClick={() => handleEnterResult(match._id, match.team1!.id)}
@@ -468,6 +541,28 @@ export function TournamentAdmin() {
                                 >
                                   {submitting === match._id ? 'Submitting...' : `${match.team2.name} Wins`}
                                 </button>
+                              </div>
+                            )}
+                            
+                            {match.status === 'results_conflict' && match.team1 && match.team2 && (
+                              <div className="flex flex-col gap-2 ml-4">
+                                <div className="text-xs text-red-400 font-medium mb-1">RESOLVE CONFLICT:</div>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleResolveConflict(match._id, match.team1!.id)}
+                                    disabled={submitting === match._id}
+                                    className="px-3 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
+                                  >
+                                    {submitting === match._id ? 'Resolving...' : `Award to ${match.team1.name}`}
+                                  </button>
+                                  <button
+                                    onClick={() => handleResolveConflict(match._id, match.team2!.id)}
+                                    disabled={submitting === match._id}
+                                    className="px-3 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
+                                  >
+                                    {submitting === match._id ? 'Resolving...' : `Award to ${match.team2.name}`}
+                                  </button>
+                                </div>
                               </div>
                             )}
                           </div>
@@ -501,7 +596,7 @@ export function TournamentAdmin() {
                   <div className="flex justify-between items-center mb-4">
                     <div>
                       <h3 className="text-lg font-semibold text-white">{tournament.tournament.game}</h3>
-                      <p className="text-gray-300">Region: {tournament.tournament.region}</p>
+                      <p className="text-gray-300">Global Tournament</p>
                     </div>
                     <span className={`px-2 py-1 rounded text-xs font-medium ${tournament.tournament.status === 'active' ? 'bg-green-600 text-white' : 'bg-gray-600 text-white'}`}>
                       {tournament.tournament.status.toUpperCase()}
@@ -599,7 +694,7 @@ function TournamentCard({ tournament, onGenerateBracket, onDeleteTournament, gen
           <p className="text-gray-300">
             {tournament.registeredTeams}/{tournament.maxTeams} teams registered
           </p>
-          <p className="text-gray-400 text-sm">Region: {tournament.region}</p>
+          <p className="text-gray-400 text-sm">Global Tournament</p>
         </div>
         <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(tournament.status)}`}>
           {tournament.status.toUpperCase()}

@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/hooks/useAuth';
+import TournamentMatchesSimple from '@/components/clan/TournamentMatchesSimple';
+import ClanMemberPerformance from '@/components/clan/ClanMemberPerformance';
 
 interface Clan {
   _id: string;
@@ -48,7 +50,32 @@ const getRegionFromCountry = (country: string): string => {
     'Portugal': 'Europe West',
   };
   
-  return regionMap[country] || 'Unknown';
+  return regionMap[country] || '';
+};
+
+const getCountryNameFromCode = (countryCode: string): string => {
+  const countryMap: { [key: string]: string } = {
+    'NZ': 'New Zealand',
+    'AU': 'Australia',
+    'FJ': 'Fiji',
+    'PG': 'Papua New Guinea',
+    'US': 'United States',
+    'CA': 'Canada',
+    'MX': 'Mexico',
+    'UK': 'United Kingdom',
+    'GB': 'United Kingdom',
+    'FR': 'France',
+    'DE': 'Germany',
+    'ES': 'Spain',
+    'IT': 'Italy',
+    'NL': 'Netherlands',
+    'BE': 'Belgium',
+    'CH': 'Switzerland',
+    'AT': 'Austria',
+    'PT': 'Portugal',
+  };
+  
+  return countryMap[countryCode] || countryCode;
 };
 
 function ClanContent() {
@@ -57,6 +84,7 @@ function ClanContent() {
   const [localClans, setLocalClans] = useState<Clan[]>([]);
   const [globalClans, setGlobalClans] = useState<Clan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userDataLoading, setUserDataLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'discover' | 'requests' | 'my-clan'>('discover');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [joinRequestLoading, setJoinRequestLoading] = useState<string | null>(null);
@@ -64,6 +92,8 @@ function ClanContent() {
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [joinRequests, setJoinRequests] = useState<any[]>([]);
   const [managementLoading, setManagementLoading] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
 
   useEffect(() => {
     if (isConnected && address) {
@@ -78,26 +108,25 @@ function ClanContent() {
     }
   }, [user?.isClanLeader, user?.clan?._id]);
 
-  useEffect(() => {
-    // Refresh user data when returning to clan view to get latest member info
-    if (activeTab === 'my-clan' && user?.clan) {
-      refetchUser();
-    }
-  }, [activeTab, refetchUser]);
+  // Removed problematic useEffect that was causing infinite API calls
+  // User data should be fresh enough without constant refetching
 
   useEffect(() => {
-    // Set initial tab based on user's clan status
-    if (user?.clan) {
-      setActiveTab('my-clan');
-    } else {
-      setActiveTab('discover');
+    // Set initial tab based on user's clan status and mark user data as loaded
+    if (user !== undefined) {
+      setUserDataLoading(false);
+      if (user?.clan) {
+        setActiveTab('my-clan');
+      } else {
+        setActiveTab('discover');
+      }
+      
+      // Debug logging
+      console.log('User data:', user);
+      console.log('User is clan leader:', user?.isClanLeader);
+      console.log('User clan data:', user?.clan);
+      console.log('Clan members:', user?.clan?.members);
     }
-    
-    // Debug logging
-    console.log('User data:', user);
-    console.log('User is clan leader:', user?.isClanLeader);
-    console.log('User clan data:', user?.clan);
-    console.log('Clan members:', user?.clan?.members);
   }, [user]);
 
   const fetchClans = async () => {
@@ -262,7 +291,7 @@ function ClanContent() {
         alert(`Join request ${action}d successfully!`);
         fetchJoinRequests(); // Refresh requests
         fetchClans(); // Refresh clan data
-        refetchUser(); // Refresh user data to get updated clan members
+        // Removed refetchUser() to prevent infinite API loops
       } else {
         const data = await response.json();
         alert(data.error || `Failed to ${action} join request`);
@@ -270,6 +299,43 @@ function ClanContent() {
     } catch (error) {
       console.error(`Error ${action}ing join request:`, error);
       alert(`Failed to ${action} join request`);
+    }
+  };
+
+  const handleEditClan = async (formData: {
+    name: string;
+    tag: string;
+    description: string;
+    logo?: string;
+  }) => {
+    if (!user?.clan?._id) return;
+    
+    setEditLoading(true);
+    try {
+      const response = await fetch(`/api/clans/${user.clan._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          walletAddress: address,
+          ...formData
+        })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        alert('Clan updated successfully!');
+        setShowEditForm(false);
+        window.location.reload(); // Refresh to show updated clan data
+      } else {
+        alert(data.error || 'Failed to update clan');
+      }
+    } catch (error) {
+      console.error('Error updating clan:', error);
+      alert('Failed to update clan');
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -281,6 +347,16 @@ function ClanContent() {
             <h2 className="text-2xl font-bold text-white mb-4">Connect Your Wallet</h2>
             <p className="text-gray-400">You need to connect your wallet to access clan features.</p>
           </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (userDataLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-lg text-white">Loading...</div>
         </div>
       </Layout>
     );
@@ -309,7 +385,10 @@ function ClanContent() {
           )}
           <div>
             <h3 className="text-white font-semibold">[{clan.tag}] {clan.name}</h3>
-            <p className="text-gray-400 text-sm">{clan.country} • {clan.region}</p>
+            <p className="text-gray-400 text-sm">
+              {isLocal ? getCountryNameFromCode(clan.country) : clan.country}
+              {clan.region && ` • ${clan.region}`}
+            </p>
           </div>
         </div>
         {isLocal && (
@@ -345,16 +424,24 @@ function ClanContent() {
           
           {clan.canJoin ? (
             <button
-              onClick={() => handleJoinRequest(clan._id)}
-              disabled={joinRequestLoading === clan._id || !!user?.clan || clan.hasRequested}
+              onClick={() => {
+                if (user?.clan && isLocal) {
+                  setActiveTab('my-clan');
+                } else {
+                  handleJoinRequest(clan._id);
+                }
+              }}
+              disabled={joinRequestLoading === clan._id || (!!user?.clan && !isLocal) || clan.hasRequested}
               className={`btn btn-sm ${
                 clan.hasRequested 
-                  ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/20 cursor-not-allowed' 
+                  ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/20 cursor-not-allowed'
+                  : (user?.clan && !isLocal)
+                  ? 'bg-gray-500/20 text-gray-400 border-gray-500/20 cursor-not-allowed'
                   : 'btn-primary'
               }`}
             >
               {joinRequestLoading === clan._id ? 'Sending...' : 
-               user?.clan ? 'Already in Clan' :
+               user?.clan ? (isLocal ? 'Enter' : 'Already in Clan') :
                clan.hasRequested ? 'Requested' : 'Request to Join'}
             </button>
           ) : (
@@ -534,6 +621,173 @@ function ClanContent() {
     );
   };
 
+  const EditClanModal = () => {
+    const [formData, setFormData] = useState({
+      name: '',
+      tag: '',
+      description: '',
+      logo: ''
+    });
+    const [errors, setErrors] = useState<Record<string, string>>({});
+
+    // Update form data when modal opens or user data changes
+    useEffect(() => {
+      if (showEditForm && user?.clan) {
+        setFormData({
+          name: user.clan.name || '',
+          tag: user.clan.tag || '',
+          description: user.clan.description || '',
+          logo: user.clan.logo || ''
+        });
+      }
+    }, [showEditForm, user?.clan]);
+
+    const validateForm = () => {
+      const newErrors: Record<string, string> = {};
+      
+      if (!formData.name.trim()) {
+        newErrors.name = 'Clan name is required';
+      } else if (formData.name.length < 3 || formData.name.length > 30) {
+        newErrors.name = 'Clan name must be 3-30 characters';
+      }
+      
+      if (!formData.tag.trim()) {
+        newErrors.tag = 'Clan tag is required';
+      } else if (formData.tag.length < 2 || formData.tag.length > 5) {
+        newErrors.tag = 'Clan tag must be 2-5 characters';
+      } else if (!/^[A-Z0-9]+$/.test(formData.tag)) {
+        newErrors.tag = 'Clan tag must be uppercase letters and numbers only';
+      }
+      
+      if (!formData.description.trim()) {
+        newErrors.description = 'Description is required';
+      } else if (formData.description.length < 10 || formData.description.length > 200) {
+        newErrors.description = 'Description must be 10-200 characters';
+      }
+      
+      setErrors(newErrors);
+      return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (validateForm()) {
+        handleEditClan(formData);
+      }
+    };
+
+    const handleInputChange = (field: string, value: string) => {
+      setFormData(prev => ({ ...prev, [field]: value }));
+      // Clear error when user starts typing
+      if (errors[field]) {
+        setErrors(prev => ({ ...prev, [field]: '' }));
+      }
+    };
+
+    if (!showEditForm) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-gray-900 border border-white/10 rounded-lg p-6 max-w-md w-full">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-white">Edit Clan Details</h2>
+            <button
+              onClick={() => setShowEditForm(false)}
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">
+                Clan Name
+              </label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                className={`w-full px-3 py-2 bg-gray-800 border rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                  errors.name ? 'border-red-500' : 'border-gray-700'
+                }`}
+                placeholder="Enter clan name"
+                maxLength={30}
+              />
+              {errors.name && <p className="text-red-400 text-sm mt-1">{errors.name}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">
+                Clan Tag
+              </label>
+              <input
+                type="text"
+                value={formData.tag}
+                onChange={(e) => handleInputChange('tag', e.target.value.toUpperCase())}
+                className={`w-full px-3 py-2 bg-gray-800 border rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                  errors.tag ? 'border-red-500' : 'border-gray-700'
+                }`}
+                placeholder="TAG"
+                maxLength={5}
+              />
+              {errors.tag && <p className="text-red-400 text-sm mt-1">{errors.tag}</p>}
+              <p className="text-gray-400 text-xs mt-1">2-5 characters, uppercase letters and numbers only</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">
+                Description
+              </label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => handleInputChange('description', e.target.value)}
+                rows={3}
+                className={`w-full px-3 py-2 bg-gray-800 border rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                  errors.description ? 'border-red-500' : 'border-gray-700'
+                }`}
+                placeholder="Describe your clan..."
+                maxLength={200}
+              />
+              {errors.description && <p className="text-red-400 text-sm mt-1">{errors.description}</p>}
+              <p className="text-gray-400 text-xs mt-1">{formData.description.length}/200 characters</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">
+                Logo URL (Optional)
+              </label>
+              <input
+                type="url"
+                value={formData.logo}
+                onChange={(e) => handleInputChange('logo', e.target.value)}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="https://example.com/logo.png"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowEditForm(false)}
+                className="flex-1 btn btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={editLoading}
+                className="flex-1 btn btn-primary"
+              >
+                {editLoading ? 'Updating...' : 'Update Clan'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
   const MyClanView = () => {
     if (!user?.clan) return null;
 
@@ -561,12 +815,22 @@ function ClanContent() {
                 </div>
               </div>
             </div>
-            <button
-              onClick={() => setActiveTab('discover')}
-              className="btn btn-secondary"
-            >
-              Discover Other Clans
-            </button>
+            <div className="flex gap-3">
+              {user.isClanLeader && (
+                <button
+                  onClick={() => setShowEditForm(true)}
+                  className="btn btn-primary"
+                >
+                  Edit Clan
+                </button>
+              )}
+              <button
+                onClick={() => setActiveTab('discover')}
+                className="btn btn-secondary"
+              >
+                Discover Other Clans
+              </button>
+            </div>
           </div>
 
           {user.clan.description && (
@@ -575,7 +839,9 @@ function ClanContent() {
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="text-center">
-              <div className="text-2xl font-bold text-white mb-1">{user.clan.memberCount || 0}</div>
+              <div className="text-2xl font-bold text-white mb-1">
+                {Array.isArray(user.clan.members) ? user.clan.members.length : (user.clan.memberCount || 0)}
+              </div>
               <div className="text-gray-400 text-sm">Members</div>
             </div>
             <div className="text-center">
@@ -593,8 +859,15 @@ function ClanContent() {
           </div>
         </div>
 
+        {/* Tournament Matches */}
+        <TournamentMatchesSimple 
+          userAddress={address || ''}
+          clanId={user.clan._id}
+          isClanLeader={user?.isClanLeader || false}
+        />
 
-
+        {/* Clan Member Performance & XP */}
+        <ClanMemberPerformance clanId={user.clan._id} />
 
         {/* Clan Members */}
         <div className="card mb-8">
@@ -602,9 +875,6 @@ function ClanContent() {
           <div className="space-y-3">
             {Array.isArray(user.clan.members) && user.clan.members.length > 0 ? (
               user.clan.members.map((member: any, index: number) => {
-                console.log('Member data:', member);
-                console.log('Member type:', typeof member);
-                console.log('Member keys:', Object.keys(member));
                 const memberName = member.username || member.displayName || member.name || 'Unknown';
                 const memberUsername = member.username || 'unknown';
                 return (
@@ -689,6 +959,7 @@ function ClanContent() {
           </div>
         )}
 
+
         {/* Leave Clan Action for regular members */}
         {!user?.isClanLeader && user?.clan && (
           <div className="card">
@@ -718,6 +989,7 @@ function ClanContent() {
     return (
       <Layout>
         <MyClanView />
+        <EditClanModal />
       </Layout>
     );
   }
@@ -826,6 +1098,9 @@ function ClanContent() {
 
         {/* Create Clan Request Modal */}
         <CreateClanRequestModal />
+
+        {/* Edit Clan Modal */}
+        <EditClanModal />
       </div>
 
       {/* Leave Clan Confirmation Modal */}

@@ -15,7 +15,7 @@ interface Match {
   team1: { name: string; organizer: string };
   team2: { name: string; organizer: string };
   scheduledTime?: string;
-  status: 'pending' | 'scheduled' | 'completed';
+  status: 'scheduling' | 'ready' | 'active' | 'completed' | 'pending' | 'scheduled'; // Support old and new status values
   results?: {
     team1Score: number;
     team2Score: number;
@@ -179,10 +179,42 @@ function TournamentResultsSection({
   const { data: matchesData } = useMatches(tournament.bracketId || '');
   const matches = (matchesData?.matches || []) as Match[];
   
-  // Separate matches by status
+  // Early return if no bracketId to prevent hooks issues
+  if (!tournament.bracketId) {
+    return (
+      <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-lg p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-white mb-1">{tournament.game} Tournament</h2>
+            <div className="flex items-center gap-4 text-sm text-gray-300">
+              <span>{tournament.registeredTeams}/{tournament.maxTeams} Teams</span>
+              <span className="capitalize">{tournament.status}</span>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-3xl mb-1">🏆</div>
+            <div className="text-xl font-bold text-yellow-400">$5,000</div>
+            <div className="text-xs text-gray-400">Prize Pool</div>
+          </div>
+        </div>
+        <div className="text-center py-8 text-gray-400">
+          No bracket available for this tournament
+        </div>
+      </div>
+    );
+  }
+  
+  // Separate matches by status (with backward compatibility)
   const completedMatches = matches.filter(m => m.status === 'completed');
-  const scheduledMatches = matches.filter(m => m.status === 'scheduled' && m.scheduledTime && new Date(m.scheduledTime) < new Date());
-  const pendingMatches = matches.filter(m => m.status === 'pending' || (m.status === 'scheduled' && m.scheduledTime && new Date(m.scheduledTime) > new Date()));
+  const scheduledMatches = matches.filter(m => 
+    (m.status === 'ready' || m.status === 'active' || m.status === 'scheduled') && 
+    m.scheduledTime && new Date(m.scheduledTime) < new Date()
+  );
+  const pendingMatches = matches.filter(m => 
+    m.status === 'scheduling' || m.status === 'pending' || 
+    ((m.status === 'ready' || m.status === 'active' || m.status === 'scheduled') && 
+     m.scheduledTime && new Date(m.scheduledTime) > new Date())
+  );
 
   return (
     <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-lg p-6">
@@ -207,9 +239,9 @@ function TournamentResultsSection({
         <div className="mb-6">
           <h3 className="text-lg font-semibold text-white mb-4">🔥 Matches Needing Results</h3>
           <div className="space-y-4">
-            {scheduledMatches.map((match) => (
+            {scheduledMatches.map((match, index) => (
               <MatchResultsEntry 
-                key={match._id}
+                key={match._id || `scheduled-${index}`}
                 match={match}
                 userAddress={userAddress}
                 onSubmitResults={onSubmitResults}
@@ -225,15 +257,15 @@ function TournamentResultsSection({
         <div className="mb-6">
           <h3 className="text-lg font-semibold text-white mb-4">✅ Completed Matches</h3>
           <div className="space-y-3">
-            {completedMatches.map((match) => (
-              <div key={match._id} className="bg-black/20 border border-white/10 rounded-lg p-4">
+            {completedMatches.map((match, index) => (
+              <div key={match._id || `completed-${index}`} className="bg-black/20 border border-white/10 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
-                    <div className="text-white font-medium">{match.team1.name}</div>
+                    <div className="text-white font-medium">{match.team1?.name || 'Team 1'}</div>
                     <div className="text-2xl font-bold text-white">
-                      {match.results?.team1Score} - {match.results?.team2Score}
+                      {match.results?.team1Score || 0} - {match.results?.team2Score || 0}
                     </div>
-                    <div className="text-white font-medium">{match.team2.name}</div>
+                    <div className="text-white font-medium">{match.team2?.name || 'Team 2'}</div>
                   </div>
                   <div className="text-right">
                     <div className="text-green-400 text-sm font-medium">
@@ -253,17 +285,20 @@ function TournamentResultsSection({
         <div>
           <h3 className="text-lg font-semibold text-white mb-4">⏳ Upcoming Matches</h3>
           <div className="space-y-3">
-            {pendingMatches.map((match) => (
-              <div key={match._id} className="bg-black/20 border border-white/10 rounded-lg p-4">
+            {pendingMatches.map((match, index) => (
+              <div key={match._id || `pending-${index}`} className="bg-black/20 border border-white/10 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
-                    <div className="text-white font-medium">{match.team1.name}</div>
+                    <div className="text-white font-medium">{match.team1?.name || 'Team 1'}</div>
                     <div className="text-gray-400">vs</div>
-                    <div className="text-white font-medium">{match.team2.name}</div>
+                    <div className="text-white font-medium">{match.team2?.name || 'Team 2'}</div>
                   </div>
                   <div className="text-right">
                     <div className="text-yellow-400 text-sm font-medium">
-                      {match.scheduledTime ? 'Scheduled' : 'Time TBD'}
+                      {match.status === 'ready' || match.status === 'scheduled' ? 'Ready' : 
+                       match.status === 'active' ? 'Live' :
+                       match.status === 'scheduling' || match.status === 'pending' ? 'Scheduling' :
+                       match.scheduledTime ? 'Scheduled' : 'Scheduling'}
                     </div>
                     <div className="text-xs text-gray-400 capitalize">{match.round}</div>
                   </div>
@@ -303,7 +338,7 @@ function MatchResultsEntry({
   const [team1Score, setTeam1Score] = useState('');
   const [team2Score, setTeam2Score] = useState('');
   
-  const isTeamLeader = userAddress === match.team1.organizer || userAddress === match.team2.organizer;
+  const isTeamLeader = userAddress === match.team1?.organizer || userAddress === match.team2?.organizer;
   const hasSubmitted = match.results?.submittedBy.includes(userAddress || '') || false;
 
   const handleSubmit = () => {
@@ -323,9 +358,9 @@ function MatchResultsEntry({
       {/* Match Info */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-4">
-          <div className="text-white font-medium">{match.team1.name}</div>
+          <div className="text-white font-medium">{match.team1?.name || 'Team 1'}</div>
           <div className="text-gray-400">vs</div>
-          <div className="text-white font-medium">{match.team2.name}</div>
+          <div className="text-white font-medium">{match.team2?.name || 'Team 2'}</div>
         </div>
         <div className="text-right">
           <div className="text-orange-400 text-sm font-medium">Results Needed</div>
@@ -346,7 +381,7 @@ function MatchResultsEntry({
           <div className="text-orange-400 text-sm font-medium mb-3">Submit Match Results</div>
           <div className="flex items-center gap-4 mb-4">
             <div className="flex items-center gap-2">
-              <span className="text-white text-sm">{match.team1.name}:</span>
+              <span className="text-white text-sm">{match.team1?.name || 'Team 1'}:</span>
               <input
                 type="number"
                 min="0"
@@ -358,7 +393,7 @@ function MatchResultsEntry({
             </div>
             <div className="text-gray-400">-</div>
             <div className="flex items-center gap-2">
-              <span className="text-white text-sm">{match.team2.name}:</span>
+              <span className="text-white text-sm">{match.team2?.name || 'Team 2'}:</span>
               <input
                 type="number"
                 min="0"
@@ -398,7 +433,7 @@ function MatchResultsEntry({
         <div className="mt-4 bg-blue-500/10 border border-blue-500/20 rounded p-3">
           <div className="text-blue-400 text-sm font-medium mb-2">Current Results</div>
           <div className="text-white text-sm">
-            {match.team1.name}: {match.results.team1Score} - {match.team2.name}: {match.results.team2Score}
+            {match.team1?.name || 'Team 1'}: {match.results.team1Score} - {match.team2?.name || 'Team 2'}: {match.results.team2Score}
           </div>
           <div className="text-xs text-gray-400 mt-1">
             Submitted by {match.results.submittedBy.length} team leader(s)

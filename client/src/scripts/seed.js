@@ -9,7 +9,7 @@ if (!uri) {
 
 const client = new MongoClient(uri);
 
-const games = ["CS2", "Valorant", "League of Legends", "Dota 2", "Rocket League", "Fortnite"];
+const games = ["Off the Grid", "Shatterline", "Cozyverse", "Rocket League", "Fortnite", "Apex Legends", "Call of Duty", "Dota 2"];
 
 async function seed() {
   try {

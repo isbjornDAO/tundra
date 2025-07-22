@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { usePlayerProfile } from '@/hooks/usePlayerProfile';
 import { useAccount } from 'wagmi';
-import GeneralAdminClient from '@/app/admin/general/general-admin-client';
+import { COUNTRY_CODE_TO_NAME } from '@/types/countries';
 
 interface ProfilePageProps {
   walletAddress?: string;
@@ -29,6 +29,56 @@ const defaultUserData = {
   badges: [],
   recentActivity: []
 };
+
+// Default stats structure
+const defaultStats = {
+  totalTournaments: 0,
+  wins: 0,
+  totalPrizeMoney: 0,
+  level: 1,
+  xp: 0
+};
+
+// Helper function to safely get stat values with defaults
+function getStatValue(user: any, statName: string, defaultValue: any = 0) {
+  return user?.stats?.[statName] ?? defaultValue;
+}
+
+// Helper function to get user display stats with proper defaults
+function getUserStats(user: any, profileData: any) {
+  // If user exists but has no stats, initialize with defaults
+  if (user && !user.stats) {
+    user.stats = { ...defaultStats };
+  }
+  
+  return {
+    totalTournaments: getStatValue(user, 'totalTournaments') || profileData.totalTournaments || 0,
+    wins: getStatValue(user, 'wins') || profileData.wins || 0,
+    totalPrizeMoney: getStatValue(user, 'totalPrizeMoney') || profileData.totalPrizesMoney || 0,
+    level: getStatValue(user, 'level', 1) || profileData.level || 1,
+    xp: getStatValue(user, 'xp') || profileData.xp || 0,
+    winRate: calculateWinRate(getStatValue(user, 'wins') || profileData.wins || 0, getStatValue(user, 'totalTournaments') || profileData.totalTournaments || 0)
+  };
+}
+
+// Helper function to calculate win rate
+function calculateWinRate(wins: number, totalTournaments: number) {
+  if (totalTournaments === 0) return 0;
+  return Math.round((wins / totalTournaments) * 100);
+}
+
+// Helper function to get country display name
+function getCountryDisplayName(country: string): string {
+  if (!country) return 'Unknown';
+  
+  // If it's a 2-letter code, convert to name
+  if (country.length === 2) {
+    return COUNTRY_CODE_TO_NAME[country.toUpperCase()] || country;
+  }
+  
+  // If it's already a name, return as-is
+  return country;
+}
 
 function StatCard({ label, value, icon }: { label: string; value: string | number; icon: string }) {
   return (
@@ -72,24 +122,23 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user,
   const [saveError, setSaveError] = useState('');
   const [profilePhoto, setProfilePhoto] = useState<string>('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'achievements' | 'activity' | 'admin'>('overview');
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'achievements' | 'activity'>('overview');
   const { address } = useAccount();
 
-  const profileData = user || userData || defaultUserData;
-  const xpProgress = profileData.stats ? (profileData.stats.xp / (profileData.stats.level * 1000)) * 100 : (profileData.xp / profileData.xpToNextLevel) * 100;
-
-  // Check admin permissions
+  // Debug logging
   useEffect(() => {
-    if (address) {
-      fetch(`/api/admin/check?walletAddress=${address}`)
-        .then(res => res.json())
-        .then(data => {
-          setIsAdmin(data.isAdmin || false);
-        })
-        .catch(err => console.error('Error checking admin status:', err));
+    if (user) {
+      console.log('ProfilePage - User prop received:', user);
+      console.log('ProfilePage - User clan:', user.clan);
+      console.log('ProfilePage - Clan type:', typeof user.clan);
+      console.log('ProfilePage - Clan name:', user.clan?.name);
+      console.log('ProfilePage - Clan tag:', user.clan?.tag);
     }
-  }, [address]);
+  }, [user]);
+
+  const profileData = user || userData || defaultUserData;
+  const userStats = getUserStats(user, profileData);
+  const xpProgress = (userStats.xp / (userStats.level * 1000)) * 100;
 
   useEffect(() => {
     if (user) {
@@ -190,29 +239,33 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user,
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'admin':
-        return (
-          <div className="space-y-6">
-            <GeneralAdminClient />
-          </div>
-        );
       case 'achievements':
         return (
           <div className="space-y-6">
             <h3 className="heading-md">Achievements</h3>
             <div className="grid-2">
-              {(profileData.trophies || []).map((trophy) => (
-                <div key={trophy.id} className="card-interactive">
-                  <div className="flex items-start gap-4">
-                    <div className="text-4xl">{trophy.icon}</div>
-                    <div className="flex-1">
-                      <h4 className="text-white font-semibold text-lg">{trophy.name}</h4>
-                      <p className="text-muted mt-1">{trophy.description}</p>
-                      <p className="text-muted text-sm mt-2">{new Date(trophy.date).toLocaleDateString()}</p>
+              {(profileData.trophies || []).length > 0 ? (
+                (profileData.trophies || []).map((trophy) => (
+                  <div key={trophy.id} className="card-interactive">
+                    <div className="flex items-start gap-4">
+                      <div className="text-4xl">{trophy.icon}</div>
+                      <div className="flex-1">
+                        <h4 className="text-white font-semibold text-lg">{trophy.name}</h4>
+                        <p className="text-muted mt-1">{trophy.description}</p>
+                        <p className="text-muted text-sm mt-2">{new Date(trophy.date).toLocaleDateString()}</p>
+                      </div>
                     </div>
                   </div>
+                ))
+              ) : (
+                <div className="col-span-2 text-center py-12">
+                  <div className="text-6xl mb-6">🏆</div>
+                  <div className="text-white text-xl mb-2">No Achievements Yet</div>
+                  <div className="text-muted max-w-md mx-auto">
+                    Start participating in tournaments and completing challenges to unlock achievements and showcase your gaming prowess!
+                  </div>
                 </div>
-              ))}
+              )}
             </div>
           </div>
         );
@@ -222,17 +275,27 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user,
           <div className="space-y-6">
             <h3 className="heading-md">Recent Activity</h3>
             <div className="space-y-3">
-              {(profileData.recentActivity || []).map((activity) => (
-                <div key={activity.id} className="card-compact">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 bg-red-500 rounded-full flex-shrink-0"></div>
-                    <div className="flex-1">
-                      <p className="text-white">{activity.description}</p>
-                      <p className="text-muted text-sm mt-1">{activity.timestamp}</p>
+              {(profileData.recentActivity || []).length > 0 ? (
+                (profileData.recentActivity || []).map((activity) => (
+                  <div key={activity.id} className="card-compact">
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 bg-red-500 rounded-full flex-shrink-0"></div>
+                      <div className="flex-1">
+                        <p className="text-white">{activity.description}</p>
+                        <p className="text-muted text-sm mt-1">{activity.timestamp}</p>
+                      </div>
                     </div>
                   </div>
+                ))
+              ) : (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-6">📈</div>
+                  <div className="text-white text-xl mb-2">No Recent Activity</div>
+                  <div className="text-muted max-w-md mx-auto">
+                    Your tournament participation, match results, and other gaming activities will appear here.
+                  </div>
                 </div>
-              ))}
+              )}
             </div>
           </div>
         );
@@ -244,10 +307,10 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user,
             <div>
               <h3 className="heading-md mb-6">Statistics</h3>
               <div className="grid-4">
-                <StatCard label="Tournaments" value={profileData.totalTournaments} icon="🎮" />
-                <StatCard label="Wins" value={profileData.wins} icon="🏆" />
-                <StatCard label="Win Rate" value={`${profileData.winRate}%`} icon="📈" />
-                <StatCard label="Earnings" value={`$${profileData.totalPrizesMoney}`} icon="💰" />
+                <StatCard label="Tournaments" value={userStats.totalTournaments} icon="🎮" />
+                <StatCard label="Wins" value={userStats.wins} icon="🏆" />
+                <StatCard label="Win Rate" value={`${userStats.winRate}%`} icon="📈" />
+                <StatCard label="Earnings" value={`$${userStats.totalPrizeMoney}`} icon="💰" />
               </div>
             </div>
 
@@ -255,13 +318,21 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user,
             <div>
               <h3 className="heading-md mb-6">Recent Achievements</h3>
               <div className="grid-3">
-                {(profileData.trophies || []).slice(0, 3).map((trophy) => (
-                  <div key={trophy.id} className="card-compact text-center">
-                    <div className="text-3xl mb-3">{trophy.icon}</div>
-                    <div className="text-white font-medium">{trophy.name}</div>
-                    <div className="text-muted text-sm mt-1">{new Date(trophy.date).toLocaleDateString()}</div>
+                {(profileData.trophies || []).length > 0 ? (
+                  (profileData.trophies || []).slice(0, 3).map((trophy) => (
+                    <div key={trophy.id} className="card-compact text-center">
+                      <div className="text-3xl mb-3">{trophy.icon}</div>
+                      <div className="text-white font-medium">{trophy.name}</div>
+                      <div className="text-muted text-sm mt-1">{new Date(trophy.date).toLocaleDateString()}</div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-3 text-center py-8">
+                    <div className="text-4xl mb-4">🎯</div>
+                    <div className="text-muted">No achievements yet</div>
+                    <div className="text-muted text-sm mt-1">Participate in tournaments to earn achievements!</div>
                   </div>
-                ))}
+                )}
               </div>
             </div>
 
@@ -269,9 +340,17 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user,
             <div>
               <h3 className="heading-md mb-6">Badges</h3>
               <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-                {(profileData.badges || []).map((badge) => (
-                  <BadgeItem key={badge.id} badge={badge} />
-                ))}
+                {(profileData.badges || []).length > 0 ? (
+                  (profileData.badges || []).map((badge) => (
+                    <BadgeItem key={badge.id} badge={badge} />
+                  ))
+                ) : (
+                  <div className="col-span-full text-center py-8">
+                    <div className="text-4xl mb-4">🏅</div>
+                    <div className="text-muted">No badges earned yet</div>
+                    <div className="text-muted text-sm mt-1">Complete challenges to earn badges!</div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -360,7 +439,7 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user,
                     <label className="form-label">Country</label>
                     <input
                       type="text"
-                      value={user?.country || ''}
+                      value={getCountryDisplayName(user?.country || '')}
                       className="input-field bg-gray-700 cursor-not-allowed"
                       placeholder="Not set"
                       disabled
@@ -394,11 +473,13 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user,
                   {user?.username && (
                     <span className="text-blue-400 font-medium">@{user.username}</span>
                   )}
-                  {user?.clan && (
-                    <span className="text-red-400 font-medium">{user.clan.name}</span>
+                  {user?.clan && typeof user.clan === 'object' && user.clan.name && (
+                    <span className="text-red-400 font-medium">
+                      [{user.clan.tag || user.clan.name}] {user.clan.name}
+                    </span>
                   )}
                   {user?.country && (
-                    <span className="text-muted">{user.country}</span>
+                    <span className="text-muted">{getCountryDisplayName(user.country)}</span>
                   )}
                   <span className="text-muted">Joined {new Date(user?.createdAt || profileData.joinDate).toLocaleDateString()}</span>
                 </div>
@@ -416,9 +497,9 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user,
               </p>
               <div className="mt-3">
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="text-blue-400">Level {user?.stats?.level || profileData.level}</span>
+                  <span className="text-blue-400">Level {userStats.level}</span>
                   <span className="text-muted">•</span>
-                  <span className="text-green-400">{user?.stats?.xp || profileData.xp} XP</span>
+                  <span className="text-green-400">{userStats.xp} XP</span>
                 </div>
                 <div className="w-full max-w-sm bg-white/10 rounded-full h-2 mt-2">
                   <div 
@@ -469,7 +550,6 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user,
             { id: 'overview', label: 'Overview', icon: '📊' },
             { id: 'achievements', label: 'Achievements', icon: '🏆' },
             { id: 'activity', label: 'Activity', icon: '📈' },
-            ...(isAdmin ? [{ id: 'admin', label: 'Admin', icon: '⚙️' }] : [])
           ].map((tab) => (
             <button
               key={tab.id}

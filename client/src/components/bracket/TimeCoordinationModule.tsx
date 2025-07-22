@@ -5,19 +5,24 @@ import { useState } from 'react';
 interface Match {
   _id: string;
   team1?: {
-    _id?: string;
-    id?: string;
-    name?: string;
-    organizer?: string;
-  };
+    _id: string;
+    name: string;
+    captain: { username: string; walletAddress: string };
+    players?: Array<{ username: string; walletAddress: string; role: string }>;
+  } | null;
   team2?: {
-    _id?: string;
-    id?: string;
-    name?: string;
-    organizer?: string;
-  };
+    _id: string;
+    name: string;
+    captain: { username: string; walletAddress: string };
+    players?: Array<{ username: string; walletAddress: string; role: string }>;
+  } | null;
   status: string;
-  scheduledTime?: string;
+  scheduledAt?: string;
+  timeProposals?: Array<{
+    proposedBy: string;
+    time: string;
+    status: 'pending' | 'approved' | 'rejected';
+  }>;
 }
 
 interface TimeCoordinationModuleProps {
@@ -92,8 +97,8 @@ export default function TimeCoordinationModule({
     );
   }
 
-  if (match.status === 'scheduled' && match.scheduledTime) {
-    const scheduledTime = new Date(match.scheduledTime);
+  if (match.status === 'scheduled' && match.scheduledAt) {
+    const scheduledTime = new Date(match.scheduledAt);
     const isTimeReached = scheduledTime <= new Date();
     
     return (

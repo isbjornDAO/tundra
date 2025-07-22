@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     
     const matches = await matchesCol.find({ 
       bracketId: { $in: bracketIds },
-      status: { $in: ['pending', 'scheduled', 'completed'] }
+      status: { $in: ['pending', 'scheduled', 'completed', 'ready', 'active', 'results_pending', 'results_conflict'] }
     }).toArray();
 
     // Get all teams for match details
@@ -103,7 +103,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const { matchId, winnerId, completedAt } = await request.json();
+    const { matchId, winnerId, completedAt, resolveConflict } = await request.json();
     
     if (!matchId || !winnerId) {
       return NextResponse.json({ error: 'Missing required fields: matchId, winnerId' }, { status: 400 });
@@ -121,31 +121,57 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Match not found' }, { status: 404 });
     }
 
-    // Verify winner is one of the teams
-    if (winnerId !== match.team1?.id && winnerId !== match.team2?.id) {
-      return NextResponse.json({ error: 'Winner must be one of the participating teams' }, { status: 400 });
+    // Support both old team format and new clan format
+    const isTeamFormat = match.team1 || match.team2;
+    const isClanFormat = match.clan1 || match.clan2;
+    
+    let winner, loser;
+    
+    if (isTeamFormat) {
+      // Old team format
+      if (winnerId !== match.team1?.id && winnerId !== match.team2?.id) {
+        return NextResponse.json({ error: 'Winner must be one of the participating teams' }, { status: 400 });
+      }
+      winner = winnerId === match.team1?.id ? match.team1 : match.team2;
+      loser = winnerId === match.team1?.id ? match.team2 : match.team1;
+    } else if (isClanFormat) {
+      // New clan format
+      if (winnerId !== match.clan1?._id?.toString() && winnerId !== match.clan2?._id?.toString()) {
+        return NextResponse.json({ error: 'Winner must be one of the participating clans' }, { status: 400 });
+      }
+      winner = winnerId === match.clan1?._id?.toString() ? match.clan1 : match.clan2;
+      loser = winnerId === match.clan1?._id?.toString() ? match.clan2 : match.clan1;
+    } else {
+      return NextResponse.json({ error: 'Match format not supported' }, { status: 400 });
     }
 
-    // Update match with result
-    const winner = winnerId === match.team1?.id ? match.team1 : match.team2;
-    const loser = winnerId === match.team1?.id ? match.team2 : match.team1;
+    // Prepare update data
+    let updateData: any = { 
+      status: 'completed',
+      winner,
+      loser,
+      completedAt: new Date(completedAt || Date.now()),
+      enteredBy: {
+        walletAddress: auth.user.walletAddress,
+        displayName: auth.user.displayName,
+        isHost: true,
+        region: auth.user.region
+      }
+    };
+
+    // If resolving a conflict, clear conflict data and add resolution info
+    if (resolveConflict) {
+      updateData.conflictResolvedBy = {
+        walletAddress: auth.user.walletAddress,
+        displayName: auth.user.displayName,
+        resolvedAt: new Date()
+      };
+      updateData.conflictData = null;
+    }
     
     await matchesCol.updateOne(
       { _id: new ObjectId(matchId) },
-      { 
-        $set: { 
-          status: 'completed',
-          winner,
-          loser,
-          completedAt: new Date(completedAt || Date.now()),
-          enteredBy: {
-            walletAddress: auth.user.walletAddress,
-            displayName: auth.user.displayName,
-            isHost: true,
-            region: auth.user.region
-          }
-        } 
-      }
+      { $set: updateData, $unset: resolveConflict ? { conflictData: "" } : {} }
     );
 
     // Get bracket to check for progression

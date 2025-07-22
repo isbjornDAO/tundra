@@ -17,6 +17,8 @@ function ProfileContent() {
         .then(data => {
           // Handle both direct user object and {user: ...} wrapper
           const userData = data.user || data;
+          console.log('Profile - User data fetched:', userData);
+          console.log('Profile - User clan:', userData?.clan);
           setUser(userData);
         })
         .catch(err => console.error('Error fetching user:', err));

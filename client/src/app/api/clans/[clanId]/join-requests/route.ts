@@ -6,10 +6,12 @@ import { User } from '@/lib/models/User';
 // GET - Get all join requests for a clan (clan leaders only)
 export async function GET(
   request: NextRequest,
-  { params }: { params: { clanId: string } }
+  { params }: { params: Promise<{ clanId: string }> }
 ) {
   try {
     await connectToDatabase();
+    
+    const { clanId } = await params;
 
     const { searchParams } = new URL(request.url);
     const walletAddress = searchParams.get('walletAddress');
@@ -25,7 +27,7 @@ export async function GET(
     }
 
     // Find the clan and check if user is the leader
-    const clan = await Clan.findById(params.clanId).populate('joinRequests.user', 'username walletAddress country');
+    const clan = await Clan.findById(clanId).populate('joinRequests.user', 'username walletAddress country');
     if (!clan) {
       return NextResponse.json({ error: 'Clan not found' }, { status: 404 });
     }
@@ -48,10 +50,12 @@ export async function GET(
 // PUT - Approve or reject a join request
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { clanId: string } }
+  { params }: { params: Promise<{ clanId: string }> }
 ) {
   try {
     await connectToDatabase();
+    
+    const { clanId } = await params;
 
     const { requestId, action, walletAddress } = await request.json();
 
@@ -70,7 +74,7 @@ export async function PUT(
     }
 
     // Find the clan and check if user is the leader
-    const clan = await Clan.findById(params.clanId);
+    const clan = await Clan.findById(clanId);
     if (!clan) {
       return NextResponse.json({ error: 'Clan not found' }, { status: 404 });
     }

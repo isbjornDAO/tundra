@@ -6,26 +6,47 @@ import { Layout } from '@/components/Layout';
 import { useTeam1Auth } from '@/hooks/useTeam1Auth';
 import { useTournaments, useBracket, useMatches } from '@/hooks/useTournaments';
 import { type BracketMatch, SUPPORTED_GAMES } from '@/types/tournament';
-import TimeCoordinationModule from '@/components/bracket/TimeCoordinationModule';
-import ResultsEntryModule from '@/components/bracket/ResultsEntryModule';
 
 interface Match {
   _id: string;
   round: string;
-  team1: { name: string; organizer: string };
-  team2: { name: string; organizer: string };
-  scheduledTime?: string;
-  status: 'pending' | 'scheduled' | 'completed';
+  team1: { 
+    _id: string;
+    name: string; 
+    captain: { username: string; walletAddress: string };
+    players?: Array<{ username: string; walletAddress: string; role: string }>;
+  } | null;
+  team2: { 
+    _id: string;
+    name: string; 
+    captain: { username: string; walletAddress: string };
+    players?: Array<{ username: string; walletAddress: string; role: string }>;
+  } | null;
+  clan1: {
+    _id: string;
+    name: string;
+    tag: string;
+    leader: string;
+  } | null;
+  clan2: {
+    _id: string;
+    name: string;
+    tag: string;
+    leader: string;
+  } | null;
+  scheduledAt?: string;
+  status: 'scheduling' | 'ready' | 'active' | 'completed';
   timeProposals?: Array<{
     proposedBy: string;
     time: string;
     status: 'pending' | 'approved' | 'rejected';
   }>;
-  results?: {
+  score?: {
     team1Score: number;
     team2Score: number;
-    submittedBy: string[];
   };
+  organizer1Approved?: boolean;
+  organizer2Approved?: boolean;
 }
 
 interface Tournament {
@@ -46,10 +67,10 @@ function TournamentBracketsContent() {
   const [submitting, setSubmitting] = useState(false);
 
   const { data: tournamentsData, isLoading: tournamentsLoading } = useTournaments();
+  const tournaments = tournamentsData?.tournaments || [];
   
   // Get current tournament
   const getCurrentTournament = (): Tournament | undefined => {
-    const tournaments = tournamentsData?.tournaments || [];
     return tournaments.find(t => 
       t.game === selectedGame && (t.status === 'active' || t.status === 'full' || t.status === 'open')
     ) as Tournament | undefined;
@@ -172,8 +193,6 @@ function TournamentBracketsContent() {
     );
   }
 
-  const tournaments = tournamentsData?.tournaments || [];
-
   return (
     <Layout>
         <div className="container mx-auto px-4 py-8">
@@ -189,26 +208,30 @@ function TournamentBracketsContent() {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
               {SUPPORTED_GAMES.map((game: string) => {
                 const tournament = tournaments.find(t => t.game === game);
-                const isAvailable = tournament && (tournament.status === 'active' || tournament.status === 'full' || tournament.status === 'open');
+                const hasActiveTournament = tournament && (tournament.status === 'active' || tournament.status === 'full' || tournament.status === 'open');
                 
                 return (
                   <button
                     key={game}
-                    onClick={() => isAvailable && setSelectedGame(game)}
-                    disabled={!isAvailable}
+                    onClick={() => setSelectedGame(game)}
+                    disabled={false}
                     className={`p-4 rounded-lg border transition-all text-center ${
                       selectedGame === game 
                         ? 'border-blue-500 bg-blue-500/20 text-blue-400' 
-                        : isAvailable
+                        : hasActiveTournament
                         ? 'border-white/20 bg-white/5 hover:border-white/40 text-white'
-                        : 'border-white/10 bg-white/5 opacity-50 cursor-not-allowed text-gray-500'
+                        : 'border-white/10 bg-white/5 hover:border-white/20 text-gray-400'
                     }`}
                   >
                     <div className="font-medium mb-1">{game}</div>
                     <div className="text-xs">
-                      {isAvailable ? (
+                      {hasActiveTournament ? (
                         <span className="text-green-400">
                           {tournament.registeredTeams}/{tournament.maxTeams} Teams
+                        </span>
+                      ) : tournament ? (
+                        <span className="text-yellow-400">
+                          {tournament.status} - {tournament.registeredTeams}/{tournament.maxTeams}
                         </span>
                       ) : (
                         <span className="text-gray-500">No Tournament</span>
@@ -304,54 +327,52 @@ function TournamentBracketsContent() {
                                 {/* Match Teams */}
                                 <div className="flex items-center justify-between mb-4">
                                   <div className="flex items-center space-x-4">
-                                    <div className="text-white font-medium">{match.team1.name}</div>
+                                    <div className="text-white font-medium">{match.clan1?.name || match.team1?.name || 'TBD'}</div>
                                     <div className="text-gray-400">vs</div>
-                                    <div className="text-white font-medium">{match.team2.name}</div>
+                                    <div className="text-white font-medium">{match.clan2?.name || match.team2?.name || 'TBD'}</div>
                                   </div>
                                   
                                   {/* Match Status */}
                                   <div className={`px-3 py-1 rounded-full text-xs font-medium ${
                                     match.status === 'completed' ? 'bg-green-500/20 text-green-400' :
-                                    match.status === 'scheduled' ? 'bg-blue-500/20 text-blue-400' :
+                                    match.status === 'active' ? 'bg-red-500/20 text-red-400' :
+                                    match.status === 'ready' ? 'bg-blue-500/20 text-blue-400' :
                                     'bg-yellow-500/20 text-yellow-400'
                                   }`}>
                                     {match.status === 'completed' ? 'Completed' :
-                                     match.status === 'scheduled' ? 'Scheduled' :
-                                     'Pending'}
+                                     match.status === 'active' ? 'Live' :
+                                     match.status === 'ready' ? 'Ready' :
+                                     'Scheduling'}
                                   </div>
                                 </div>
 
                                 {/* Match Details */}
-                                {match.scheduledTime && (
+                                {match.scheduledAt && (
                                   <div className="text-sm text-gray-300 mb-2">
-                                    Scheduled: {new Date(match.scheduledTime).toLocaleString()}
+                                    Scheduled: {new Date(match.scheduledAt).toLocaleString()}
                                   </div>
                                 )}
 
-                                {/* Time Coordination */}
-                                {match.status === 'pending' && (address === match.team1.organizer || address === match.team2.organizer) && (
-                                  <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded">
-                                    <div className="text-blue-400 text-sm font-medium mb-2">Coordinate Match Time</div>
-                                    <div className="flex gap-2">
-                                      <input
-                                        type="datetime-local"
-                                        className="bg-black/20 border border-white/20 rounded px-3 py-1 text-white text-sm"
-                                        onChange={(e) => {
-                                          if (e.target.value) {
-                                            handleProposeTime(match._id, e.target.value);
-                                          }
-                                        }}
-                                      />
-                                    </div>
-                                  </div>
-                                )}
 
-                                {/* Results Entry */}
-                                {match.status === 'completed' && match.results && (
-                                  <div className="mt-4 p-3 bg-green-500/10 border border-green-500/20 rounded">
-                                    <div className="text-green-400 text-sm font-medium mb-2">Match Results</div>
-                                    <div className="text-white text-sm">
-                                      {match.team1.name}: {match.results.team1Score} - {match.team2.name}: {match.results.team2Score}
+                                {/* Results managed in Clan tab - only show for user's matches */}
+                                {((match.team1 && match.team2 && 
+                                  (address?.toLowerCase() === match.team1.captain?.walletAddress?.toLowerCase() || 
+                                   address?.toLowerCase() === match.team2.captain?.walletAddress?.toLowerCase())) ||
+                                 (match.clan1 && match.clan2 && 
+                                  (address?.toLowerCase() === match.clan1.leader?.toLowerCase() || 
+                                   address?.toLowerCase() === match.clan2.leader?.toLowerCase()))) && (
+                                  <div className="mt-4 bg-purple-500/10 border border-purple-500/20 rounded-lg p-4">
+                                    <div className="text-center">
+                                      <div className="text-purple-400 font-medium mb-2">🏠 Match Management</div>
+                                      <div className="text-sm text-gray-300 mb-3">
+                                        Match scheduling and results are now managed in your clan tab
+                                      </div>
+                                      <button
+                                        onClick={() => window.location.href = '/clan'}
+                                        className="bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                                      >
+                                        Go to Clan Tab
+                                      </button>
                                     </div>
                                   </div>
                                 )}

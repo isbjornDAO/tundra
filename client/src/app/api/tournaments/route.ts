@@ -25,8 +25,8 @@ export async function POST(request: Request) {
     
     const requestBody = await request.json();
     const sanitizedData = sanitizeInput(requestBody);
-    const { game, region = "Global", maxTeams = 16 } = sanitizedData;
-    console.log("Request data:", { game, region, maxTeams });
+    const { game, maxTeams = 16 } = sanitizedData;
+    console.log("Request data:", { game, maxTeams });
     
     if (!game) {
       return NextResponse.json({ error: "Game is required" }, { status: 400 });
@@ -51,12 +51,19 @@ export async function POST(request: Request) {
     });
     
     if (existingTournament) {
-      return NextResponse.json({ error: "Active tournament already exists for this game" }, { status: 400 });
+      return NextResponse.json({ 
+        error: `Cannot create tournament: A ${validatedGame} tournament is already active. Please wait for the current tournament to complete or choose a different game.`,
+        existingTournament: {
+          id: existingTournament._id,
+          game: existingTournament.game,
+          status: existingTournament.status,
+          teams: `${existingTournament.registeredTeams}/${existingTournament.maxTeams}`
+        }
+      }, { status: 409 });
     }
 
     const tournament = new Tournament({
       game: validatedGame,
-      region,
       maxTeams: validatedMaxTeams,
       registeredTeams: 0,
       status: "open",

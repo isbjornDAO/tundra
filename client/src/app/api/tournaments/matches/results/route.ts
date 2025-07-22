@@ -1,174 +1,231 @@
 import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongoose';
-import mongoose from 'mongoose';
 import { validateObjectId, validateWalletAddress, sanitizeInput } from '@/lib/security-utils';
+import { Match } from '@/lib/models/Match';
+import { User } from '@/lib/models/User';
+import { Clan } from '@/lib/models/Clan';
 
-// Match schema
-const MatchSchema = new mongoose.Schema({
-  tournamentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tournament', required: true },
-  bracketId: { type: mongoose.Schema.Types.ObjectId, ref: 'Bracket', required: true },
-  round: { type: String, required: true },
-  team1: {
-    name: String,
-    organizer: String,
-    clanId: String
-  },
-  team2: {
-    name: String,
-    organizer: String,
-    clanId: String
-  },
-  scheduledTime: Date,
-  status: { type: String, enum: ['pending', 'scheduled', 'completed'], default: 'pending' },
-  results: {
-    team1Score: { type: Number, default: 0 },
-    team2Score: { type: Number, default: 0 },
-    submittedBy: [String], // Array of wallet addresses who submitted results
-    submissions: [{
-      submittedBy: String,
-      team1Score: Number,
-      team2Score: Number,
-      submittedAt: { type: Date, default: Date.now }
-    }],
-    confirmed: { type: Boolean, default: false },
-    confirmedAt: Date
-  },
-  winner: {
-    name: String,
-    organizer: String,
-    clanId: String
-  },
-  createdAt: { type: Date, default: Date.now }
-});
-
-const Match = mongoose.models.Match || mongoose.model('Match', MatchSchema);
+function calculateXPFromPerformance(score: number, kills: number, deaths: number, assists: number, isWinner: boolean, isMVP: boolean): number {
+  let baseXP = Math.floor(score / 10);
+  baseXP += kills * 5;
+  baseXP += assists * 3;
+  baseXP -= deaths * 2;
+  
+  if (isWinner) baseXP += 50;
+  if (isMVP) baseXP += 25;
+  
+  return Math.max(baseXP, 10);
+}
 
 export async function POST(request: Request) {
   try {
     await connectToDatabase();
     const requestBody = await request.json();
     const sanitizedData = sanitizeInput(requestBody);
-    const { matchId, team1Score, team2Score, submittedBy } = sanitizedData;
+    const { matchId, clan1Score, clan2Score, playerPerformances, submittedBy } = sanitizedData;
     
-    if (!matchId || team1Score === undefined || team2Score === undefined || !submittedBy) {
+    if (!matchId || clan1Score === undefined || clan2Score === undefined || !submittedBy || !playerPerformances) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
     
-    // Validate match ID
     const { isValid: matchIdValid, objectId: validatedMatchId, error: matchIdError } = validateObjectId(matchId);
     if (!matchIdValid) {
       return NextResponse.json({ error: `Invalid match ID: ${matchIdError}` }, { status: 400 });
     }
     
-    // Validate wallet address
     const { isValid: walletValid, address: validatedAddress, error: walletError } = validateWalletAddress(submittedBy);
     if (!walletValid) {
       return NextResponse.json({ error: `Invalid wallet address: ${walletError}` }, { status: 400 });
     }
     
-    // Validate scores
-    if (typeof team1Score !== 'number' || typeof team2Score !== 'number' || team1Score < 0 || team2Score < 0) {
+    if (typeof clan1Score !== 'number' || typeof clan2Score !== 'number' || clan1Score < 0 || clan2Score < 0) {
       return NextResponse.json({ error: 'Invalid scores provided' }, { status: 400 });
     }
     
-    // Find the match
-    const match = await Match.findById(validatedMatchId);
+    const match = await Match.findById(validatedMatchId).populate('clan1 clan2');
     if (!match) {
       return NextResponse.json({ error: 'Match not found' }, { status: 404 });
     }
     
-    // Check if user is authorized (team leader)
-    if (match.team1.organizer !== validatedAddress && match.team2.organizer !== validatedAddress) {
-      return NextResponse.json({ error: 'Only team leaders can submit results' }, { status: 403 });
+    const user = await User.findOne({ walletAddress: validatedAddress });
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
-    // Check if match is ready for results (should be scheduled and time passed)
-    if (match.status !== 'scheduled' && match.status !== 'completed') {
+    const userClan = await Clan.findById(user.clan);
+    if (!userClan) {
+      return NextResponse.json({ error: 'User must be in a clan to submit results' }, { status: 400 });
+    }
+    
+    if (!user.isClanLeader && userClan.leader.toString() !== user._id.toString()) {
+      return NextResponse.json({ error: 'Only clan leaders can submit results' }, { status: 403 });
+    }
+    
+    // Check if match rosters are set
+    if (!match.rosters || (!match.rosters.clan1?.length && !match.rosters.clan2?.length)) {
+      return NextResponse.json({ error: 'Match rosters must be set before submitting results' }, { status: 400 });
+    }
+    
+    // Validate that all submitted players are on the match roster
+    const clan1RosterIds = match.rosters.clan1?.map(p => p.userId.toString()) || [];
+    const clan2RosterIds = match.rosters.clan2?.map(p => p.userId.toString()) || [];
+    const allRosterIds = [...clan1RosterIds, ...clan2RosterIds];
+    
+    for (const perf of playerPerformances) {
+      if (!allRosterIds.includes(perf.userId)) {
+        const invalidPlayer = await User.findById(perf.userId);
+        return NextResponse.json({ 
+          error: `Player ${invalidPlayer?.username || perf.userId} is not on the match roster` 
+        }, { status: 400 });
+      }
+    }
+    
+    if (match.status !== 'ready' && match.status !== 'active' && match.status !== 'results_pending') {
       return NextResponse.json({ error: 'Match is not ready for results submission' }, { status: 400 });
     }
     
-    // Check if user already submitted results
-    if (match.results?.submittedBy?.includes(validatedAddress)) {
-      return NextResponse.json({ error: 'You have already submitted results for this match' }, { status: 400 });
+    const winningClanId = clan1Score > clan2Score ? match.clan1._id : clan2Score > clan1Score ? match.clan2._id : null;
+    
+    // Determine which clan is submitting
+    const isSubmittingClan1 = userClan._id.toString() === match.clan1._id.toString();
+    const submittingClanKey = isSubmittingClan1 ? 'clan1' : 'clan2';
+    
+    // Check if this clan has already submitted results
+    if (match.resultsSubmissions?.[submittingClanKey]?.submitted) {
+      return NextResponse.json({ error: 'Your clan has already submitted results for this match' }, { status: 400 });
     }
     
-    // Initialize results if not exists
-    if (!match.results) {
-      match.results = {
-        team1Score: 0,
-        team2Score: 0,
-        submittedBy: [],
-        submissions: [],
-        confirmed: false
+    // Store existing score BEFORE overwriting for conflict detection
+    const existingScore = match.score;
+    match.score = { clan1Score, clan2Score };
+    match.playerPerformances = playerPerformances.map((perf: any) => ({
+      userId: perf.userId,
+      clanId: perf.clanId,
+      score: perf.score,
+      kills: perf.kills || 0,
+      deaths: perf.deaths || 0,
+      assists: perf.assists || 0,
+      mvp: perf.mvp || false
+    }));
+    
+    if (winningClanId) {
+      match.winner = winningClanId;
+    }
+    
+    // Initialize resultsSubmissions if not exists
+    if (!match.resultsSubmissions) {
+      match.resultsSubmissions = {
+        clan1: { submitted: false },
+        clan2: { submitted: false }
       };
     }
     
-    // Add submission
-    match.results.submissions.push({
-      submittedBy: validatedAddress,
-      team1Score,
-      team2Score,
+    // Mark this clan's submission
+    match.resultsSubmissions[submittingClanKey] = {
+      submitted: true,
+      submittedBy: user._id,
       submittedAt: new Date()
-    });
+    };
     
-    match.results.submittedBy.push(validatedAddress);
-    
-    // Check if both team leaders have submitted
-    const team1Leader = match.team1.organizer;
-    const team2Leader = match.team2.organizer;
-    const bothSubmitted = match.results.submittedBy.includes(team1Leader) && match.results.submittedBy.includes(team2Leader);
+    // Check if both clans have submitted
+    const bothSubmitted = match.resultsSubmissions.clan1?.submitted && match.resultsSubmissions.clan2?.submitted;
     
     if (bothSubmitted) {
-      // Get the two submissions
-      const team1Submission = match.results.submissions.find(s => s.submittedBy === team1Leader);
-      const team2Submission = match.results.submissions.find(s => s.submittedBy === team2Leader);
+      // Check for conflicting results using the stored existing score
+      const hasConflict = existingScore && (
+        existingScore.clan1Score !== clan1Score || 
+        existingScore.clan2Score !== clan2Score
+      );
       
-      // Check if scores match
-      const scoresMatch = team1Submission && team2Submission &&
-        team1Submission.team1Score === team2Submission.team1Score &&
-        team1Submission.team2Score === team2Submission.team2Score;
-      
-      if (scoresMatch) {
-        // Scores match - confirm results
-        match.results.team1Score = team1Submission.team1Score;
-        match.results.team2Score = team2Submission.team2Score;
-        match.results.confirmed = true;
-        match.results.confirmedAt = new Date();
-        match.status = 'completed';
-        
-        // Determine winner
-        if (team1Submission.team1Score > team1Submission.team2Score) {
-          match.winner = match.team1;
-        } else if (team1Submission.team2Score > team1Submission.team1Score) {
-          match.winner = match.team2;
-        }
-        // If tied, no winner is set
-        
-        console.log(`Match results confirmed: ${match.team1.name} ${match.results.team1Score} - ${match.results.team2Score} ${match.team2.name}`);
+      if (hasConflict) {
+        match.status = 'results_conflict';
+        match.conflictData = {
+          submission1: {
+            clanId: isSubmittingClan1 ? match.clan2._id : match.clan1._id,
+            score: existingScore,
+            submittedAt: isSubmittingClan1 ? match.resultsSubmissions.clan2.submittedAt : match.resultsSubmissions.clan1.submittedAt
+          },
+          submission2: {
+            clanId: isSubmittingClan1 ? match.clan1._id : match.clan2._id,
+            score: { clan1Score, clan2Score },
+            submittedAt: new Date()
+          }
+        };
       } else {
-        // Scores don't match - keep as unconfirmed
-        match.results.team1Score = team1Score;
-        match.results.team2Score = team2Score;
-        match.results.confirmed = false;
-        
-        console.log(`Match results submitted but scores don't match - awaiting resolution`);
+        match.status = 'completed';
+        match.completedAt = new Date();
       }
     } else {
-      // Only one submission so far
-      match.results.team1Score = team1Score;
-      match.results.team2Score = team2Score;
-      match.results.confirmed = false;
+      match.status = 'results_pending';
     }
     
     await match.save();
     
+    // Only award XP and update player stats when match is actually completed (not conflicted)
+    if (match.status === 'completed') {
+      for (const perf of playerPerformances) {
+      const player = await User.findById(perf.userId);
+      if (player) {
+        const isWinner = winningClanId && player.clan && player.clan.toString() === winningClanId.toString();
+        const xpEarned = calculateXPFromPerformance(perf.score, perf.kills || 0, perf.deaths || 0, perf.assists || 0, isWinner, perf.mvp || false);
+        
+        player.matchPerformance.push({
+          matchId: match._id,
+          tournamentId: match.bracketId,
+          clanId: perf.clanId,
+          score: perf.score,
+          kills: perf.kills || 0,
+          deaths: perf.deaths || 0,
+          assists: perf.assists || 0,
+          xpEarned,
+          matchResult: isWinner ? 'win' : 'loss',
+          playedAt: new Date()
+        });
+        
+        player.stats.xp += xpEarned;
+        player.stats.matchesPlayed += 1;
+        if (isWinner) player.stats.matchesWon += 1;
+        
+        player.stats.totalKills += perf.kills || 0;
+        player.stats.totalDeaths += perf.deaths || 0;
+        player.stats.totalAssists += perf.assists || 0;
+        player.stats.kd = player.stats.totalDeaths > 0 ? 
+          Math.round((player.stats.totalKills / player.stats.totalDeaths) * 100) / 100 : 
+          player.stats.totalKills;
+        
+        const totalScore = player.matchPerformance.reduce((sum, match) => sum + match.score, 0);
+        player.stats.averageScore = Math.round(totalScore / player.matchPerformance.length);
+        
+        const newLevel = Math.floor(player.stats.xp / 1000) + 1;
+        if (newLevel > player.stats.level) {
+          player.stats.level = newLevel;
+        }
+        
+        await player.save();
+      }
+    }
+    }
+    
+    const finalStatus = match.status;
+    let message, xpAwarded;
+    
+    if (finalStatus === 'results_conflict') {
+      message = 'Results conflict detected! Both teams submitted different scores. An admin will need to resolve this dispute.';
+      xpAwarded = false;
+    } else if (finalStatus === 'completed') {
+      message = 'Match results confirmed! Both teams submitted matching scores and the match is now complete.';
+      xpAwarded = true;
+    } else {
+      message = 'Results submitted successfully! Waiting for opponent team to submit their results.';
+      xpAwarded = false;
+    }
+    
     return NextResponse.json({ 
       success: true, 
-      message: bothSubmitted 
-        ? (match.results.confirmed ? 'Results confirmed and match completed!' : 'Results submitted but scores don\'t match. Please coordinate with the other team leader.')
-        : 'Results submitted. Waiting for the other team leader to confirm.',
-      confirmed: match.results.confirmed,
-      bothSubmitted
+      message,
+      xpAwarded,
+      status: finalStatus,
+      hasConflict: finalStatus === 'results_conflict'
     });
     
   } catch (error) {
@@ -187,14 +244,16 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Match ID is required' }, { status: 400 });
     }
     
-    // Validate match ID
     const { isValid: matchIdValid, objectId: validatedMatchId, error: matchIdError } = validateObjectId(matchId);
     if (!matchIdValid) {
       return NextResponse.json({ error: `Invalid match ID: ${matchIdError}` }, { status: 400 });
     }
     
-    // Find the match
-    const match = await Match.findById(validatedMatchId);
+    const match = await Match.findById(validatedMatchId)
+      .populate('clan1 clan2')
+      .populate('playerPerformances.userId', 'username displayName')
+      .populate('playerPerformances.clanId', 'name tag');
+      
     if (!match) {
       return NextResponse.json({ error: 'Match not found' }, { status: 404 });
     }
@@ -203,11 +262,13 @@ export async function GET(request: Request) {
       match: {
         _id: match._id,
         round: match.round,
-        team1: match.team1,
-        team2: match.team2,
-        scheduledTime: match.scheduledTime,
+        clan1: match.clan1,
+        clan2: match.clan2,
+        scheduledAt: match.scheduledAt,
+        completedAt: match.completedAt,
         status: match.status,
-        results: match.results,
+        score: match.score,
+        playerPerformances: match.playerPerformances,
         winner: match.winner
       }
     });

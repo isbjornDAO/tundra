@@ -6,19 +6,19 @@ const MatchSchema = new mongoose.Schema({
     ref: 'Bracket',
     required: true
   },
-  team1: {
+  clan1: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Team',
-    required: true
+    ref: 'Clan',
+    required: false
   },
-  team2: {
+  clan2: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Team',
-    required: true
+    ref: 'Clan',
+    required: false
   },
   winner: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Team'
+    ref: 'Clan'
   },
   round: {
     type: String,
@@ -27,13 +27,50 @@ const MatchSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'active', 'completed'],
-    default: 'pending'
+    enum: ['scheduling', 'ready', 'active', 'completed'],
+    default: 'scheduling'
   },
   score: {
-    team1Score: { type: Number, default: 0 },
-    team2Score: { type: Number, default: 0 }
+    clan1Score: { type: Number, default: 0 },
+    clan2Score: { type: Number, default: 0 }
   },
+  rosters: {
+    clan1: [{
+      userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+      },
+      username: { type: String, required: true },
+      confirmed: { type: Boolean, default: false }
+    }],
+    clan2: [{
+      userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+      },
+      username: { type: String, required: true },
+      confirmed: { type: Boolean, default: false }
+    }]
+  },
+  playerPerformances: [{
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    clanId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Clan',
+      required: true
+    },
+    score: { type: Number, required: true },
+    kills: { type: Number, default: 0 },
+    deaths: { type: Number, default: 0 },
+    assists: { type: Number, default: 0 },
+    mvp: { type: Boolean, default: false }
+  }],
   organizer1Approved: {
     type: Boolean,
     default: false
@@ -41,6 +78,36 @@ const MatchSchema = new mongoose.Schema({
   organizer2Approved: {
     type: Boolean,
     default: false
+  },
+  resultsSubmissions: {
+    clan1: {
+      submitted: { type: Boolean, default: false },
+      submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      submittedAt: { type: Date }
+    },
+    clan2: {
+      submitted: { type: Boolean, default: false },
+      submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      submittedAt: { type: Date }
+    }
+  },
+  conflictData: {
+    submission1: {
+      clanId: { type: mongoose.Schema.Types.ObjectId, ref: 'Clan' },
+      score: {
+        clan1Score: Number,
+        clan2Score: Number
+      },
+      submittedAt: Date
+    },
+    submission2: {
+      clanId: { type: mongoose.Schema.Types.ObjectId, ref: 'Clan' },
+      score: {
+        clan1Score: Number,
+        clan2Score: Number
+      },
+      submittedAt: Date
+    }
   },
   scheduledAt: Date,
   completedAt: Date,

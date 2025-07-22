@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongoose';
-import { Tournament } from '@/lib/models/Tournament';
-import { TournamentRegistration } from '@/lib/models/TournamentRegistration';
+import { initializeModels, Tournament, TournamentRegistration } from '@/lib/models';
 import { validateGame, validateStatus, sanitizeInput, validateCountryCode, validateObjectId, validateWalletAddress } from '@/lib/security-utils';
 import { requireHost } from '@/lib/auth-middleware';
 
@@ -9,9 +8,11 @@ export async function GET(request: NextRequest) {
   try {
     await connectToDatabase();
     
+    // Initialize all models to prevent MissingSchemaError
+    initializeModels();
+    
     const { searchParams } = new URL(request.url);
     const gameParam = searchParams.get('game');
-    const regionParam = searchParams.get('region');
     const statusParam = searchParams.get('status');
     
     let query: any = {};
@@ -23,15 +24,6 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: `Invalid game: ${error}` }, { status: 400 });
       }
       query.game = game;
-    }
-    
-    // Validate and sanitize region parameter
-    if (regionParam) {
-      const { isValid, country, error } = validateCountryCode(regionParam);
-      if (!isValid) {
-        return NextResponse.json({ error: `Invalid region: ${error}` }, { status: 400 });
-      }
-      query.region = country;
     }
     
     // Validate and sanitize status parameter
@@ -50,7 +42,6 @@ export async function GET(request: NextRequest) {
     const tournamentsData = tournaments.map(t => ({
       _id: t._id.toString(),
       game: t.game,
-      region: t.region,
       maxTeams: t.maxTeams,
       registeredTeams: t.registeredTeams || 0,
       status: t.status,
@@ -71,14 +62,17 @@ export async function POST(request: NextRequest) {
   try {
     await connectToDatabase();
     
+    // Initialize all models to prevent MissingSchemaError
+    initializeModels();
+    
     const requestBody = await request.json();
     const sanitizedData = sanitizeInput(requestBody);
-    const { game, region, maxTeams, prizePool } = sanitizedData;
+    const { game, maxTeams, prizePool } = sanitizedData;
     
     // Validate required fields
-    if (!game || !region) {
+    if (!game) {
       return NextResponse.json(
-        { error: 'Game and region are required' },
+        { error: 'Game is required' },
         { status: 400 }
       );
     }
@@ -87,12 +81,6 @@ export async function POST(request: NextRequest) {
     const { isValid: gameValid, game: validatedGame, error: gameError } = validateGame(game);
     if (!gameValid) {
       return NextResponse.json({ error: `Invalid game: ${gameError}` }, { status: 400 });
-    }
-    
-    // Validate region
-    const { isValid: regionValid, country: validatedRegion, error: regionError } = validateCountryCode(region);
-    if (!regionValid) {
-      return NextResponse.json({ error: `Invalid region: ${regionError}` }, { status: 400 });
     }
     
     // Validate numeric fields
@@ -107,23 +95,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Prize pool must be between 0 and 1,000,000' }, { status: 400 });
     }
     
-    // Check if there's already an open tournament for this game/region
+    // Check if there's already an open tournament for this game
     const existingTournament = await Tournament.findOne({ 
       game: validatedGame, 
-      region: validatedRegion, 
       status: { $in: ['open', 'full', 'active'] } 
     });
     
     if (existingTournament) {
       return NextResponse.json(
-        { error: `There is already an active ${validatedGame} tournament in ${validatedRegion}` },
+        { 
+          error: `Cannot create tournament: A ${validatedGame} tournament is already ${existingTournament.status}. Please wait for the current tournament to complete or choose a different game.`,
+          existingTournament: {
+            id: existingTournament._id,
+            game: existingTournament.game,
+            status: existingTournament.status,
+            teams: `${existingTournament.registeredTeams || 0}/${existingTournament.maxTeams}`
+          }
+        },
         { status: 409 }
       );
     }
     
     const tournament = new Tournament({
       game: validatedGame,
-      region: validatedRegion,
       maxTeams: validatedMaxTeams,
       prizePool: validatedPrizePool,
       status: 'open'
@@ -147,6 +141,9 @@ export async function DELETE(request: NextRequest) {
     }
 
     await connectToDatabase();
+    
+    // Initialize all models to prevent MissingSchemaError
+    initializeModels();
     
     const { searchParams } = new URL(request.url);
     const tournamentIdParam = searchParams.get('tournamentId');

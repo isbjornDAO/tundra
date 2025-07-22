@@ -32,11 +32,8 @@ export async function POST(request: Request) {
 
     const timeSlotResult = await timeSlotsCol.insertOne(timeSlotDoc);
 
-    // Update match status
-    await matchesCol.updateOne(
-      { _id: new ObjectId(matchId) },
-      { $set: { status: "time_proposed" } }
-    );
+    // Keep match status as "scheduling" since time is just proposed, not confirmed
+    // Match status stays "scheduling" until both teams agree
 
     return NextResponse.json({ 
       success: true, 
@@ -74,14 +71,14 @@ export async function PATCH(request: Request) {
       { $set: { status: action, respondedBy, respondedAt: new Date() } }
     );
 
-    // If accepted, update match
+    // If accepted, update match to "ready" status since both teams agreed on time
     if (action === "accepted") {
       await matchesCol.updateOne(
         { _id: timeSlot.matchId },
         { 
           $set: { 
-            scheduledTime: timeSlot.proposedTime,
-            status: "scheduled"
+            scheduledAt: timeSlot.proposedTime,
+            status: "ready"
           } 
         }
       );
@@ -98,19 +95,19 @@ export async function PATCH(request: Request) {
     } else if (action === "rejected") {
       // If rejected, check if this was the current scheduled time
       const match = await matchesCol.findOne({ _id: timeSlot.matchId });
-      if (match && match.scheduledTime && 
-          new Date(match.scheduledTime).getTime() === new Date(timeSlot.proposedTime).getTime()) {
-        // Remove scheduled time and reset match to pending
+      if (match && match.scheduledAt && 
+          new Date(match.scheduledAt).getTime() === new Date(timeSlot.proposedTime).getTime()) {
+        // Remove scheduled time and reset match to scheduling
         await matchesCol.updateOne(
           { _id: timeSlot.matchId },
           { 
             $set: { 
-              status: "pending",
+              status: "scheduling",
               organizer1Approved: false,
               organizer2Approved: false
             },
             $unset: {
-              scheduledTime: ""
+              scheduledAt: ""
             }
           }
         );

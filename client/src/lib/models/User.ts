@@ -64,8 +64,43 @@ const UserSchema = new mongoose.Schema({
     wins: { type: Number, default: 0 },
     totalPrizeMoney: { type: Number, default: 0 },
     level: { type: Number, default: 1 },
-    xp: { type: Number, default: 0 }
+    xp: { type: Number, default: 0 },
+    matchesPlayed: { type: Number, default: 0 },
+    matchesWon: { type: Number, default: 0 },
+    averageScore: { type: Number, default: 0 },
+    totalKills: { type: Number, default: 0 },
+    totalDeaths: { type: Number, default: 0 },
+    totalAssists: { type: Number, default: 0 },
+    kd: { type: Number, default: 0 }
   },
+  matchPerformance: [{
+    matchId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Match'
+    },
+    tournamentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Tournament'
+    },
+    clanId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Clan'
+    },
+    score: { type: Number, required: true },
+    kills: { type: Number, default: 0 },
+    deaths: { type: Number, default: 0 },
+    assists: { type: Number, default: 0 },
+    xpEarned: { type: Number, default: 0 },
+    matchResult: {
+      type: String,
+      enum: ['win', 'loss'],
+      required: true
+    },
+    playedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   createdAt: {
     type: Date,
     default: Date.now

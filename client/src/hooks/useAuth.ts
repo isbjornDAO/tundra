@@ -252,6 +252,12 @@ export function useAuth() {
     };
   }, [mounted, fetchUser]);
 
+  const refetchUser = useCallback(() => {
+    if (address) {
+      fetchUser(address);
+    }
+  }, [address, fetchUser]);
+
   return {
     user,
     loading,
@@ -260,6 +266,6 @@ export function useAuth() {
     address,
     createUser,
     updateUser,
-    refetchUser: () => address && fetchUser(address)
+    refetchUser
   };
 }

@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongoose';
-import { User } from '@/lib/models/User';
+import { initializeModels, User, Clan } from '@/lib/models';
 import { validateWalletAddress, validateUsername, validateCountryCode, sanitizeInput } from '@/lib/security-utils';
 
 export async function GET(request: NextRequest) {
   try {
     await connectToDatabase();
+    
+    // Initialize all models to prevent MissingSchemaError
+    initializeModels();
     
     const { searchParams } = new URL(request.url);
     const walletAddressParam = searchParams.get('walletAddress');
@@ -25,30 +28,32 @@ export async function GET(request: NextRequest) {
       
       const user = await User.findOne({ 
         walletAddress: address
+      }).populate({
+        path: 'clan',
+        select: 'name tag description logo country region memberCount stats leader members',
+        populate: [
+          {
+            path: 'leader',
+            select: 'username displayName walletAddress country avatar'
+          },
+          {
+            path: 'members',
+            select: 'username displayName walletAddress country avatar'
+          }
+        ]
       });
       
       console.log('API: User search result:', {
         found: !!user,
         username: user?.username,
-        country: user?.country
+        country: user?.country,
+        clan: user?.clan,
+        clanName: user?.clan?.name,
+        clanTag: user?.clan?.tag,
+        clanMembers: user?.clan?.members,
+        membersLength: user?.clan?.members?.length,
+        firstMember: user?.clan?.members?.[0]
       });
-      
-      // Try to populate clan if it exists
-      if (user && user.clan) {
-        try {
-          await user.populate({
-            path: 'clan',
-            select: 'name tag description logo country region memberCount stats leader members',
-            populate: {
-              path: 'members leader',
-              select: 'username displayName walletAddress country'
-            }
-          });
-        } catch (error) {
-          console.error('Error populating clan:', error);
-          // Continue without clan data if population fails
-        }
-      }
       
       return NextResponse.json({ user });
     }
@@ -72,6 +77,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     await connectToDatabase();
+    
+    // Initialize all models to prevent MissingSchemaError
+    initializeModels();
     
     const requestBody = await request.json();
     const sanitizedData = sanitizeInput(requestBody);
@@ -226,6 +234,9 @@ export async function PUT(request: NextRequest) {
   try {
     await connectToDatabase();
     
+    // Initialize all models to prevent MissingSchemaError
+    initializeModels();
+    
     const requestBody = await request.json();
     const sanitizedData = sanitizeInput(requestBody);
     const { walletAddress, displayName, email, avatar, bio } = sanitizedData;
@@ -266,15 +277,28 @@ export async function PUT(request: NextRequest) {
     if (email !== undefined) updateData.email = email.toLowerCase();
     if (avatar !== undefined) updateData.avatar = avatar;
     if (bio !== undefined) updateData.bio = bio;
-    if (data.isClanLeader !== undefined) updateData.isClanLeader = data.isClanLeader;
-    if (data.isHost !== undefined) updateData.isHost = data.isHost;
-    if (data.stats !== undefined) updateData.stats = data.stats;
+    if (sanitizedData.isClanLeader !== undefined) updateData.isClanLeader = sanitizedData.isClanLeader;
+    if (sanitizedData.isHost !== undefined) updateData.isHost = sanitizedData.isHost;
+    if (sanitizedData.stats !== undefined) updateData.stats = sanitizedData.stats;
 
     const user = await User.findOneAndUpdate(
       { walletAddress: validatedWallet },
       updateData,
       { new: true }
-    );
+    ).populate({
+      path: 'clan',
+      select: 'name tag description logo country region memberCount stats leader members',
+      populate: [
+        {
+          path: 'leader',
+          select: 'username displayName walletAddress country avatar'
+        },
+        {
+          path: 'members',
+          select: 'username displayName walletAddress country avatar'
+        }
+      ]
+    });
 
     if (!user) {
       return NextResponse.json(

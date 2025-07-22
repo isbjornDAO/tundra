@@ -117,7 +117,7 @@ export function validateWalletAddress(address: string): { isValid: boolean; addr
 /**
  * Validate game name against allowed values
  */
-const ALLOWED_GAMES = ['CS2', 'Valorant', 'League of Legends', 'Dota 2', 'Rocket League', 'Fortnite'];
+const ALLOWED_GAMES = ['Off the Grid', 'Shatterline', 'Cozyverse', 'Rocket League', 'Fortnite', 'Apex Legends', 'Call of Duty', 'Dota 2'];
 
 export function validateGame(game: string): { isValid: boolean; game?: string; error?: string } {
   if (!game || typeof game !== 'string') {

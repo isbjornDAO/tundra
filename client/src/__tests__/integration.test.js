@@ -156,7 +156,7 @@ describe('Tundra Integration Tests', () => {
   describe('Tournament Management Flow', () => {
     test('should create a new tournament', async () => {
       const tournamentData = {
-        game: 'Valorant',
+        game: 'Rocket League',
         region: 'Global',
         maxTeams: 8
       };

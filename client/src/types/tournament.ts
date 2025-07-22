@@ -43,7 +43,7 @@ export interface BracketMatch {
   organizer1Approved: boolean;
   organizer2Approved: boolean;
   winner?: Team;
-  status: 'pending' | 'time_proposed' | 'scheduled' | 'completed';
+  status: 'scheduling' | 'ready' | 'active' | 'completed';
 }
 
 export interface TimeSlot {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAccount } from 'wagmi';
 import { ConnectWallet } from '@/components/ConnectWallet';
 import { useRouter, usePathname } from 'next/navigation';
@@ -18,11 +18,18 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const [needsSignup, setNeedsSignup] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoadingAdmin, setIsLoadingAdmin] = useState(true);
+  const [isCheckingWallet, setIsCheckingWallet] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     setMounted(true);
+    // Give wallet time to connect before considering it disconnected
+    const timer = setTimeout(() => {
+      setIsCheckingWallet(false);
+    }, 2000); // Wait 2 seconds for wallet to connect
+    
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -52,15 +59,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     }
   }, [address, isConnected]);
 
-  useEffect(() => {
-    if (address) {
-      checkAdminStatus();
-    } else {
-      setIsLoadingAdmin(false);
-    }
-  }, [address]);
-
-  const checkAdminStatus = async () => {
+  const checkAdminStatus = useCallback(async () => {
     try {
       const response = await fetch(`/api/admin/check?walletAddress=${address}`);
       const data = await response.json();
@@ -70,7 +69,29 @@ export function AuthGuard({ children }: AuthGuardProps) {
     } finally {
       setIsLoadingAdmin(false);
     }
-  };
+  }, [address]);
+
+  useEffect(() => {
+    if (address) {
+      checkAdminStatus();
+    } else {
+      setIsLoadingAdmin(false);
+    }
+  }, [address, checkAdminStatus]);
+
+  // Effect to handle redirection to login - only after wallet check is complete
+  useEffect(() => {
+    if (!isConnected && pathname !== '/login' && mounted && !isCheckingWallet) {
+      router.push('/login');
+    }
+  }, [isConnected, pathname, mounted, isCheckingWallet]);
+
+  // Stop checking wallet when connection is established
+  useEffect(() => {
+    if (isConnected) {
+      setIsCheckingWallet(false);
+    }
+  }, [isConnected]);
 
   const createUser = async (userData: any) => {
     const response = await fetch('/api/users', {
@@ -118,6 +139,15 @@ export function AuthGuard({ children }: AuthGuardProps) {
     );
   }
 
+  // Checking wallet connection
+  if (isCheckingWallet && !isConnected && pathname !== '/login') {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg text-white">Checking wallet connection...</div>
+      </div>
+    );
+  }
+
   // Loading admin check
   if (isLoadingAdmin) {
     return (
@@ -127,19 +157,22 @@ export function AuthGuard({ children }: AuthGuardProps) {
     );
   }
 
-  // Not connected
-  if (!isConnected) {
+  // Not connected - show loading state (this should rarely show now due to wallet checking above)
+  if (!isConnected && pathname !== '/login') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
-        <h1 className="text-2xl font-bold text-white">Welcome to Tundra</h1>
-        <p className="text-gray-400">Connect your wallet to access the tournament platform</p>
-        <ConnectWallet />
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg text-white">Redirecting to login...</div>
       </div>
     );
   }
 
+  // Allow login page to render without restrictions
+  if (pathname === '/login') {
+    return <>{children}</>;
+  }
+
   // Needs signup
-  if (needsSignup && pathname !== '/login') {
+  if (needsSignup) {
     return (
       <>
         {children}
@@ -153,16 +186,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     );
   }
 
-  // Not admin
-  if (!isAdmin) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
-        <h1 className="text-2xl font-bold text-white">Access Denied</h1>
-        <p className="text-gray-400">You need admin permissions to access this platform</p>
-        <ConnectWallet />
-      </div>
-    );
-  }
-
+  // Allow regular users to access the platform
+  // Admin check is only needed for specific admin routes
   return <>{children}</>;
 }

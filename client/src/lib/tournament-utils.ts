@@ -1,15 +1,16 @@
 import mongoose from 'mongoose';
 
-interface Team {
+interface Clan {
   _id: string;
   name: string;
+  tag: string;
   region: string;
   [key: string]: any;
 }
 
 interface MatchTemplate {
-  team1: Team | { name: string };
-  team2: Team | { name: string };
+  clan1: Clan | { name: string };
+  clan2: Clan | { name: string };
   round: string;
 }
 
@@ -22,48 +23,48 @@ function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
-export function generateBracketMatches(teams: Team[]): MatchTemplate[] {
-  if (teams.length < 2) {
-    throw new Error('Need at least 2 teams for a bracket');
+export function generateBracketMatches(clans: Clan[]): MatchTemplate[] {
+  if (clans.length < 2) {
+    throw new Error('Need at least 2 clans for a bracket');
   }
   
-  // Shuffle teams for random matchups
-  const shuffledTeams = shuffleArray(teams);
+  // Shuffle clans for random matchups
+  const shuffledClans = shuffleArray(clans);
   const matches: MatchTemplate[] = [];
   
   // Generate first round matches
-  for (let i = 0; i < shuffledTeams.length; i += 2) {
-    if (i + 1 < shuffledTeams.length) {
+  for (let i = 0; i < shuffledClans.length; i += 2) {
+    if (i + 1 < shuffledClans.length) {
       matches.push({
-        team1: shuffledTeams[i],
-        team2: shuffledTeams[i + 1],
-        round: shuffledTeams.length > 4 ? 'quarterfinal' : 'semifinal'
+        clan1: shuffledClans[i],
+        clan2: shuffledClans[i + 1],
+        round: shuffledClans.length > 4 ? 'quarterfinal' : 'semifinal'
       });
     }
   }
   
-  // If we have 8 teams, we need quarterfinals -> semifinals -> final
-  if (shuffledTeams.length === 8) {
+  // If we have 8 clans, we need quarterfinals -> semifinals -> final
+  if (shuffledClans.length === 8) {
     // Add semifinal placeholders
     for (let i = 0; i < 2; i++) {
       matches.push({
-        team1: { name: `🏆 QF${i*2 + 1} Winner` },
-        team2: { name: `🏆 QF${i*2 + 2} Winner` },
+        clan1: { name: `🏆 QF${i*2 + 1} Winner` },
+        clan2: { name: `🏆 QF${i*2 + 2} Winner` },
         round: 'semifinal'
       });
     }
     
     // Add final placeholder
     matches.push({
-      team1: { name: '🏆 SF1 Winner' },
-      team2: { name: '🏆 SF2 Winner' },
+      clan1: { name: '🏆 SF1 Winner' },
+      clan2: { name: '🏆 SF2 Winner' },
       round: 'final'
     });
-  } else if (shuffledTeams.length === 4) {
+  } else if (shuffledClans.length === 4) {
     // 2 semifinal matches -> 1 final
     matches.push({
-      team1: { name: '🏆 SF1 Winner' },
-      team2: { name: '🏆 SF2 Winner' },
+      clan1: { name: '🏆 SF1 Winner' },
+      clan2: { name: '🏆 SF2 Winner' },
       round: 'final'
     });
   }
@@ -73,25 +74,27 @@ export function generateBracketMatches(teams: Team[]): MatchTemplate[] {
 
 export async function autoGenerateMatches(tournamentId: string, game: string) {
   try {
-    // Import models
-    const Tournament = mongoose.models.Tournament;
-    const Team = mongoose.models.Team;
+    // Import actual models with proper schemas
+    const { Tournament } = await import('./models/Tournament');
+    const { Clan } = await import('./models/Clan');
+    const { TournamentRegistration } = await import('./models/TournamentRegistration');
+    const { Bracket } = await import('./models/Bracket');
+    const { Match } = await import('./models/Match');
     
-    // Get teams for this tournament
-    const teams = await Team.find({ tournamentId }).lean();
+    // Get registered clans for this tournament
+    const registrations = await TournamentRegistration.find({ 
+      tournamentId,
+      status: 'registered' 
+    }).populate('clanId').lean();
     
-    if (teams.length < 2) {
+    const clans = registrations.map(reg => reg.clanId).filter(Boolean);
+    
+    if (clans.length < 2) {
+      console.log(`Not enough clans (${clans.length}) to generate bracket`);
       return false;
     }
     
     // Check if bracket already exists
-    const Bracket = mongoose.models.Bracket || mongoose.model('Bracket', new mongoose.Schema({
-      tournamentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tournament', required: true },
-      teams: [{ type: Object }],
-      status: { type: String, required: true },
-      createdAt: { type: Date, default: Date.now }
-    }));
-    
     const existingBracket = await Bracket.findOne({ tournamentId });
     
     // Create bracket if it doesn't exist
@@ -99,85 +102,91 @@ export async function autoGenerateMatches(tournamentId: string, game: string) {
     if (!bracket) {
       bracket = new Bracket({
         tournamentId,
-        teams,
+        clans: clans.map(clan => clan._id), // Store clan IDs, not full objects
         status: "active",
-        createdAt: new Date()
+        createdAt: new Date(),
+        updatedAt: new Date()
       });
       await bracket.save();
+      console.log(`Created bracket for tournament ${tournamentId}`);
     }
     
     // Check if matches already exist
-    const Match = mongoose.models.Match || mongoose.model('Match', new mongoose.Schema({
-      bracketId: { type: mongoose.Schema.Types.ObjectId, ref: 'Bracket', required: true },
-      team1: { type: Object, required: true },
-      team2: { type: Object, required: true },
-      round: { type: String, required: true },
-      status: { type: String, required: true },
-      scheduledTime: { type: Date },
-      confirmedDate: { type: Date },
-      winner: { type: Object },
-      hostRegions: [String],
-      needsConfirmation: Boolean,
-      resultsSubmitted: [{
-        hostWalletAddress: String,
-        hostRegion: String,
-        winnerTeamId: String,
-        winnerTeamName: String,
-        submittedAt: { type: Date, default: Date.now },
-        notes: String
-      }],
-      createdAt: { type: Date, default: Date.now },
-      completedAt: Date
-    }));
-    
     const existingMatches = await Match.find({ bracketId: bracket._id });
     if (existingMatches.length > 0) {
+      console.log(`Matches already exist for bracket ${bracket._id}`);
       return false; // Matches already exist
     }
     
-    // Generate matches
-    const matchTemplates = generateBracketMatches(teams);
+    // Generate matches with proper clan IDs
+    const shuffledClans = shuffleArray(clans);
+    const matches = [];
     
-    const matches = matchTemplates.map((template, index) => {
-      // For CS2 tournament, add dual-host confirmation to actual team matches
-      const isCS2 = game === "CS2";
-      const hasActualTeams = template.team1._id && template.team2._id;
-      
-      const match = {
-        bracketId: bracket._id,
-        team1: template.team1,
-        team2: template.team2,
-        round: template.round,
-        status: hasActualTeams ? "scheduled" : "pending",
-        scheduledTime: new Date(Date.now() + (index + 1) * 2 * 60 * 60 * 1000), // 2 hours apart
-        createdAt: new Date()
-      };
-      
-      // Add dual-host confirmation for CS2 matches with actual teams
-      if (isCS2 && hasActualTeams) {
-        const team1Region = template.team1.region || "North America";
-        const team2Region = template.team2.region || "Europe West";
+    // Create first round matches with actual clan IDs and registered player rosters
+    for (let i = 0; i < shuffledClans.length; i += 2) {
+      if (i + 1 < shuffledClans.length) {
+        const roundName = shuffledClans.length > 4 ? 'quarter' : 'semi';
         
-        // Set date to past for CS2 as requested (simulate date has passed)
-        match.scheduledTime = new Date('2024-01-23T18:00:00Z');
-        match.confirmedDate = match.scheduledTime;
-        match.status = "awaiting_results";
-        match.needsConfirmation = true;
-        match.hostRegions = [team1Region, team2Region];
-        match.resultsSubmitted = [];
+        // Get registered players for each clan from tournament registrations
+        const clan1Registration = registrations.find(reg => reg.clanId.toString() === shuffledClans[i]._id.toString());
+        const clan2Registration = registrations.find(reg => reg.clanId.toString() === shuffledClans[i + 1]._id.toString());
+        
+        const match = new Match({
+          bracketId: bracket._id,
+          clan1: shuffledClans[i]._id,
+          clan2: shuffledClans[i + 1]._id,
+          rosters: {
+            clan1: clan1Registration?.selectedPlayers?.map(player => ({
+              userId: player.userId,
+              username: player.username,
+              confirmed: true
+            })) || [],
+            clan2: clan2Registration?.selectedPlayers?.map(player => ({
+              userId: player.userId,
+              username: player.username,
+              confirmed: true
+            })) || []
+          },
+          round: roundName,
+          status: 'scheduling',
+          // scheduledAt will be set when clans coordinate match time
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+        
+        matches.push(match);
       }
-      
-      return new Match(match);
-    });
+    }
+    
+    // For 4 clans, add final match (will be populated when semis complete)
+    if (shuffledClans.length === 4) {
+      const finalMatch = new Match({
+        bracketId: bracket._id,
+        // These will be populated when semifinals complete
+        clan1: null,
+        clan2: null,
+        round: 'final',
+        status: 'scheduling',
+        // scheduledAt will be set when clans coordinate match time
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      matches.push(finalMatch);
+    }
     
     await Match.insertMany(matches);
+    console.log(`Created ${matches.length} matches for tournament ${tournamentId}`);
     
     // Update tournament status to active
-    await Tournament.findByIdAndUpdate(tournamentId, { status: "active" });
+    await Tournament.findByIdAndUpdate(tournamentId, { 
+      status: "active",
+      updatedAt: new Date()
+    });
     
     return true;
   } catch (error) {
     console.error('Error auto-generating matches:', error);
+    console.error('Stack trace:', error.stack);
     return false;
   }
 }

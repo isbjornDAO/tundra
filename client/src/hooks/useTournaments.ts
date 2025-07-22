@@ -16,13 +16,19 @@ export const useCreateTournament = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (data: { game: string; region: string; maxTeams?: number }) => {
+    mutationFn: async (data: { game: string; maxTeams?: number }) => {
       const response = await fetch("/api/tournaments/mongo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!response.ok) throw new Error("Failed to create tournament");
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || "Failed to create tournament";
+        throw new Error(errorMessage);
+      }
+      
       return response.json();
     },
     onSuccess: () => {
@@ -72,7 +78,13 @@ export const useGenerateBracket = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!response.ok) throw new Error("Failed to generate bracket");
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || "Failed to generate bracket";
+        throw new Error(errorMessage);
+      }
+      
       return response.json();
     },
     onSuccess: () => {

@@ -37,6 +37,25 @@ interface Clan {
   updatedAt: string;
 }
 
+interface ClanRequest {
+  _id: string;
+  requestedBy: User;
+  clanName: string;
+  clanTag: string;
+  description?: string;
+  logo?: string;
+  country: string;
+  region: string;
+  locationProof?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  assignedHost?: User;
+  reviewedBy?: User;
+  reviewedAt?: string;
+  reviewNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Function to get flag emoji from country name or code
 const getCountryFlag = (country: string): string => {
   if (!country) return '🌍';
@@ -85,6 +104,7 @@ export default function GeneralAdminClient() {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [clans, setClans] = useState<Clan[]>([]);
+  const [clanRequests, setClanRequests] = useState<ClanRequest[]>([]);
   const [pendingClans, setPendingClans] = useState<Clan[]>([]);
   const [verifiedClans, setVerifiedClans] = useState<Clan[]>([]);
   const [activeTab, setActiveTab] = useState<'users' | 'clans' | 'whitelist'>('users');
@@ -117,19 +137,23 @@ export default function GeneralAdminClient() {
 
   const fetchData = async () => {
     try {
-      const [usersResponse, clansResponse] = await Promise.all([
+      const [usersResponse, clansResponse, clanRequestsResponse] = await Promise.all([
         fetch('/api/users'),
-        fetch('/api/clans')
+        fetch('/api/clans'),
+        fetch(`/api/clan-requests?walletAddress=${address}`)
       ]);
       
       const usersData = await usersResponse.json();
       const clansData = await clansResponse.json();
+      const clanRequestsData = await clanRequestsResponse.json();
       
       console.log('Admin - Users fetched:', usersData.length);
       console.log('Admin - Clans fetched:', clansData);
+      console.log('Admin - Clan requests fetched:', clanRequestsData);
       
       setUsers(usersData);
       setClans(clansData);
+      setClanRequests(clanRequestsData);
       
       // Separate pending and verified clans
       const pending = clansData.filter((clan: Clan) => !clan.isVerified);
@@ -184,6 +208,76 @@ export default function GeneralAdminClient() {
       }
     } catch (error) {
       console.error('Error updating clan leader status:', error);
+    }
+  };
+
+  const handleApproveClanRequest = async (requestId: string) => {
+    try {
+      setApprovingClan(requestId);
+      console.log('Approving clan request:', requestId, 'with address:', address);
+      
+      const response = await fetch(`/api/clan-requests/${requestId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'approved',
+          reviewerWallet: address,
+          reviewNotes: 'Approved by admin'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Clan request approval failed:', errorData);
+        throw new Error(errorData.error || 'Failed to approve clan request');
+      }
+
+      const result = await response.json();
+      console.log('Clan request approval success:', result);
+      await fetchData();
+      
+    } catch (error) {
+      console.error('Error approving clan request:', error);
+      alert(`Error approving clan request: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setApprovingClan(null);
+    }
+  };
+
+  const handleRejectClanRequest = async (requestId: string) => {
+    try {
+      setApprovingClan(requestId);
+      console.log('Rejecting clan request:', requestId, 'with address:', address);
+      
+      const response = await fetch(`/api/clan-requests/${requestId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'rejected',
+          reviewerWallet: address,
+          reviewNotes: 'Rejected by admin'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Clan request rejection failed:', errorData);
+        throw new Error(errorData.error || 'Failed to reject clan request');
+      }
+
+      const result = await response.json();
+      console.log('Clan request rejection success:', result);
+      await fetchData();
+      
+    } catch (error) {
+      console.error('Error rejecting clan request:', error);
+      alert(`Error rejecting clan request: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setApprovingClan(null);
     }
   };
 
@@ -371,30 +465,30 @@ export default function GeneralAdminClient() {
 
           {activeTab === 'clans' && (
             <div className="space-y-8">
-              {/* Pending Clans */}
+              {/* Pending Clan Requests */}
               <div>
                 <h2 className="heading-md mb-6 flex items-center gap-2">
-                  Pending Clan Approvals
-                  {pendingClans.length > 0 && (
+                  Pending Clan Requests
+                  {clanRequests.filter(req => req.status === 'pending').length > 0 && (
                     <span className="px-2 py-1 bg-red-600 text-white text-sm rounded-full">
-                      {pendingClans.length}
+                      {clanRequests.filter(req => req.status === 'pending').length}
                     </span>
                   )}
                 </h2>
-                {pendingClans.length === 0 ? (
+                {clanRequests.filter(req => req.status === 'pending').length === 0 ? (
                   <div className="card p-8 text-center">
-                    <p className="text-muted">No pending clan approvals.</p>
+                    <p className="text-muted">No pending clan requests.</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {pendingClans.map((clan) => (
-                      <div key={clan._id} className="card p-6">
+                    {clanRequests.filter(req => req.status === 'pending').map((request) => (
+                      <div key={request._id} className="card p-6">
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-4">
-                              <h3 className="text-white font-semibold text-xl">{clan.name}</h3>
+                              <h3 className="text-white font-semibold text-xl">{request.clanName}</h3>
                               <span className="px-2 py-1 bg-blue-600 text-white text-sm rounded font-medium">
-                                [{clan.tag}]
+                                [{request.clanTag}]
                               </span>
                               <span className="px-2 py-1 bg-yellow-600 text-white text-sm rounded font-medium">
                                 Pending
@@ -403,45 +497,49 @@ export default function GeneralAdminClient() {
                             
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                               <div>
-                                <span className="text-muted text-sm">Leader:</span>
-                                <p className="text-white">{clan.leader?.displayName || 'Unknown'}</p>
+                                <span className="text-muted text-sm">Requested by:</span>
+                                <p className="text-white">{request.requestedBy?.displayName || 'Unknown'}</p>
+                                <p className="text-muted text-xs">{request.requestedBy?.walletAddress?.slice(0, 6)}...{request.requestedBy?.walletAddress?.slice(-4)}</p>
                               </div>
                               <div>
                                 <span className="text-muted text-sm">Location:</span>
-                                <p className="text-white">{clan.country}, {clan.region}</p>
+                                <p className="text-white flex items-center gap-2">
+                                  <span>{getCountryFlag(request.country)}</span>
+                                  {request.country}, {request.region}
+                                </p>
                               </div>
                               <div>
-                                <span className="text-muted text-sm">Members:</span>
-                                <p className="text-white">{clan.members.length} / {clan.maxMembers}</p>
+                                <span className="text-muted text-sm">Assigned Host:</span>
+                                <p className="text-white">{request.assignedHost?.displayName || 'None'}</p>
                               </div>
                             </div>
                             
-                            {clan.description && (
+                            {request.description && (
                               <div className="mb-4">
                                 <span className="text-muted text-sm">Description:</span>
-                                <p className="text-gray-300 text-sm mt-1">{clan.description}</p>
+                                <p className="text-gray-300 text-sm mt-1">{request.description}</p>
                               </div>
                             )}
                             
                             <div className="text-xs text-muted">
-                              Created: {new Date(clan.createdAt).toLocaleDateString()}
+                              Requested: {new Date(request.createdAt).toLocaleDateString()}
                             </div>
                           </div>
                           
                           <div className="flex gap-2 ml-6">
                             <button
-                              onClick={() => handleApproveClan(clan._id)}
-                              disabled={approvingClan === clan._id}
+                              onClick={() => handleApproveClanRequest(request._id)}
+                              disabled={approvingClan === request._id}
                               className="btn btn-primary disabled:opacity-50"
                             >
-                              {approvingClan === clan._id ? 'Approving...' : 'Approve'}
+                              {approvingClan === request._id ? 'Approving...' : 'Approve'}
                             </button>
                             <button
-                              onClick={() => handleRejectClan(clan._id)}
-                              disabled={approvingClan === clan._id}
+                              onClick={() => handleRejectClanRequest(request._id)}
+                              disabled={approvingClan === request._id}
                               className="btn btn-outline text-red-400 border-red-400 hover:bg-red-500/20 disabled:opacity-50"
                             >
-                              {approvingClan === clan._id ? 'Rejecting...' : 'Reject'}
+                              {approvingClan === request._id ? 'Rejecting...' : 'Reject'}
                             </button>
                           </div>
                         </div>
