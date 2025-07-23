@@ -50,7 +50,6 @@ export function useAuth() {
   
   useEffect(() => {
     if (mounted) {
-      console.log('wagmi account update:', wagmiAccount.address, wagmiAccount.isConnected);
       setAddress(wagmiAccount.address);
       setIsConnected(wagmiAccount.isConnected);
     }
@@ -151,19 +150,6 @@ export function useAuth() {
       setUser(null);
       setLoading(true);
       
-      // Logout from Privy first if authenticated
-      if (authenticated && prevAddressRef.current && prevAddressRef.current !== newAddress) {
-        console.log('Logging out previous wallet...');
-        await logout();
-        
-        // Small delay to ensure logout completes
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Re-authenticate with new wallet
-        console.log('Logging in with new wallet...');
-        await login();
-      }
-      
       // Update the address reference
       prevAddressRef.current = newAddress;
       
@@ -171,10 +157,12 @@ export function useAuth() {
       await fetchUser(newAddress);
     } catch (error) {
       console.error('Error switching wallets:', error);
+      setUser(null);
+      setLoading(false);
     } finally {
       isSwitchingRef.current = false;
     }
-  }, [authenticated, logout, login, fetchUser]);
+  }, [fetchUser]);
 
   // Use wagmi's account change detection
   useAccountEffect({

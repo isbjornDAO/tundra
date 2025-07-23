@@ -12,10 +12,15 @@ export async function POST(request: Request) {
   try {
     await connectToDatabase();
     const requestBody = await request.json();
-    const sanitizedData = sanitizeInput(requestBody);
-    const { tournamentId, clanId } = sanitizedData;
+    console.log("Registration request received:", requestBody);
     
-    if (!tournamentId || !clanId) {
+    const sanitizedData = sanitizeInput(requestBody);
+    const { tournamentId, clanId, organizer, selectedPlayers } = sanitizedData;
+    
+    console.log("Sanitized data:", { tournamentId, clanId, organizer, selectedPlayers });
+    
+    if (!tournamentId || !clanId || !organizer) {
+      console.error("Missing required fields:", { tournamentId, clanId, organizer });
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
     
@@ -29,6 +34,12 @@ export async function POST(request: Request) {
     const { isValid: clanIdValid, objectId: validatedClanId, error: clanIdError } = validateObjectId(clanId);
     if (!clanIdValid) {
       return NextResponse.json({ error: `Invalid clan ID: ${clanIdError}` }, { status: 400 });
+    }
+    
+    // Validate organizer wallet address
+    const { isValid: organizerValid, address: validatedOrganizer, error: organizerError } = validateWalletAddress(organizer);
+    if (!organizerValid) {
+      return NextResponse.json({ error: `Invalid organizer address: ${organizerError}` }, { status: 400 });
     }
     
     // Check if clan exists
@@ -58,12 +69,18 @@ export async function POST(request: Request) {
     }
 
     // Register clan for tournament
-    const registrationDoc = new TournamentRegistration({
+    const registrationData = {
       tournamentId: validatedTournamentId,
       clanId: validatedClanId,
+      organizer: validatedOrganizer,
+      selectedPlayers: selectedPlayers || [],
       registeredAt: new Date(),
       status: 'registered'
-    });
+    };
+    
+    console.log("Creating registration with data:", registrationData);
+    
+    const registrationDoc = new TournamentRegistration(registrationData);
     
     const savedRegistration = await registrationDoc.save();
 
@@ -97,9 +114,18 @@ export async function POST(request: Request) {
       registrationId: savedRegistration._id,
       message: "Clan registered successfully" 
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error registering team:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error("Error details:", error.message);
+    console.error("Error stack:", error.stack);
+    
+    // Return more specific error message for debugging
+    return NextResponse.json({ 
+      error: "Internal server error", 
+      details: error.message,
+      // Include validation errors if they exist
+      validationErrors: error.errors 
+    }, { status: 500 });
   }
 }
 

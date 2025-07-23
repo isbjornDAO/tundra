@@ -11,8 +11,6 @@ interface TournamentMatchesProps {
 export default function TournamentMatchesSimple({ userAddress, clanId, isClanLeader }: TournamentMatchesProps) {
   const [matches, setMatches] = useState<any[]>([]);
   
-  // Debug logging
-  console.log('🔍 TournamentMatchesSimple props:', { userAddress, clanId, isClanLeader });
   const [timeProposals, setTimeProposals] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
   const [selectedTimes, setSelectedTimes] = useState<Record<string, string>>({});
@@ -40,6 +38,11 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
     userPlayerStats: Record<string, { kills: string; deaths: string }>;
     opponentPlayerStats: Record<string, { kills: string; deaths: string }>;
   }>>({});
+  
+  // Success modal state
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [successDetails, setSuccessDetails] = useState('');
 
   const updatePlayerStats = (matchId: string, team: 'user' | 'opponent', playerId: string, field: 'kills' | 'deaths', value: string) => {
     setResultScores(prev => {
@@ -72,10 +75,7 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
 
   useEffect(() => {
     const fetchMatches = async () => {
-      console.log('🎯 TournamentMatchesSimple - Props received:', { userAddress, clanId, isClanLeader });
-      
       if (!clanId || !userAddress) {
-        console.log('❌ Missing required props - clanId:', clanId, 'userAddress:', userAddress);
         setLoading(false);
         return;
       }
@@ -86,12 +86,10 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
         // Fetch tournaments
         const tournamentsResponse = await fetch('/api/tournaments/mongo');
         const tournamentsData = await tournamentsResponse.json();
-        console.log('🏆 Tournaments response:', tournamentsData);
         
         if (tournamentsData.tournaments) {
           // Find tournaments with brackets
           const activeTournaments = tournamentsData.tournaments.filter((t: any) => t.bracketId);
-          console.log('🎯 Active tournaments with brackets:', activeTournaments);
           const clanMatches: any[] = [];
           
           
@@ -99,28 +97,29 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
             try {
               const matchesResponse = await fetch(`/api/tournaments/matches?bracketId=${tournament.bracketId}`);
               const matchesData = await matchesResponse.json();
-              console.log(`⚔️ Matches for tournament ${tournament.game}:`, matchesData);
               
               if (matchesData.matches) {
                 
                 // Filter matches where user's clan is participating (support both old team1/team2 and new clan1/clan2 formats)
+                // Exclude completed matches since they'll be shown in Recent Matches section
                 const userMatches = matchesData.matches.filter((match: any) => {
-                  // New format: clan1/clan2 - compare clan IDs directly
+                  // New format: clan1/clan2 - compare clan IDs directly with proper string conversion
                   const isClan1 = match.clan1?._id?.toString() === clanId?.toString();
                   const isClan2 = match.clan2?._id?.toString() === clanId?.toString();
-                  console.log(`🔍 Match filter check - Match: ${match._id}, clan1: ${match.clan1?._id}, clan2: ${match.clan2?._id}, userClanId: ${clanId}, isClan1: ${isClan1}, isClan2: ${isClan2}`);
                   
                   // Old format: team1/team2 with captain
                   const isTeam1 = match.team1?.captain?.walletAddress?.toLowerCase() === userAddress?.toLowerCase();
                   const isTeam2 = match.team2?.captain?.walletAddress?.toLowerCase() === userAddress?.toLowerCase();
                   
+                  // Check if match involves user's clan
+                  const isUserMatch = isClan1 || isClan2 || isTeam1 || isTeam2;
                   
-                  const isMatch = isClan1 || isClan2 || isTeam1 || isTeam2;
-                  console.log(`✅ Match ${match._id} result: ${isMatch}`);
-                  return isMatch;
+                  // Exclude completed matches - they'll be shown in Recent Matches section
+                  const isNotCompleted = match.status !== 'completed';
+                  
+                  return isUserMatch && isNotCompleted;
                 });
                 
-                console.log(`📊 Found ${userMatches.length} user matches in ${tournament.game}`);
                 
                 // Add tournament info to matches and normalize status
                 userMatches.forEach((match: any) => {
@@ -143,7 +142,6 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
             }
           }
           
-          console.log('🏁 Setting matches in component:', clanMatches.length, 'matches');
           setMatches(clanMatches);
           
           // Fetch rosters for each match
@@ -214,7 +212,9 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
       });
 
       if (response.ok) {
-        alert('Match time proposed successfully!');
+        setSuccessMessage('Match time proposed successfully!');
+        setSuccessDetails('Your opponent will be notified to accept or decline the proposed time. You\'ll receive an update once they respond.');
+        setShowSuccessModal(true);
         
         // Add a small delay to ensure database is updated
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -238,9 +238,11 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
                   
                   if (matchesData.matches) {
                     const userMatches = matchesData.matches.filter((match: any) => {
-                      const isClan1 = match.clan1?._id === clanId || match.clan1?.leader?.toLowerCase() === userAddress?.toLowerCase();
-                      const isClan2 = match.clan2?._id === clanId || match.clan2?.leader?.toLowerCase() === userAddress?.toLowerCase();
-                      return isClan1 || isClan2;
+                      const isClan1 = match.clan1?._id?.toString() === clanId?.toString() || match.clan1?.leader?.toLowerCase() === userAddress?.toLowerCase();
+                      const isClan2 = match.clan2?._id?.toString() === clanId?.toString() || match.clan2?.leader?.toLowerCase() === userAddress?.toLowerCase();
+                      const isUserMatch = isClan1 || isClan2;
+                      const isNotCompleted = match.status !== 'completed';
+                      return isUserMatch && isNotCompleted;
                     });
                     
                     userMatches.forEach((match: any) => {
@@ -272,7 +274,6 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
           }
         };
         await fetchMatches();
-        console.log('Matches refreshed after proposal');
       } else {
         const data = await response.json();
         alert(data.error || 'Failed to propose time');
@@ -301,7 +302,13 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
       });
 
       if (response.ok) {
-        alert(`Time proposal ${action} successfully!`);
+        const actionPast = action === 'accept' ? 'accepted' : 'rejected';
+        setSuccessMessage(`Time proposal ${actionPast} successfully!`);
+        setSuccessDetails(action === 'accept' 
+          ? 'The match is now scheduled. Both teams will be notified of the confirmed time.'
+          : 'The proposed time has been declined. Your opponent can propose a new time.'
+        );
+        setShowSuccessModal(true);
         // Refresh matches to show updated status
         const fetchMatches = async () => {
           if (!clanId || !userAddress) return;
@@ -321,9 +328,11 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
                   
                   if (matchesData.matches) {
                     const userMatches = matchesData.matches.filter((match: any) => {
-                      const isClan1 = match.clan1?._id === clanId || match.clan1?.leader?.toLowerCase() === userAddress?.toLowerCase();
-                      const isClan2 = match.clan2?._id === clanId || match.clan2?.leader?.toLowerCase() === userAddress?.toLowerCase();
-                      return isClan1 || isClan2;
+                      const isClan1 = match.clan1?._id?.toString() === clanId?.toString() || match.clan1?.leader?.toLowerCase() === userAddress?.toLowerCase();
+                      const isClan2 = match.clan2?._id?.toString() === clanId?.toString() || match.clan2?.leader?.toLowerCase() === userAddress?.toLowerCase();
+                      const isUserMatch = isClan1 || isClan2;
+                      const isNotCompleted = match.status !== 'completed';
+                      return isUserMatch && isNotCompleted;
                     });
                     
                     userMatches.forEach((match: any) => {
@@ -402,7 +411,7 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
     <div className="card mb-8">
       <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
         <span className="text-purple-400">🏆</span>
-        Tournament Matches
+        Current Matches
         {!isClanLeader && (
           <span className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded-full">
             View Only
@@ -415,9 +424,12 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
           <div className="text-gray-400 mb-2">No active tournament matches</div>
           <div className="text-sm text-gray-500">
             {isClanLeader 
-              ? 'Register your clan for tournaments to see matches here'
+              ? 'Register your clan for tournaments to see active matches here'
               : 'Your clan leader can register for tournaments'
             }
+          </div>
+          <div className="text-xs text-gray-600 mt-2">
+            Completed matches are shown in the "Recent Matches" section below
           </div>
         </div>
       ) : (
@@ -432,8 +444,8 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
             let opponent, userClan, isUserClan1;
             
             if (match.clan1 || match.clan2) {
-              // New format: clan1/clan2
-              isUserClan1 = match.clan1?._id === clanId || match.clan1?.leader?.toLowerCase() === userAddress?.toLowerCase();
+              // New format: clan1/clan2 - ensure proper string comparison
+              isUserClan1 = match.clan1?._id?.toString() === clanId?.toString() || match.clan1?.leader?.toLowerCase() === userAddress?.toLowerCase();
               opponent = isUserClan1 ? match.clan2 : match.clan1;
               userClan = isUserClan1 ? match.clan1 : match.clan2;
             } else {
@@ -468,20 +480,6 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
             const isMatchFinalized = match?.status === 'completed' || match?.status === 'results_conflict';
             const canSubmitResults = ((needsResults || isResultsPending || isLegacyCompletedMatch) && !hasUserClanSubmitted && !(submittedResults?.[match?._id]) && (!isMatchFinalized || isLegacyCompletedMatch));
             
-            console.log('Debug Match Status:', {
-              matchId: match?._id,
-              status: match?.status,
-              isResultsPending,
-              isResultsConflict,
-              isUserClan1,
-              hasUserClanSubmitted,
-              canSubmitResults,
-              resultsSubmissions: match?.resultsSubmissions,
-              needsResults,
-              submittedResults: submittedResults?.[match?._id],
-              isLegacyCompletedMatch,
-              isMatchFinalized
-            });
             
             // Roster management
             const matchRoster = matchRosters?.[match?._id] || { clan1: [], clan2: [] };
@@ -547,11 +545,6 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
                       {(needsResults || canSubmitResults) && submittedResults?.[match?._id] && (
                         <div className="text-xs bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full border border-blue-500/30 text-center">
                           Results Submitted
-                        </div>
-                      )}
-                      {match?.status === 'completed' && (
-                        <div className="text-xs bg-gray-600/20 text-gray-400 px-3 py-1 rounded-full border border-gray-600/30 text-center">
-                          Completed
                         </div>
                       )}
                     </div>
@@ -664,7 +657,7 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
                             ))}
                           </div>
                         ) : (
-                          <div className="text-gray-400 text-sm">Players will be listed when match is ready</div>
+                          <div className="text-gray-400 text-sm">No players registered</div>
                         )}
                       </div>
 
@@ -683,7 +676,7 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
                             ))}
                           </div>
                         ) : (
-                          <div className="text-gray-400 text-sm">Players will be listed when match is ready</div>
+                          <div className="text-gray-400 text-sm">No players registered</div>
                         )}
                       </div>
                     </div>
@@ -810,10 +803,9 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
                                   <div className="text-center">Kills</div>
                                   <div className="text-center">Deaths</div>
                                 </div>
-                                {(hasUserRoster ? userClanRoster : []).map((player: any, idx: number) => {
+                                {userClanRoster.map((player: any, idx: number) => {
                                   const playerId = String(player.userId?._id || player.userId || player._id || `user-${idx}`);
                                   const stats = resultScores[match._id]?.userPlayerStats?.[playerId] || { kills: '', deaths: '' };
-                                  console.log('User Player ID Debug:', { playerId, player, stats });
                                   return (
                                     <div key={playerId} className="grid grid-cols-4 gap-2 items-center bg-gray-800/20 rounded-lg p-2">
                                       <div className="col-span-2">
@@ -852,10 +844,9 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
                                   <div className="text-center">Kills</div>
                                   <div className="text-center">Deaths</div>
                                 </div>
-                                {(hasOpponentRoster ? opponentClanRoster : []).map((player: any, idx: number) => {
+                                {opponentClanRoster.map((player: any, idx: number) => {
                                   const playerId = String(player.userId?._id || player.userId || player._id || `opponent-${idx}`);
                                   const stats = resultScores[match._id]?.opponentPlayerStats?.[playerId] || { kills: '', deaths: '' };
-                                  console.log('Opponent Player ID Debug:', { playerId, player, stats });
                                   return (
                                     <div key={playerId} className="grid grid-cols-4 gap-2 items-center bg-gray-800/20 rounded-lg p-2">
                                       <div className="col-span-2">
@@ -1116,105 +1107,6 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
                       </div>
                     )}
 
-                    {match.status === 'completed' && (
-                      <div className="bg-gradient-to-r from-gray-700/20 to-gray-800/20 border border-gray-600/30 rounded-xl p-5">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-gray-400"></div>
-                            <span className="text-gray-400 font-semibold">Match Completed</span>
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {match.completedAt && new Date(match.completedAt).toLocaleDateString()}
-                          </div>
-                        </div>
-                        
-                        {match.scores && (
-                          <div className="bg-gray-800/30 rounded-lg p-3 mb-3">
-                            <div className="flex justify-center items-center gap-4 mb-3">
-                              <div className="text-center">
-                                <div className={`text-2xl font-bold ${match.scores.clan1Score > match.scores.clan2Score ? 'text-green-400' : 'text-gray-400'}`}>
-                                  {match.scores.clan1Score}
-                                </div>
-                                <div className="text-sm text-gray-400 mt-1">{userClan?.name}</div>
-                              </div>
-                              <div className="text-gray-500 font-medium">-</div>
-                              <div className="text-center">
-                                <div className={`text-2xl font-bold ${match.scores.clan2Score > match.scores.clan1Score ? 'text-green-400' : 'text-gray-400'}`}>
-                                  {match.scores.clan2Score}
-                                </div>
-                                <div className="text-sm text-gray-400 mt-1">{opponent?.name}</div>
-                              </div>
-                            </div>
-                            
-                            {/* Individual Player K/D Stats if available */}
-                            {(match.scores.clan1PlayerStats || match.scores.clan2PlayerStats) && (
-                              <div className="border-t border-gray-700 pt-3 mt-3">
-                                <div className="text-xs text-gray-500 mb-2">Player Performance (K/D):</div>
-                                <div className="grid grid-cols-2 gap-3 text-xs">
-                                  {match.scores.clan1PlayerStats && (
-                                    <div>
-                                      <div className="text-blue-400 font-medium mb-2">{userClan?.name}</div>
-                                      <div className="space-y-1">
-                                        {Object.entries(match.scores.clan1PlayerStats).map(([playerId, stats]: [string, any]) => {
-                                          const kd = stats.deaths > 0 ? (stats.kills / stats.deaths).toFixed(2) : stats.kills;
-                                          return (
-                                            <div key={playerId} className="flex justify-between items-center text-gray-400">
-                                              <span className="truncate mr-2">
-                                                {userClan?.members?.find((p: any) => (p._id || p.walletAddress) === playerId)?.username || 
-                                                 userClan?.members?.find((p: any) => (p._id || p.walletAddress) === playerId)?.name ||
-                                                 playerId.startsWith('user-player-') ? `Player ${parseInt(playerId.split('-')[2]) + 1}` : 'Player'}
-                                              </span>
-                                              <span className="font-mono text-xs whitespace-nowrap">
-                                                <span className="text-green-400">{stats.kills}</span>
-                                                <span className="text-gray-500">/</span>
-                                                <span className="text-red-400">{stats.deaths}</span>
-                                                <span className="text-gray-500 ml-1">({kd})</span>
-                                              </span>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  )}
-                                  {match.scores.clan2PlayerStats && (
-                                    <div>
-                                      <div className="text-orange-400 font-medium mb-2">{opponent?.name}</div>
-                                      <div className="space-y-1">
-                                        {Object.entries(match.scores.clan2PlayerStats).map(([playerId, stats]: [string, any]) => {
-                                          const kd = stats.deaths > 0 ? (stats.kills / stats.deaths).toFixed(2) : stats.kills;
-                                          return (
-                                            <div key={playerId} className="flex justify-between items-center text-gray-400">
-                                              <span className="truncate mr-2">
-                                                {opponent?.members?.find((p: any) => (p._id || p.walletAddress) === playerId)?.username || 
-                                                 opponent?.members?.find((p: any) => (p._id || p.walletAddress) === playerId)?.name ||
-                                                 playerId.startsWith('opp-player-') ? `Player ${parseInt(playerId.split('-')[2]) + 1}` : 'Player'}
-                                              </span>
-                                              <span className="font-mono text-xs whitespace-nowrap">
-                                                <span className="text-green-400">{stats.kills}</span>
-                                                <span className="text-gray-500">/</span>
-                                                <span className="text-red-400">{stats.deaths}</span>
-                                                <span className="text-gray-500 ml-1">({kd})</span>
-                                              </span>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        
-                        {match.xpAwarded && (
-                          <div className="text-center text-sm">
-                            <span className="text-purple-400">+{match.xpAwarded} XP</span>
-                            <span className="text-gray-500 ml-2">earned</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 )}
 
@@ -1245,6 +1137,53 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-white/10 rounded-lg p-6 max-w-md w-full">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                <span className="text-green-400">✓</span>
+                Success
+              </h2>
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="text-white font-medium">
+                {successMessage}
+              </div>
+              <div className="text-gray-300 text-sm">
+                {successDetails}
+              </div>
+              
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                <div className="text-blue-300 text-sm font-medium mb-1">What happens next?</div>
+                <div className="text-blue-200 text-xs">
+                  • Your opponent will receive a notification<br/>
+                  • They can accept or decline the proposed time<br/>
+                  • You'll see the match status update here once they respond
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

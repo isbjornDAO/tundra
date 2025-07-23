@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAccount } from 'wagmi';
+import { usePrivy } from '@privy-io/react-auth';
 import { ConnectWallet } from '@/components/ConnectWallet';
 import { useRouter, usePathname } from 'next/navigation';
 import { UserSignupModal } from '@/components/UserSignupModal';
@@ -13,6 +14,7 @@ interface AuthGuardProps {
 export function AuthGuard({ children }: AuthGuardProps) {
   const [mounted, setMounted] = useState(false);
   const { address, isConnected } = useAccount();
+  const { ready, authenticated, user: privyUser } = usePrivy();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [needsSignup, setNeedsSignup] = useState(false);
@@ -33,9 +35,18 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }, []);
 
   useEffect(() => {
-    if (isConnected && address) {
+    // Wait for Privy to be ready before checking
+    if (!ready) return;
+    
+    // Get wallet address from either Wagmi or Privy
+    const walletAddress = address || privyUser?.wallet?.address;
+    const isWalletConnected = isConnected || (authenticated && privyUser?.wallet?.address);
+    
+    console.log('AuthGuard check:', { ready, authenticated, address, privyAddress: privyUser?.wallet?.address, isWalletConnected, pathname });
+    
+    if (isWalletConnected && walletAddress) {
       setLoading(true);
-      fetch(`/api/users?walletAddress=${address}`)
+      fetch(`/api/users?walletAddress=${walletAddress}`)
         .then(res => res.json())
         .then(data => {
           if (data.user && data.user.username && data.user.country) {
@@ -57,11 +68,17 @@ export function AuthGuard({ children }: AuthGuardProps) {
       setNeedsSignup(false);
       setLoading(false);
     }
-  }, [address, isConnected]);
+  }, [ready, address, isConnected, authenticated, privyUser?.wallet?.address]);
 
   const checkAdminStatus = useCallback(async () => {
+    const walletAddress = address || privyUser?.wallet?.address;
+    if (!walletAddress) {
+      setIsLoadingAdmin(false);
+      return;
+    }
+    
     try {
-      const response = await fetch(`/api/admin/check?walletAddress=${address}`);
+      const response = await fetch(`/api/admin/check?walletAddress=${walletAddress}`);
       const data = await response.json();
       setIsAdmin(data.isAdmin);
     } catch (error) {
@@ -69,29 +86,36 @@ export function AuthGuard({ children }: AuthGuardProps) {
     } finally {
       setIsLoadingAdmin(false);
     }
-  }, [address]);
+  }, [address, privyUser?.wallet?.address]);
 
   useEffect(() => {
-    if (address) {
+    const walletAddress = address || privyUser?.wallet?.address;
+    if (walletAddress) {
       checkAdminStatus();
     } else {
       setIsLoadingAdmin(false);
     }
-  }, [address, checkAdminStatus]);
+  }, [address, privyUser?.wallet?.address, checkAdminStatus]);
 
   // Effect to handle redirection to login - only after wallet check is complete
   useEffect(() => {
-    if (!isConnected && pathname !== '/login' && mounted && !isCheckingWallet) {
-      router.push('/login');
+    const isWalletConnected = isConnected || (authenticated && privyUser?.wallet?.address);
+    if (!isWalletConnected && pathname !== '/login' && mounted && !isCheckingWallet) {
+      // Add a small delay to prevent interfering with logout redirects
+      const redirectTimer = setTimeout(() => {
+        router.push('/login');
+      }, 100);
+      return () => clearTimeout(redirectTimer);
     }
-  }, [isConnected, pathname, mounted, isCheckingWallet]);
+  }, [isConnected, authenticated, privyUser?.wallet?.address, pathname, mounted, isCheckingWallet]);
 
   // Stop checking wallet when connection is established
   useEffect(() => {
-    if (isConnected) {
+    const isWalletConnected = isConnected || (authenticated && privyUser?.wallet?.address);
+    if (isWalletConnected) {
       setIsCheckingWallet(false);
     }
-  }, [isConnected]);
+  }, [isConnected, authenticated, privyUser?.wallet?.address]);
 
   const createUser = async (userData: any) => {
     const response = await fetch('/api/users', {
@@ -140,7 +164,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }
 
   // Checking wallet connection
-  if (isCheckingWallet && !isConnected && pathname !== '/login') {
+  const isWalletConnected = isConnected || (authenticated && privyUser?.wallet?.address);
+  if (isCheckingWallet && !isWalletConnected && pathname !== '/login') {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-lg text-white">Checking wallet connection...</div>
@@ -158,7 +183,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }
 
   // Not connected - show loading state (this should rarely show now due to wallet checking above)
-  if (!isConnected && pathname !== '/login') {
+  if (!isWalletConnected && pathname !== '/login') {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-lg text-white">Redirecting to login...</div>
@@ -173,12 +198,13 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   // Needs signup
   if (needsSignup) {
+    const walletAddress = address || privyUser?.wallet?.address;
     return (
       <>
         {children}
         <UserSignupModal
-          isOpen={needsSignup && isConnected && !!address}
-          walletAddress={address || ''}
+          isOpen={needsSignup && isWalletConnected && !!walletAddress}
+          walletAddress={walletAddress || ''}
           onSignupComplete={handleSignupComplete}
           onClose={() => {}}
         />

@@ -90,7 +90,10 @@ export default function RegisterTournamentPage() {
   }, [mounted]);
   
   const { data: tournamentsData, isLoading } = useTournaments();
-  const tournaments = tournamentsData?.tournaments || [];
+  const allTournaments = tournamentsData?.tournaments || [];
+  
+  // Filter out completed tournaments
+  const tournaments = allTournaments.filter(tournament => tournament.status !== 'completed');
   const { address } = useAccount();
 
   useEffect(() => {
@@ -260,14 +263,16 @@ export default function RegisterTournamentPage() {
           organizer: address,
           selectedPlayers: selectedMembers.map((member) => ({
             userId: member._id,
-            walletAddress: member.walletAddress,
-            displayName: member.displayName
+            username: member.displayName,
+            displayName: member.displayName,
+            walletAddress: member.walletAddress
           }))
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('Registration failed response:', errorData);
         throw new Error(errorData.error || 'Failed to register clan');
       }
 
@@ -508,39 +513,18 @@ export default function RegisterTournamentPage() {
           {/* Step 2: Team Details */}
           {canRegister && currentStep === 'team' && (
             <div className="card">
-              <h2 className="heading-lg text-center mb-2">Team Information</h2>
-              <p className="text-body text-center mb-8">Tell us about your team</p>
+              <h2 className="heading-lg text-center mb-8">Team Information</h2>
               
               <div className="max-w-2xl mx-auto space-y-6">
-                <div className="form-group">
-                  <label className="form-label">Select Clan</label>
-                  <select
-                    value={selectedClan?._id || ''}
-                    onChange={(e) => handleClanSelection(e.target.value)}
-                    className="input-field"
-                    required
-                  >
-                    <option value="">Select a clan...</option>
-                    {userClans.map(clan => (
-                      <option key={clan._id} value={clan._id} className="text-black">
-                        [{clan.tag}] {clan.name} ({clan.country})
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-sm text-gray-400 mt-1">
-                    Choose which clan you're representing
-                  </p>
-                </div>
-
                 {selectedClan && (
                   <>
                     <div className="form-group">
-                      <label className="form-label">Team Name</label>
+                      <label className="form-label">Your Clan</label>
                       <div className="input-field text-center text-xl bg-gray-700 text-white font-semibold">
                         [{selectedClan.tag}] {selectedClan.name}
                       </div>
                       <p className="text-sm text-gray-400 mt-1">
-                        Team name will automatically use your clan name
+                        You will be representing this clan in the tournament
                       </p>
                     </div>
 
@@ -560,6 +544,11 @@ export default function RegisterTournamentPage() {
                   </>
                 )}
 
+                {!selectedClan && (
+                  <div className="card-compact bg-amber-500/10 border-amber-500/20 text-center">
+                    <p className="text-amber-400">No clan found. You must be a clan leader to register for tournaments.</p>
+                  </div>
+                )}
 
                 {selectedTournament && (
                   <div className="card-compact bg-white/5 border-white/20">
@@ -684,10 +673,6 @@ export default function RegisterTournamentPage() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-400">Clan:</span>
-                      <span className="text-white">[{selectedClan?.tag}] {selectedClan?.name}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Team Name:</span>
                       <span className="text-white">[{selectedClan?.tag}] {selectedClan?.name}</span>
                     </div>
                     <div className="flex justify-between">

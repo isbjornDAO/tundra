@@ -122,7 +122,9 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user,
   const [saveError, setSaveError] = useState('');
   const [profilePhoto, setProfilePhoto] = useState<string>('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'achievements' | 'activity'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'achievements' | 'activity' | 'tournaments'>('overview');
+  const [tournamentHistory, setTournamentHistory] = useState<any>(null);
+  const [loadingTournaments, setLoadingTournaments] = useState(false);
   const { address } = useAccount();
 
   // Debug logging
@@ -151,6 +153,30 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user,
       setProfilePhoto(user.avatar || '');
     }
   }, [user]);
+
+  // Fetch tournament history when tournament tab is selected OR overview tab needs accurate stats
+  useEffect(() => {
+    if ((activeTab === 'tournaments' || activeTab === 'overview' || activeTab === 'achievements') && user?._id && !tournamentHistory) {
+      fetchTournamentHistory();
+    }
+  }, [activeTab, user?._id]);
+
+
+  const fetchTournamentHistory = async () => {
+    if (!user?._id) return;
+    
+    setLoadingTournaments(true);
+    try {
+      const response = await fetch(`/api/users/${user._id}/tournaments`);
+      const data = await response.json();
+      setTournamentHistory(data);
+    } catch (error) {
+      console.error('Error fetching tournament history:', error);
+    } finally {
+      setLoadingTournaments(false);
+    }
+  };
+
 
   const startEdit = () => {
     setIsEditing(true);
@@ -242,61 +268,265 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user,
       case 'achievements':
         return (
           <div className="space-y-6">
-            <h3 className="heading-md">Achievements</h3>
-            <div className="grid-2">
-              {(profileData.trophies || []).length > 0 ? (
-                (profileData.trophies || []).map((trophy) => (
-                  <div key={trophy.id} className="card-interactive">
-                    <div className="flex items-start gap-4">
-                      <div className="text-4xl">{trophy.icon}</div>
-                      <div className="flex-1">
-                        <h4 className="text-white font-semibold text-lg">{trophy.name}</h4>
-                        <p className="text-muted mt-1">{trophy.description}</p>
-                        <p className="text-muted text-sm mt-2">{new Date(trophy.date).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="col-span-2 text-center py-12">
-                  <div className="text-6xl mb-6">🏆</div>
-                  <div className="text-white text-xl mb-2">No Achievements Yet</div>
-                  <div className="text-muted max-w-md mx-auto">
-                    Start participating in tournaments and completing challenges to unlock achievements and showcase your gaming prowess!
-                  </div>
+            <div className="flex items-center justify-between">
+              <h3 className="heading-md">Achievements & Badges</h3>
+              {tournamentHistory && (
+                <div className="text-sm text-muted">
+                  {tournamentHistory.achievements?.length || 0} achievements • {tournamentHistory.badges?.length || 0} badges earned
                 </div>
               )}
+            </div>
+            
+            {/* Achievements Section */}
+            <div>
+              <h4 className="text-lg font-semibold text-white mb-4">🏆 Achievements</h4>
+              <div className="grid-2">
+                {tournamentHistory?.achievements?.length > 0 ? (
+                  tournamentHistory.achievements.map((achievement: any) => (
+                    <div key={achievement.id} className="card-interactive">
+                      <div className="flex items-start gap-4">
+                        <div className="text-4xl">{achievement.icon}</div>
+                        <div className="flex-1">
+                          <h5 className="text-white font-semibold text-lg">{achievement.name}</h5>
+                          <p className="text-muted mt-1">{achievement.description}</p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              achievement.rarity === 'legendary' ? 'bg-yellow-500/20 text-yellow-400' :
+                              achievement.rarity === 'epic' ? 'bg-purple-500/20 text-purple-400' :
+                              achievement.rarity === 'rare' ? 'bg-blue-500/20 text-blue-400' :
+                              'bg-gray-500/20 text-gray-400'
+                            }`}>
+                              {achievement.rarity}
+                            </span>
+                            <span className="text-xs text-muted capitalize">{achievement.category}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-2 text-center py-12">
+                    <div className="text-6xl mb-6">🏆</div>
+                    <div className="text-white text-xl mb-2">No Achievements Yet</div>
+                    <div className="text-muted max-w-md mx-auto">
+                      Start participating in tournaments and completing challenges to unlock achievements!
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Badges Section */}
+            <div>
+              <h4 className="text-lg font-semibold text-white mb-4">🏅 Badges</h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {tournamentHistory?.badges?.length > 0 ? (
+                  tournamentHistory.badges.map((badge: any) => (
+                    <div key={badge.id} className={`card-compact text-center hover:scale-105 transition-transform ${
+                      badge.rarity === 'legendary' ? 'border-yellow-500/40 bg-yellow-500/10' :
+                      badge.rarity === 'epic' ? 'border-purple-500/40 bg-purple-500/10' :
+                      badge.rarity === 'rare' ? 'border-blue-500/40 bg-blue-500/10' :
+                      'border-gray-500/40 bg-gray-500/10'
+                    }`}>
+                      <div className="text-3xl mb-2">{badge.icon}</div>
+                      <div className="text-white text-sm font-medium">{badge.name}</div>
+                      <div className="text-muted text-xs mt-1">{badge.description}</div>
+                      <div className="text-muted text-xs mt-1 capitalize">{badge.rarity}</div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-full text-center py-12">
+                    <div className="text-6xl mb-6">🏅</div>
+                    <div className="text-white text-xl mb-2">No Badges Yet</div>
+                    <div className="text-muted max-w-md mx-auto">
+                      Participate in tournaments to earn badges!
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         );
       
       case 'activity':
         return (
+          <div className="text-center py-12">
+            <div className="text-6xl mb-6">🚧</div>
+            <div className="text-white text-xl mb-2">Coming Soon</div>
+            <div className="text-muted max-w-md mx-auto">
+              Activity tracking is currently under development.
+            </div>
+          </div>
+        );
+
+      case 'tournaments':
+        return (
           <div className="space-y-6">
-            <h3 className="heading-md">Recent Activity</h3>
-            <div className="space-y-3">
-              {(profileData.recentActivity || []).length > 0 ? (
-                (profileData.recentActivity || []).map((activity) => (
-                  <div key={activity.id} className="card-compact">
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 bg-red-500 rounded-full flex-shrink-0"></div>
-                      <div className="flex-1">
-                        <p className="text-white">{activity.description}</p>
-                        <p className="text-muted text-sm mt-1">{activity.timestamp}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-12">
-                  <div className="text-6xl mb-6">📈</div>
-                  <div className="text-white text-xl mb-2">No Recent Activity</div>
-                  <div className="text-muted max-w-md mx-auto">
-                    Your tournament participation, match results, and other gaming activities will appear here.
-                  </div>
+            <div className="flex items-center justify-between">
+              <h3 className="heading-md">Tournament History</h3>
+              {tournamentHistory && (
+                <div className="text-sm text-muted">
+                  {tournamentHistory.recentForm?.length > 0 && (
+                    <span className="flex items-center gap-1">
+                      Recent Form: {tournamentHistory.recentForm.map((result: string, idx: number) => (
+                        <span key={idx} className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                          result === 'W' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                        }`}>
+                          {result}
+                        </span>
+                      ))}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
+            
+            {loadingTournaments ? (
+              <div className="text-center py-12">
+                <div className="text-4xl mb-4">⏳</div>
+                <div className="text-white">Loading tournament history...</div>
+              </div>
+            ) : tournamentHistory ? (
+              <div className="space-y-6">
+                {/* Overall Tournament Stats */}
+                {tournamentHistory.overallStats && (
+                  <div>
+                    <h4 className="text-lg font-semibold text-white mb-4">Overall Tournament Performance</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="card-compact text-center">
+                        <div className="text-2xl font-bold text-blue-400">{tournamentHistory.overallStats.totalTournaments}</div>
+                        <div className="text-sm text-muted">Tournaments</div>
+                      </div>
+                      <div className="card-compact text-center">
+                        <div className="text-2xl font-bold text-green-400">{tournamentHistory.overallStats.matchesWon}</div>
+                        <div className="text-sm text-muted">Matches Won</div>
+                      </div>
+                      <div className="card-compact text-center">
+                        <div className="text-2xl font-bold text-yellow-400">{tournamentHistory.overallStats.winRate}%</div>
+                        <div className="text-sm text-muted">Win Rate</div>
+                      </div>
+                      <div className="card-compact text-center">
+                        <div className="text-2xl font-bold text-purple-400">{tournamentHistory.overallStats.kd?.toFixed(2) || '0.00'}</div>
+                        <div className="text-sm text-muted">K/D Ratio</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tournament List */}
+                {tournamentHistory.tournaments && tournamentHistory.tournaments.length > 0 ? (
+                  <div>
+                    <h4 className="text-lg font-semibold text-white mb-4">Tournament Participation</h4>
+                    <div className="space-y-4">
+                      {(tournamentHistory.tournaments || []).map((tournamentData: any) => (
+                        tournamentData ? (
+                        <div key={tournamentData.tournament?.id || Math.random()} className="card">
+                          <div className="flex items-start justify-between mb-4">
+                            <div>
+                              <h5 className="text-white font-semibold text-lg">{tournamentData.tournament?.game || 'Unknown Game'} Tournament</h5>
+                              <div className="flex items-center gap-4 text-sm text-muted mt-1">
+                                <span>{(() => {
+                                  const completedAt = tournamentData.tournament?.completedAt;
+                                  const createdAt = tournamentData.tournament?.createdAt;
+                                  const lastMatchDate = tournamentData.matches && tournamentData.matches.length > 0 
+                                    ? tournamentData.matches[tournamentData.matches.length - 1]?.completedAt 
+                                    : null;
+                                  const dateToUse = completedAt || lastMatchDate || createdAt || Date.now();
+                                  return new Date(dateToUse).toLocaleDateString();
+                                })()}</span>
+                                <span>${tournamentData.tournament?.prizePool?.toLocaleString() || '5,000'} Prize Pool</span>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-lg font-bold text-blue-400">{tournamentData.stats?.matchesWon || 0}/{tournamentData.stats?.matchesPlayed || 0}</div>
+                              <div className="text-xs text-muted">Matches Won</div>
+                            </div>
+                          </div>
+
+                          {tournamentData.stats && (
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-4 border-t border-white/10">
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-green-400">{tournamentData.stats?.totalKills || 0}</div>
+                                <div className="text-xs text-muted">Kills</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-red-400">{tournamentData.stats?.totalDeaths || 0}</div>
+                                <div className="text-xs text-muted">Deaths</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-blue-400">{tournamentData.stats?.totalAssists || 0}</div>
+                                <div className="text-xs text-muted">Assists</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-purple-400">{tournamentData.stats?.kd?.toFixed(2) || '0.00'}</div>
+                                <div className="text-xs text-muted">K/D</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-yellow-400">{tournamentData.stats?.mvpCount || 0}</div>
+                                <div className="text-xs text-muted">MVP Awards</div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Match History for this tournament */}
+                          {tournamentData.matches && tournamentData.matches.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-white/10">
+                              <h6 className="text-white font-medium mb-3">Match Results</h6>
+                              <div className="space-y-2">
+                                {(tournamentData.matches || []).slice(0, 3).map((match: any, idx: number) => (
+                                  <div key={idx} className="flex items-center justify-between bg-white/5 rounded-lg p-3">
+                                    <div className="flex items-center gap-3">
+                                      <span className={`w-2 h-2 rounded-full ${
+                                        match?.isWin ? 'bg-green-400' : 'bg-red-400'
+                                      }`}></span>
+                                      <span className="text-white text-sm">
+                                        vs {match?.opponentClan || 'Unknown'} ({match?.round || 'N/A'})
+                                      </span>
+                                    </div>
+                                    <div className="text-sm text-muted">
+                                      {match?.performance ? (
+                                        <span className="font-mono">
+                                          {match.performance?.kills || 0}/{match.performance?.deaths || 0}/{match.performance?.assists || 0}
+                                          {match.performance?.mvp && <span className="text-yellow-400 ml-1">👑</span>}
+                                        </span>
+                                      ) : (
+                                        <span>{match?.isWin ? 'Win' : 'Loss'}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                                {(tournamentData.matches?.length || 0) > 3 && (
+                                  <div className="text-center text-sm text-muted">
+                                    +{(tournamentData.matches?.length || 0) - 3} more matches
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        ) : null
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="text-6xl mb-6">🏆</div>
+                    <div className="text-white text-xl mb-2">No Tournament History</div>
+                    <div className="text-muted max-w-md mx-auto">
+                      You haven't participated in any completed tournaments yet. Join a tournament to start building your competitive history!
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-6">🏆</div>
+                <div className="text-white text-xl mb-2">No Tournament History</div>
+                <div className="text-muted max-w-md mx-auto">
+                  You haven't participated in any completed tournaments yet. Join a tournament to start building your competitive history!
+                </div>
+              </div>
+            )}
           </div>
         );
       
@@ -307,10 +537,26 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user,
             <div>
               <h3 className="heading-md mb-6">Statistics</h3>
               <div className="grid-4">
-                <StatCard label="Tournaments" value={userStats.totalTournaments} icon="🎮" />
-                <StatCard label="Wins" value={userStats.wins} icon="🏆" />
-                <StatCard label="Win Rate" value={`${userStats.winRate}%`} icon="📈" />
-                <StatCard label="Earnings" value={`$${userStats.totalPrizeMoney}`} icon="💰" />
+                <StatCard 
+                  label="Tournaments" 
+                  value={tournamentHistory?.overallStats?.totalTournaments || userStats.totalTournaments} 
+                  icon="🎮" 
+                />
+                <StatCard 
+                  label="Matches Won" 
+                  value={tournamentHistory?.overallStats?.matchesWon || userStats.wins} 
+                  icon="🏆" 
+                />
+                <StatCard 
+                  label="Win Rate" 
+                  value={`${tournamentHistory?.overallStats?.winRate || userStats.winRate}%`} 
+                  icon="📈" 
+                />
+                <StatCard 
+                  label="K/D Ratio" 
+                  value={tournamentHistory?.overallStats?.kd?.toFixed(2) || '0.00'} 
+                  icon="💀" 
+                />
               </div>
             </div>
 
@@ -318,12 +564,12 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user,
             <div>
               <h3 className="heading-md mb-6">Recent Achievements</h3>
               <div className="grid-3">
-                {(profileData.trophies || []).length > 0 ? (
-                  (profileData.trophies || []).slice(0, 3).map((trophy) => (
-                    <div key={trophy.id} className="card-compact text-center">
-                      <div className="text-3xl mb-3">{trophy.icon}</div>
-                      <div className="text-white font-medium">{trophy.name}</div>
-                      <div className="text-muted text-sm mt-1">{new Date(trophy.date).toLocaleDateString()}</div>
+                {tournamentHistory?.achievements?.length > 0 ? (
+                  tournamentHistory.achievements.slice(0, 3).map((achievement: any) => (
+                    <div key={achievement.id} className="card-compact text-center">
+                      <div className="text-3xl mb-3">{achievement.icon}</div>
+                      <div className="text-white font-medium">{achievement.name}</div>
+                      <div className="text-muted text-sm mt-1">{achievement.description}</div>
                     </div>
                   ))
                 ) : (
@@ -340,15 +586,15 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user,
             <div>
               <h3 className="heading-md mb-6">Badges</h3>
               <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-                {(profileData.badges || []).length > 0 ? (
-                  (profileData.badges || []).map((badge) => (
+                {tournamentHistory?.badges?.length > 0 ? (
+                  tournamentHistory.badges.map((badge: any) => (
                     <BadgeItem key={badge.id} badge={badge} />
                   ))
                 ) : (
                   <div className="col-span-full text-center py-8">
                     <div className="text-4xl mb-4">🏅</div>
                     <div className="text-muted">No badges earned yet</div>
-                    <div className="text-muted text-sm mt-1">Complete challenges to earn badges!</div>
+                    <div className="text-muted text-sm mt-1">Participate in tournaments to earn badges!</div>
                   </div>
                 )}
               </div>
@@ -548,7 +794,8 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user,
         <nav className="flex space-x-8">
           {[
             { id: 'overview', label: 'Overview', icon: '📊' },
-            { id: 'achievements', label: 'Achievements', icon: '🏆' },
+            { id: 'tournaments', label: 'Tournament History', icon: '🏆' },
+            { id: 'achievements', label: 'Achievements', icon: '🏅' },
             { id: 'activity', label: 'Activity', icon: '📈' },
           ].map((tab) => (
             <button

@@ -67,13 +67,13 @@ export interface TournamentSummary {
 
 export const SUPPORTED_GAMES = [
   'Off the Grid',
-  'Shatterline', 
-  'Cozyverse',
-  'Rocket League',
-  'Fortnite',
+  'Shatterline',
+  'Call of Duty: Warzone',
+  'Counter-Strike 2',
+  'Valorant',
   'Apex Legends',
-  'Call of Duty',
-  'Dota 2'
+  'Overwatch 2',
+  'Rainbow Six Siege'
 ] as const;
 
 export type Game = typeof SUPPORTED_GAMES[number];

@@ -46,11 +46,28 @@ export async function POST(request: Request) {
     const existingBracket = await Bracket.findOne({ tournamentId: validatedTournamentId! });
     
     if (existingBracket) {
-      return NextResponse.json({ 
-        error: 'Bracket already exists for this tournament',
-        bracketExists: true,
-        bracketId: existingBracket._id
-      }, { status: 400 });
+      // Check if matches exist
+      const Match = mongoose.models.Match || mongoose.model('Match', new mongoose.Schema({
+        bracketId: { type: mongoose.Schema.Types.ObjectId, ref: 'Bracket', required: true },
+        clan1: { type: mongoose.Schema.Types.ObjectId, ref: 'Clan' },
+        clan2: { type: mongoose.Schema.Types.ObjectId, ref: 'Clan' },
+        round: { type: String, required: true },
+        status: { type: String, required: true }
+      }));
+      
+      const existingMatches = await Match.find({ bracketId: existingBracket._id });
+      
+      if (existingMatches.length > 0) {
+        return NextResponse.json({ 
+          error: 'Bracket and matches already exist for this tournament',
+          bracketExists: true,
+          bracketId: existingBracket._id,
+          matchCount: existingMatches.length
+        }, { status: 400 });
+      }
+      
+      // Bracket exists but no matches - continue with generation
+      console.log('Bracket exists but no matches found, continuing with match generation');
     }
     
     // Generate matches/bracket

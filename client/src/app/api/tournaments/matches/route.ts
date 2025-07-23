@@ -222,6 +222,29 @@ export async function GET(request: Request) {
         
         if (team2) match.team2 = team2;
       }
+      
+      // Populate playerPerformances with user data
+      if (match.playerPerformances && match.playerPerformances.length > 0) {
+        const usersCol = db.collection("users");
+        
+        for (let perf of match.playerPerformances) {
+          if (perf.userId) {
+            try {
+              const userId = typeof perf.userId === 'string' ? new ObjectId(perf.userId) : perf.userId;
+              const user = await usersCol.findOne({ _id: userId });
+              if (user) {
+                perf.userId = {
+                  _id: user._id,
+                  username: user.username,
+                  displayName: user.displayName
+                };
+              }
+            } catch (e) {
+              console.error('Error populating user for playerPerformance:', e);
+            }
+          }
+        }
+      }
     }
 
     return NextResponse.json({ matches });

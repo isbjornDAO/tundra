@@ -1,0 +1,13 @@
+client/src/scripts/aggregate-user-stats.js
+client/src/scripts/check-tournament-completion.js
+client/src/scripts/update-regional-hosts.js
+client/src/scripts/verify-clan-names.js
+client/src/scripts/check-database.js
+client/src/scripts/convert-registrations-to-teams.js
+client/src/scripts/create-exact-tournaments.js
+client/src/scripts/debug-user-display.js
+client/src/scripts/detailed-database-check.js
+client/src/scripts/detailed-tournament-stats.js
+client/src/scripts/list-tournament-participants.js
+client/AVAX_REBRANDING_FINAL.md
+client/AVAX_REBRANDING.md

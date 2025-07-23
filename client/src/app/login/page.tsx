@@ -1,156 +1,56 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
-import { useAccount } from 'wagmi';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { UserSignupModal } from '@/components/UserSignupModal';
+import { usePrivy } from '@privy-io/react-auth';
+import { useRouter } from 'next/navigation';
 
-export default function AuthPage() {
-  const { ready, authenticated, login, logout } = usePrivy();
-  const { address } = useAccount();
+export default function LoginPage() {
+  const { ready, authenticated, login, user } = usePrivy();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [isCheckingAccount, setIsCheckingAccount] = useState(false);
-  const [showSignupModal, setShowSignupModal] = useState(false);
 
-  // Check for existing user when wallet connects - simplified to avoid loops
+  // If user is already authenticated, redirect them
   useEffect(() => {
-    console.log('Login page auth state:', { authenticated, address, ready });
-    
-    if (!ready) return;
-    
-    if (authenticated && address) {
-      console.log('User authenticated with address, checking profile...');
-      setIsLoading(true);
-      setIsCheckingAccount(true);
-      checkExistingUser();
-    } else if (authenticated && !address) {
-      // Wait a bit for address to be available
-      const timeout = setTimeout(() => {
-        if (authenticated && !address) {
-          setError('Connected but unable to get wallet address. Please try again.');
-          setIsLoading(false);
-          setIsCheckingAccount(false);
-        }
-      }, 2000);
-      return () => clearTimeout(timeout);
+    if (ready && authenticated && user?.wallet?.address) {
+      console.log('User already authenticated, redirecting...');
+      router.push('/');
     }
-  }, [ready, authenticated, address]);
+  }, [ready, authenticated, user?.wallet?.address, router]);
 
-  const checkExistingUser = async () => {
-    if (!address) return;
+  const handleLogin = async (isSignUp = false) => {
+    console.log('handleLogin called', { ready, authenticated, isSignUp });
     
-    try {
-      const response = await fetch(`/api/users?walletAddress=${address}`);
-      const data = await response.json();
-      
-      console.log('User API response:', {
-        hasUser: !!data.user,
-        username: data.user?.username,
-        country: data.user?.country,
-        fullUser: data.user
-      });
-      
-      if (data.user) {
-        // User exists - check if profile is complete
-        const hasCompleteProfile = data.user.username && data.user.country;
-        
-        if (hasCompleteProfile) {
-          // User exists with complete profile, redirect to home
-          console.log('✅ Complete user found, redirecting to home');
-          setIsLoading(false);
-          setIsCheckingAccount(false);
-          router.push('/');
-        } else {
-          // User exists but has incomplete profile - show completion form
-          console.log('⚠️ Existing user found but incomplete profile:', {
-            walletAddress: data.user.walletAddress,
-            hasUsername: !!data.user.username,
-            hasCountry: !!data.user.country,
-            userId: data.user._id
-          });
-          setIsCheckingAccount(false);
-          setIsLoading(false);
-          setShowSignupModal(true);
-          setError('Welcome back! Please complete your profile setup.');
-        }
-      } else {
-        // No user found with this wallet, show signup modal for new user
-        console.log('❌ No user found, showing signup for new user');
-        setIsCheckingAccount(false);
-        setIsLoading(false);
-        setShowSignupModal(true);
-        setError(''); // Clear any previous errors
-      }
-    } catch (error) {
-      console.error('Error checking user:', error);
-      
-      // On error, show signup modal
-      setIsCheckingAccount(false);
-      setIsLoading(false);
-      setShowSignupModal(true);
-      setError('Error checking account. Please complete signup to continue.');
-    }
-  };
-
-  const handleConnectExistingWallet = async () => {
-    // Clear any previous errors
-    setError('');
-    
-    // Don't redirect immediately if authenticated - let the user check complete
-    if (authenticated && address) {
-      setIsLoading(true);
-      setIsCheckingAccount(true);
-      // Check if user exists first
-      await checkExistingUser();
+    if (!ready) {
+      console.log('Privy not ready yet');
       return;
     }
-
+    
+    if (authenticated) {
+      console.log('User already authenticated');
+      return;
+    }
+    
+    setError('');
     setIsLoading(true);
-    setIsCheckingAccount(true);
-
+    
     try {
+      console.log('Calling Privy login...');
       await login();
-      // After login, the useEffect will handle the user check
-    } catch (error) {
+      console.log('Privy login completed');
+      // AuthGuard will handle the rest - checking user profile, showing signup modal, etc.
+    } catch (error: any) {
       console.error('Login error:', error);
-      setError('Failed to connect wallet. Please try again.');
-      setIsLoading(false);
-      setIsCheckingAccount(false);
-    }
-  };
-
-  const handleSignUp = async () => {
-    if (!authenticated) {
-      setIsLoading(true);
-      setIsCheckingAccount(true);
-      try {
-        await login();
-        // After login, checkExistingUser will be called via useEffect
-      } catch (error) {
-        console.error('Login error:', error);
-        setError('Failed to connect wallet');
-        setIsLoading(false);
-        setIsCheckingAccount(false);
+      if (error?.message?.includes('User exited') || error?.message?.includes('closed')) {
+        setError('Wallet connection cancelled. Please try again.');
+      } else {
+        setError('Unable to connect wallet. Please try again.');
       }
-    } else if (address) {
-      // Already authenticated, check if user exists
-      setIsLoading(true);
-      setIsCheckingAccount(true);
-      await checkExistingUser();
+    } finally {
+      setIsLoading(false);
     }
   };
-
-  // Show error messages
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => setError(''), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [error]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-red-950/20 to-black flex items-center justify-center relative overflow-hidden">
@@ -190,6 +90,7 @@ export default function AuthPage() {
           </h1>
           <p className="text-xl text-gray-400">Global Tournament Platform</p>
         </motion.div>
+
 
         {/* Error Message */}
         {error && (
@@ -259,98 +160,80 @@ export default function AuthPage() {
             </div>
           </motion.div>
 
-          {/* Auth Options */}
+          {/* Auth Panel */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
             className="bg-black/50 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl"
           >
-            {authenticated && address && showSignupModal ? (
-              // Show inline signup form
-              <UserSignupModal 
-                isOpen={true}
-                walletAddress={address}
-                onSignupComplete={(user) => {
-                  console.log('Signup completed:', user);
-                  setShowSignupModal(false);
-                  router.push('/');
-                }}
-                onClose={() => {
-                  // Don't allow closing without signup
-                  console.log('Cannot close signup modal - must complete signup');
-                }}
-              />
-            ) : (
-              // Show auth options
-              <div className="space-y-6">
-                <div className="text-center mb-8">
-                  <h2 className="text-2xl font-bold text-white mb-3">Welcome to Tundra</h2>
-                  <p className="text-gray-400">Sign in to your account or create a new one</p>
+            <div className="space-y-6">
+              <div className="text-center mb-8">
+                <h2 className="text-2xl font-bold text-white mb-3">Welcome to Tundra</h2>
+                <p className="text-gray-400">Sign in to your account or create a new one</p>
+              </div>
+              
+              <div className="space-y-3">
+                <button
+                  onClick={() => handleLogin(false)}
+                  disabled={isLoading}
+                  className="w-full bg-red-500 text-white font-bold py-5 px-6 rounded-xl hover:bg-red-600 transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                >
+                  {isLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Connecting...
+                    </span>
+                  ) : (
+                    <div className="flex items-center justify-center gap-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                      </svg>
+                      Sign In
+                    </div>
+                  )}
+                </button>
+                <p className="text-gray-400 text-sm text-center">Already have an account? Sign in with your wallet</p>
+              </div>
+              
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-white/20"></div>
                 </div>
-                
-                <div className="space-y-3">
-                  <button
-                    onClick={handleConnectExistingWallet}
-                    disabled={isLoading}
-                    className="w-full bg-red-500 text-white font-bold py-5 px-6 rounded-xl hover:bg-red-600 transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                  >
-                    {isLoading && isCheckingAccount ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        Checking account...
-                      </span>
-                    ) : (
-                      <div className="flex items-center justify-center gap-2">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                        </svg>
-                        Sign In
-                      </div>
-                    )}
-                  </button>
-                  <p className="text-gray-400 text-sm text-center">Already have an account? Sign in with your wallet</p>
-                </div>
-                
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-white/20"></div>
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-black text-gray-400">or</span>
-                  </div>
-                </div>
-                
-                <div className="space-y-3">
-                  <button
-                    onClick={handleSignUp}
-                    disabled={isLoading}
-                    className="w-full bg-white/10 border border-white/20 text-white font-bold py-5 px-6 rounded-xl hover:bg-white/20 hover:border-white/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isLoading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        Connecting...
-                      </span>
-                    ) : (
-                      <div className="flex items-center justify-center gap-2">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                        </svg>
-                        Sign Up
-                      </div>
-                    )}
-                  </button>
-                  <p className="text-gray-400 text-sm text-center">New to Tundra? Create your account to get started</p>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-black text-gray-400">or</span>
                 </div>
               </div>
-            )}
+              
+              <div className="space-y-3">
+                <button
+                  onClick={() => handleLogin(true)}
+                  disabled={isLoading}
+                  className="w-full bg-white/10 border border-white/20 text-white font-bold py-5 px-6 rounded-xl hover:bg-white/20 hover:border-white/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Connecting...
+                    </span>
+                  ) : (
+                    <div className="flex items-center justify-center gap-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                      </svg>
+                      Sign Up
+                    </div>
+                  )}
+                </button>
+                <p className="text-gray-400 text-sm text-center">New to Tundra? Create your account to get started</p>
+              </div>
+            </div>
           </motion.div>
         </div>
 

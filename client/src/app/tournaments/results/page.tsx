@@ -2,8 +2,8 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-import ResultsClient from './results-client';
+import ResultsEnhanced from './results-enhanced';
 
 export default function ResultsPage() {
-  return <ResultsClient />;
+  return <ResultsEnhanced />;
 }

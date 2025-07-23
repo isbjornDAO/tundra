@@ -27,7 +27,7 @@ const MatchSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['scheduling', 'ready', 'active', 'completed'],
+    enum: ['scheduling', 'ready', 'active', 'results_pending', 'results_conflict', 'completed'],
     default: 'scheduling'
   },
   score: {
@@ -83,12 +83,22 @@ const MatchSchema = new mongoose.Schema({
     clan1: {
       submitted: { type: Boolean, default: false },
       submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-      submittedAt: { type: Date }
+      submittedAt: { type: Date },
+      score: {
+        clan1Score: Number,
+        clan2Score: Number
+      },
+      playerPerformances: [mongoose.Schema.Types.Mixed]
     },
     clan2: {
       submitted: { type: Boolean, default: false },
       submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-      submittedAt: { type: Date }
+      submittedAt: { type: Date },
+      score: {
+        clan1Score: Number,
+        clan2Score: Number
+      },
+      playerPerformances: [mongoose.Schema.Types.Mixed]
     }
   },
   conflictData: {

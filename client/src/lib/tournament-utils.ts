@@ -72,6 +72,77 @@ export function generateBracketMatches(clans: Clan[]): MatchTemplate[] {
   return matches;
 }
 
+export async function advanceWinnerToNextRound(matchId: string, winnerClanId: string) {
+  try {
+    const { Match } = await import('./models/Match');
+    
+    // Get the completed match
+    const completedMatch = await Match.findById(matchId);
+    if (!completedMatch || completedMatch.status !== 'completed') {
+      console.log('Match not found or not completed');
+      return false;
+    }
+    
+    // Determine the next round
+    const roundOrder = ['quarter', 'semi', 'final'];
+    const currentRoundIndex = roundOrder.indexOf(completedMatch.round);
+    
+    if (currentRoundIndex === -1 || currentRoundIndex === roundOrder.length - 1) {
+      console.log('No next round for this match');
+      return false; // Final match or invalid round
+    }
+    
+    const nextRound = roundOrder[currentRoundIndex + 1];
+    
+    // Find all matches in the current round to determine position
+    const currentRoundMatches = await Match.find({
+      bracketId: completedMatch.bracketId,
+      round: completedMatch.round
+    }).sort('createdAt');
+    
+    // Find the position of this match in current round
+    const matchPosition = currentRoundMatches.findIndex(m => m._id.toString() === matchId);
+    const nextMatchPosition = Math.floor(matchPosition / 2);
+    const isFirstTeam = matchPosition % 2 === 0;
+    
+    // Find the next round match that should receive this winner
+    const nextRoundMatches = await Match.find({
+      bracketId: completedMatch.bracketId,
+      round: nextRound
+    }).sort('createdAt');
+    
+    if (nextMatchPosition >= nextRoundMatches.length) {
+      console.log('No next round match found at position', nextMatchPosition);
+      return false;
+    }
+    
+    const nextMatch = nextRoundMatches[nextMatchPosition];
+    
+    // Update the next match with the winner
+    const updateField = isFirstTeam ? 'clan1' : 'clan2';
+    
+    await Match.findByIdAndUpdate(nextMatch._id, {
+      [updateField]: winnerClanId,
+      updatedAt: new Date()
+    });
+    
+    console.log(`Advanced winner to ${nextRound} match at position ${nextMatchPosition} as ${updateField}`);
+    
+    // Check if both teams are set and update status
+    const updatedNextMatch = await Match.findById(nextMatch._id);
+    if (updatedNextMatch.clan1 && updatedNextMatch.clan2) {
+      await Match.findByIdAndUpdate(nextMatch._id, {
+        status: 'scheduling'
+      });
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error advancing winner to next round:', error);
+    return false;
+  }
+}
+
 export async function autoGenerateMatches(tournamentId: string, game: string) {
   try {
     // Import actual models with proper schemas
@@ -177,11 +248,14 @@ export async function autoGenerateMatches(tournamentId: string, game: string) {
     await Match.insertMany(matches);
     console.log(`Created ${matches.length} matches for tournament ${tournamentId}`);
     
-    // Update tournament status to active
+    // Update tournament status to active and set bracketId
     await Tournament.findByIdAndUpdate(tournamentId, { 
       status: "active",
+      bracketId: bracket._id,
       updatedAt: new Date()
     });
+    
+    console.log(`Tournament ${tournamentId} updated with bracket ${bracket._id}`);
     
     return true;
   } catch (error) {

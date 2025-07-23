@@ -34,6 +34,9 @@ const TournamentSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
+  completedAt: {
+    type: Date
+  },
   updatedAt: {
     type: Date,
     default: Date.now

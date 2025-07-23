@@ -41,7 +41,7 @@ async function createExactTournaments() {
     const cs2Teams = [
       { 
         _id: new ObjectId(), 
-        name: "Eagles", 
+        name: "Avalanche Peaks", 
         region: "North America", 
         country: "US",
         organizer: "0x1111111111111111111111111111111111111111", 
@@ -50,7 +50,7 @@ async function createExactTournaments() {
       },
       { 
         _id: new ObjectId(), 
-        name: "Lions", 
+        name: "AVAX Titans", 
         region: "Europe West", 
         country: "DE",
         organizer: "0x2222222222222222222222222222222222222222", 
@@ -59,7 +59,7 @@ async function createExactTournaments() {
       },
       { 
         _id: new ObjectId(), 
-        name: "Dragons", 
+        name: "Red Subnet", 
         region: "Asia Pacific", 
         country: "JP",
         organizer: "0x3333333333333333333333333333333333333333", 
@@ -68,7 +68,7 @@ async function createExactTournaments() {
       },
       { 
         _id: new ObjectId(), 
-        name: "Jaguars", 
+        name: "Validator Squad", 
         region: "South America", 
         country: "BR",
         organizer: "0x4444444444444444444444444444444444444444", 
@@ -77,7 +77,7 @@ async function createExactTournaments() {
       },
       { 
         _id: new ObjectId(), 
-        name: "Wolves", 
+        name: "Fuji Warriors", 
         region: "Europe West", 
         country: "FR",
         organizer: "0x5555555555555555555555555555555555555555", 
@@ -86,7 +86,7 @@ async function createExactTournaments() {
       },
       { 
         _id: new ObjectId(), 
-        name: "Tigers", 
+        name: "C-Chain Elite", 
         region: "Asia Pacific", 
         country: "KR",
         organizer: "0x6666666666666666666666666666666666666666", 
@@ -95,7 +95,7 @@ async function createExactTournaments() {
       },
       { 
         _id: new ObjectId(), 
-        name: "Hawks", 
+        name: "Snowfall Guild", 
         region: "North America", 
         country: "CA",
         organizer: "0x7777777777777777777777777777777777777777", 
@@ -104,7 +104,7 @@ async function createExactTournaments() {
       },
       { 
         _id: new ObjectId(), 
-        name: "Sharks", 
+        name: "JOE Traders", 
         region: "South America", 
         country: "AR",
         organizer: "0x8888888888888888888888888888888888888888", 
@@ -146,7 +146,7 @@ async function createExactTournaments() {
       },
       { 
         _id: new ObjectId(), 
-        name: "Berlin Storm", 
+        name: "Pangolin Protocol", 
         region: "Europe West", 
         country: "DE",
         organizer: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 

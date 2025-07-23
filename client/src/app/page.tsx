@@ -212,8 +212,8 @@ export default function Home() {
                 <div className="min-w-0">
                   <h3 className="heading-sm mb-3">Multiple Games</h3>
                   <p className="text-body mb-4">
-                    Support for Off the Grid, Shatterline, Cozyverse, Dota 2, 
-                    Rocket League, and Fortnite tournaments.
+                    Support for Off the Grid, Shatterline, Counter-Strike 2, Valorant, 
+                    Overwatch 2, and other FPS tournaments.
                   </p>
                   <a href="/tournaments/register" className="inline-flex items-center text-green-400 hover:text-green-300 text-sm font-medium">
                     Choose Game

@@ -27,7 +27,7 @@ const liveEvents = [
   {
     id: 'apac-lol',
     name: 'League APAC Finals',
-    game: 'Cozyverse',
+    game: 'Valorant',
     region: 'Asia Pacific',
     teams: 16,
     viewers: 45230,

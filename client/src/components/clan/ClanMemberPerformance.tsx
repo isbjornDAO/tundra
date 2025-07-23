@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { ProfileWindow } from '@/components/ProfileWindow';
 
 interface ClanMemberPerformanceProps {
   clanId: string;
@@ -40,6 +41,7 @@ export default function ClanMemberPerformance({ clanId }: ClanMemberPerformanceP
   const [loading, setLoading] = useState(true);
   const [selectedMember, setSelectedMember] = useState<MemberPerformance | null>(null);
   const [sortBy, setSortBy] = useState<'xp' | 'winRate' | 'kd' | 'averageScore'>('xp');
+  const [profileWindowOpen, setProfileWindowOpen] = useState(false);
 
   useEffect(() => {
     const fetchMemberPerformance = async () => {
@@ -61,6 +63,16 @@ export default function ClanMemberPerformance({ clanId }: ClanMemberPerformanceP
 
     fetchMemberPerformance();
   }, [clanId]);
+
+  const openMemberProfile = (member: MemberPerformance) => {
+    setSelectedMember(member);
+    setProfileWindowOpen(true);
+  };
+
+  const closeMemberProfile = () => {
+    setProfileWindowOpen(false);
+    setSelectedMember(null);
+  };
 
   const sortedMembers = [...members].sort((a, b) => {
     switch (sortBy) {
@@ -163,7 +175,12 @@ export default function ClanMemberPerformance({ clanId }: ClanMemberPerformanceP
                       </span>
                     </div>
                     <div>
-                      <div className="text-white font-medium">{member.displayName || member.username}</div>
+                      <button
+                        onClick={() => openMemberProfile(member)}
+                        className="text-white font-medium hover:text-blue-400 transition-colors cursor-pointer text-left"
+                      >
+                        {member.displayName || member.username}
+                      </button>
                       <div className="text-gray-400 text-sm">@{member.username}</div>
                     </div>
                   </div>
@@ -298,6 +315,14 @@ export default function ClanMemberPerformance({ clanId }: ClanMemberPerformanceP
           ))}
         </div>
       )}
+      
+      {/* Profile Window */}
+      <ProfileWindow
+        isOpen={profileWindowOpen}
+        onClose={closeMemberProfile}
+        walletAddress={selectedMember?.walletAddress}
+        displayName={selectedMember?.displayName}
+      />
     </div>
   );
 }

@@ -39,17 +39,17 @@ async function seedTournaments() {
     
     // Create teams for CS2 tournament
     const cs2Teams = [
-      { _id: new ObjectId(), name: "Summit Legends", region: "North America", organizer: "0x123...abc", tournamentId: cs2TournamentId, registeredAt: new Date(), players: [
-        { id: "1", name: "Player1" }, { id: "2", name: "Player2" }, { id: "3", name: "Player3" }
+      { _id: new ObjectId(), name: "Avalanche Peaks", region: "North America", organizer: "0x123...abc", tournamentId: cs2TournamentId, registeredAt: new Date(), players: [
+        { id: "1", name: "Bear" }, { id: "2", name: "JoeTheTrader" }, { id: "3", name: "Benqi" }
       ]},
-      { _id: new ObjectId(), name: "Arctic Wolves", region: "Europe West", organizer: "0x456...def", tournamentId: cs2TournamentId, registeredAt: new Date(), players: [
-        { id: "4", name: "Player4" }, { id: "5", name: "Player5" }, { id: "6", name: "Player6" }
+      { _id: new ObjectId(), name: "AVAX Titans", region: "Europe West", organizer: "0x456...def", tournamentId: cs2TournamentId, registeredAt: new Date(), players: [
+        { id: "4", name: "Penguin" }, { id: "5", name: "ColTrader" }, { id: "6", name: "GMX" }
       ]},
-      { _id: new ObjectId(), name: "Cyber Tigers", region: "Asia Pacific", organizer: "0x789...ghi", tournamentId: cs2TournamentId, registeredAt: new Date(), players: [
-        { id: "7", name: "Player7" }, { id: "8", name: "Player8" }, { id: "9", name: "Player9" }
+      { _id: new ObjectId(), name: "Red Subnet", region: "Asia Pacific", organizer: "0x789...ghi", tournamentId: cs2TournamentId, registeredAt: new Date(), players: [
+        { id: "7", name: "Avalanche" }, { id: "8", name: "PangolinSwap" }, { id: "9", name: "VectorFinance" }
       ]},
-      { _id: new ObjectId(), name: "Storm Raiders", region: "South America", organizer: "0xabc...jkl", tournamentId: cs2TournamentId, registeredAt: new Date(), players: [
-        { id: "10", name: "Player10" }, { id: "11", name: "Player11" }, { id: "12", name: "Player12" }
+      { _id: new ObjectId(), name: "Validator Squad", region: "South America", organizer: "0xabc...jkl", tournamentId: cs2TournamentId, registeredAt: new Date(), players: [
+        { id: "10", name: "Lydia" }, { id: "11", name: "Yield_Yak" }, { id: "12", name: "Platypus" }
       ]},
     ];
     
@@ -62,7 +62,7 @@ async function seedTournaments() {
       tournamentId: cs2TournamentId,
       teams: cs2Teams,
       status: "completed",
-      winner: cs2Teams[0], // Summit Legends wins
+      winner: cs2Teams[0], // Avalanche Peaks wins
       createdAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000),
     };
     
@@ -80,7 +80,7 @@ async function seedTournaments() {
         status: "completed",
         organizer1Approved: true,
         organizer2Approved: true,
-        winner: cs2Teams[0], // Summit Legends wins
+        winner: cs2Teams[0], // Avalanche Peaks wins
         scheduledTime: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
         completedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
         createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
@@ -109,7 +109,7 @@ async function seedTournaments() {
         status: "completed",
         organizer1Approved: true,
         organizer2Approved: true,
-        winner: cs2Teams[0], // Summit Legends wins championship
+        winner: cs2Teams[0], // Avalanche Peaks wins championship
         scheduledTime: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
         completedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
         createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
@@ -139,17 +139,17 @@ async function seedTournaments() {
     
     // Create teams for Valorant tournament
     const valorantTeams = [
-      { _id: new ObjectId(), name: "Phoenix Squad", region: "North America", organizer: "0x111...222", tournamentId: valorantTournamentId, registeredAt: new Date(), players: [
-        { id: "13", name: "PlayerA" }, { id: "14", name: "PlayerB" }, { id: "15", name: "PlayerC" }
+      { _id: new ObjectId(), name: "Fuji Warriors", region: "North America", organizer: "0x111...222", tournamentId: valorantTournamentId, registeredAt: new Date(), players: [
+        { id: "13", name: "Bear" }, { id: "14", name: "Penguin" }, { id: "15", name: "JoeTheTrader" }
       ]},
-      { _id: new ObjectId(), name: "Viper Elite", region: "Europe West", organizer: "0x333...444", tournamentId: valorantTournamentId, registeredAt: new Date(), players: [
-        { id: "16", name: "PlayerD" }, { id: "17", name: "PlayerE" }, { id: "18", name: "PlayerF" }
+      { _id: new ObjectId(), name: "C-Chain Elite", region: "Europe West", organizer: "0x333...444", tournamentId: valorantTournamentId, registeredAt: new Date(), players: [
+        { id: "16", name: "Benqi" }, { id: "17", name: "Avalanche" }, { id: "18", name: "ColTrader" }
       ]},
-      { _id: new ObjectId(), name: "Sage Masters", region: "Asia Pacific", organizer: "0x555...666", tournamentId: valorantTournamentId, registeredAt: new Date(), players: [
-        { id: "19", name: "PlayerG" }, { id: "20", name: "PlayerH" }, { id: "21", name: "PlayerI" }
+      { _id: new ObjectId(), name: "Snowfall Guild", region: "Asia Pacific", organizer: "0x555...666", tournamentId: valorantTournamentId, registeredAt: new Date(), players: [
+        { id: "19", name: "PangolinSwap" }, { id: "20", name: "GMX" }, { id: "21", name: "VectorFinance" }
       ]},
-      { _id: new ObjectId(), name: "Jett Force", region: "South America", organizer: "0x777...888", tournamentId: valorantTournamentId, registeredAt: new Date(), players: [
-        { id: "22", name: "PlayerJ" }, { id: "23", name: "PlayerK" }, { id: "24", name: "PlayerL" }
+      { _id: new ObjectId(), name: "JOE Traders", region: "South America", organizer: "0x777...888", tournamentId: valorantTournamentId, registeredAt: new Date(), players: [
+        { id: "22", name: "Lydia" }, { id: "23", name: "Yield_Yak" }, { id: "24", name: "Platypus" }
       ]},
     ];
     
@@ -179,7 +179,7 @@ async function seedTournaments() {
         status: "completed",
         organizer1Approved: true,
         organizer2Approved: true,
-        winner: valorantTeams[0], // Phoenix Squad wins
+        winner: valorantTeams[0], // Fuji Warriors wins
         scheduledTime: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
         completedAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
         createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
@@ -215,11 +215,11 @@ async function seedTournaments() {
     
     // Create some teams for LoL tournament
     const lolTeams = [
-      { _id: new ObjectId(), name: "Rift Guardians", region: "North America", organizer: "0xaaa...bbb", tournamentId: lolTournamentId, registeredAt: new Date(), players: [
-        { id: "25", name: "PlayerM" }, { id: "26", name: "PlayerN" }, { id: "27", name: "PlayerO" }
+      { _id: new ObjectId(), name: "Subnet Guardians", region: "North America", organizer: "0xaaa...bbb", tournamentId: lolTournamentId, registeredAt: new Date(), players: [
+        { id: "25", name: "Bear" }, { id: "26", name: "Penguin" }, { id: "27", name: "JoeTheTrader" }
       ]},
-      { _id: new ObjectId(), name: "Nexus Destroyers", region: "Europe West", organizer: "0xccc...ddd", tournamentId: lolTournamentId, registeredAt: new Date(), players: [
-        { id: "28", name: "PlayerP" }, { id: "29", name: "PlayerQ" }, { id: "30", name: "PlayerR" }
+      { _id: new ObjectId(), name: "DeFi Destroyers", region: "Europe West", organizer: "0xccc...ddd", tournamentId: lolTournamentId, registeredAt: new Date(), players: [
+        { id: "28", name: "Benqi" }, { id: "29", name: "Avalanche" }, { id: "30", name: "ColTrader" }
       ]},
     ];
     

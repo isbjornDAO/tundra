@@ -45,12 +45,18 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
         config={{
           appearance: {
             theme: 'dark',
-            accentColor: '#676FFF',
+            accentColor: '#EF4444', // Red to match Tundra theme
           },
           embeddedWallets: {
             createOnLogin: 'users-without-wallets',
           },
           supportedChains: [avalanche, avalancheFuji],
+          walletConnectCloudProjectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID,
+          loginMethods: ['wallet', 'email', 'google'],
+          // Add better error handling
+          onError: (error: any) => {
+            console.error('Privy error:', error);
+          },
         }}
       >
         <WagmiProvider config={wagmiConfig}>

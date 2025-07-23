@@ -539,7 +539,7 @@ export function ClanPage({ walletAddress }: ClanPageProps) {
                   </div>
                   <div>
                     <div className="text-white font-medium">vs Fire Hawks</div>
-                    <div className="text-muted text-sm">Cozyverse • 1 week ago</div>
+                    <div className="text-muted text-sm">Counter-Strike 2 • 1 week ago</div>
                   </div>
                 </div>
                 <span className="text-green-400 font-medium">Victory</span>

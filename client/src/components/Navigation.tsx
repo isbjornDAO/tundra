@@ -80,7 +80,6 @@ export function Navigation() {
                 key={item.href}
                 href={item.href}
                 onClick={(e) => {
-                  console.log('Tournament item clicked:', item.label);
                   setShowTournamentDropdown(false);
                 }}
                 className={`block w-full px-4 py-3 text-left transition-all duration-200 flex items-center gap-3 ${

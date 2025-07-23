@@ -5,7 +5,7 @@ import { useAccount } from 'wagmi';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/hooks/useAuth';
 import TournamentMatchesSimple from '@/components/clan/TournamentMatchesSimple';
-import ClanMemberPerformance from '@/components/clan/ClanMemberPerformance';
+import RecentMatches from '@/components/clan/RecentMatches';
 
 interface Clan {
   _id: string;
@@ -372,7 +372,26 @@ function ClanContent() {
     );
   }
 
-  const ClanCard = ({ clan, isLocal = false }: { clan: Clan; isLocal?: boolean }) => (
+  const ClanCard = ({ 
+    clan, 
+    isLocal = false, 
+    user, 
+    setActiveTab, 
+    handleJoinRequest, 
+    joinRequestLoading 
+  }: { 
+    clan: Clan; 
+    isLocal?: boolean;
+    user: any;
+    setActiveTab: (tab: 'discover' | 'requests' | 'my-clan') => void;
+    handleJoinRequest: (clanId: string) => void;
+    joinRequestLoading: string | null;
+  }) => {
+    if (!clan) {
+      return <div className="card-interactive p-4 text-gray-400">Invalid clan data</div>;
+    }
+    
+    return (
     <div className="card-interactive">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -384,10 +403,10 @@ function ClanContent() {
             </div>
           )}
           <div>
-            <h3 className="text-white font-semibold">[{clan.tag}] {clan.name}</h3>
+            <h3 className="text-white font-semibold">[{clan?.tag || 'N/A'}] {clan?.name || 'Unknown'}</h3>
             <p className="text-gray-400 text-sm">
-              {isLocal ? getCountryNameFromCode(clan.country) : clan.country}
-              {clan.region && ` • ${clan.region}`}
+              {isLocal ? getCountryNameFromCode(clan?.country || '') : (clan?.country || 'Unknown')}
+              {clan?.region && ` • ${clan.region}`}
             </p>
           </div>
         </div>
@@ -402,15 +421,15 @@ function ClanContent() {
 
       <div className="grid grid-cols-3 gap-4 mb-4">
         <div className="text-center">
-          <div className="text-white font-semibold">{clan.memberCount}</div>
+          <div className="text-white font-semibold">{clan?.memberCount || 0}</div>
           <div className="text-gray-400 text-xs">Members</div>
         </div>
         <div className="text-center">
-          <div className="text-white font-semibold">{clan.stats.wins}</div>
+          <div className="text-white font-semibold">{clan?.stats?.wins || 0}</div>
           <div className="text-gray-400 text-xs">Wins</div>
         </div>
         <div className="text-center">
-          <div className="text-white font-semibold">${clan.stats.totalPrizeMoney.toLocaleString()}</div>
+          <div className="text-white font-semibold">${(clan?.stats?.totalPrizeMoney || 0).toLocaleString()}</div>
           <div className="text-gray-400 text-xs">Earnings</div>
         </div>
       </div>
@@ -419,30 +438,30 @@ function ClanContent() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-gray-400 text-xs">Leader</p>
-            <p className="text-white text-sm font-medium">@{clan.leader.username}</p>
+            <p className="text-white text-sm font-medium">@{clan?.leader?.username || 'Unknown'}</p>
           </div>
           
-          {clan.canJoin ? (
+          {clan?.canJoin ? (
             <button
               onClick={() => {
                 if (user?.clan && isLocal) {
                   setActiveTab('my-clan');
                 } else {
-                  handleJoinRequest(clan._id);
+                  handleJoinRequest(clan?._id || '');
                 }
               }}
-              disabled={joinRequestLoading === clan._id || (!!user?.clan && !isLocal) || clan.hasRequested}
+              disabled={joinRequestLoading === clan?._id || (!!user?.clan && !isLocal) || clan?.hasRequested}
               className={`btn btn-sm ${
-                clan.hasRequested 
+                clan?.hasRequested 
                   ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/20 cursor-not-allowed'
                   : (user?.clan && !isLocal)
                   ? 'bg-gray-500/20 text-gray-400 border-gray-500/20 cursor-not-allowed'
                   : 'btn-primary'
               }`}
             >
-              {joinRequestLoading === clan._id ? 'Sending...' : 
+              {joinRequestLoading === clan?._id ? 'Sending...' : 
                user?.clan ? (isLocal ? 'Enter' : 'Already in Clan') :
-               clan.hasRequested ? 'Requested' : 'Request to Join'}
+               clan?.hasRequested ? 'Requested' : 'Request to Join'}
             </button>
           ) : (
             <div className="text-xs text-gray-400 text-center">
@@ -453,7 +472,8 @@ function ClanContent() {
         </div>
       </div>
     </div>
-  );
+    );
+  };
 
   const CreateClanRequestModal = () => {
     const [formData, setFormData] = useState({
@@ -866,12 +886,16 @@ function ClanContent() {
           isClanLeader={user?.isClanLeader || false}
         />
 
-        {/* Clan Member Performance & XP */}
-        <ClanMemberPerformance clanId={user.clan._id} />
+        {/* Recent Matches */}
+        <RecentMatches clanId={user.clan._id} />
+
 
         {/* Clan Members */}
         <div className="card mb-8">
-          <h2 className="text-xl font-semibold text-white mb-4">Clan Members</h2>
+          <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+            <span className="text-purple-400">⭐</span>
+            Clan Members XP
+          </h2>
           <div className="space-y-3">
             {Array.isArray(user.clan.members) && user.clan.members.length > 0 ? (
               user.clan.members.map((member: any, index: number) => {
@@ -891,6 +915,10 @@ function ClanContent() {
                       </div>
                     </div>
                     <div className="text-right">
+                      {/* XP Display */}
+                      <div className="text-purple-400 font-semibold text-sm mb-1">
+                        {member.xp ? `${member.xp.toLocaleString()} XP` : 'No XP'}
+                      </div>
                       {member._id === user.clan.leader && (
                         <span className="status-badge status-warning text-xs">Leader</span>
                       )}
@@ -1048,7 +1076,15 @@ function ClanContent() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {localClans.map((clan) => (
-                <ClanCard key={clan._id} clan={clan} isLocal={true} />
+                <ClanCard 
+                  key={clan._id} 
+                  clan={clan} 
+                  isLocal={true}
+                  user={user}
+                  setActiveTab={setActiveTab}
+                  handleJoinRequest={handleJoinRequest}
+                  joinRequestLoading={joinRequestLoading}
+                />
               ))}
             </div>
           </div>
@@ -1066,7 +1102,15 @@ function ClanContent() {
           {globalClans.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {globalClans.map((clan) => (
-                <ClanCard key={clan._id} clan={clan} isLocal={false} />
+                <ClanCard 
+                  key={clan._id} 
+                  clan={clan} 
+                  isLocal={false}
+                  user={user}
+                  setActiveTab={setActiveTab}
+                  handleJoinRequest={handleJoinRequest}
+                  joinRequestLoading={joinRequestLoading}
+                />
               ))}
             </div>
           ) : (

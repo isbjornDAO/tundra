@@ -16,16 +16,6 @@ function ConnectWalletContent() {
   const { user, refetchUser } = useAuth();
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
-  // Debug logging
-  useEffect(() => {
-    console.log('ConnectWallet - Current state:', {
-      address,
-      isConnected,
-      authenticated,
-      user: user?.username || 'no user',
-      privyUser: privyUser?.wallet?.address || 'no privy user'
-    });
-  }, [address, isConnected, authenticated, user, privyUser]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -66,10 +56,12 @@ function ConnectWalletContent() {
       await disconnect();
       // Then logout from Privy
       await logout();
-      // Redirect to home
-      router.push('/');
+      // Redirect directly to login to avoid AuthGuard redirects
+      router.push('/login');
     } catch (error) {
       console.error('Error during logout:', error);
+      // Even if logout fails, redirect to login
+      router.push('/login');
     }
   };
 
