@@ -27,8 +27,8 @@ export async function GET(request: NextRequest) {
       isVerified: true,
       isPublic: true
     })
-    .populate('leader', 'displayName username')
-    .populate('members', 'displayName username')
+    .populate('leader', 'displayName username stats')
+    .populate('members', 'displayName username stats')
     .sort({ createdAt: -1 });
     
     // Separate local and global clans

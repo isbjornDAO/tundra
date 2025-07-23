@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { COUNTRIES } from '@/types/countries';
 import { usePrivy } from '@privy-io/react-auth';
+import { useRouter } from 'next/navigation';
+import { useDisconnect } from 'wagmi';
 
 interface UserSignupModalProps {
   isOpen: boolean;
@@ -13,6 +15,8 @@ interface UserSignupModalProps {
 
 export function UserSignupModal({ isOpen, walletAddress, onSignupComplete, onClose }: UserSignupModalProps) {
   const { logout } = usePrivy();
+  const router = useRouter();
+  const { disconnect } = useDisconnect();
   const [formData, setFormData] = useState({
     username: '',
     country: ''
@@ -97,10 +101,16 @@ export function UserSignupModal({ isOpen, walletAddress, onSignupComplete, onClo
   if (!isOpen) return null;
 
   return (
-    <div className="w-full">
-      <div className="text-center mb-4">
-        <p className="text-muted">Complete your account setup to get started</p>
-      </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+      
+      {/* Modal */}
+      <div className="relative bg-gray-900 border border-white/10 rounded-xl p-8 max-w-md w-full mx-4 shadow-2xl">
+        <h2 className="text-2xl font-bold text-white mb-2">Welcome to Tundra</h2>
+        <div className="text-center mb-6">
+          <p className="text-muted">Complete your account setup to get started</p>
+        </div>
 
       <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -110,7 +120,20 @@ export function UserSignupModal({ isOpen, walletAddress, onSignupComplete, onClo
           </span>
         </div>
         <button
-          onClick={() => logout()}
+          onClick={async () => {
+            try {
+              // Disconnect wagmi wallet first
+              await disconnect();
+              // Then logout from Privy
+              await logout();
+              // Finally redirect to login
+              router.push('/login');
+            } catch (error) {
+              console.error('Error disconnecting:', error);
+              // Even if there's an error, still try to redirect
+              router.push('/login');
+            }
+          }}
           className="text-green-400 hover:text-green-300 text-sm font-medium transition-colors"
         >
           Disconnect
@@ -212,7 +235,7 @@ export function UserSignupModal({ isOpen, walletAddress, onSignupComplete, onClo
             </button>
           </div>
         </form>
-
+      </div>
     </div>
   );
 }

@@ -19,8 +19,8 @@ export async function GET(
     }
 
     const clan = await Clan.findById(objectId)
-      .populate('leader', 'username walletAddress country')
-      .populate('members', 'username walletAddress country')
+      .populate('leader', 'username walletAddress country stats')
+      .populate('members', 'username walletAddress country stats')
       .populate('joinRequests.user', 'username walletAddress country');
 
     if (!clan) {
@@ -117,8 +117,8 @@ export async function PUT(
       objectId,
       { ...sanitizedData, updatedAt: new Date() },
       { new: true }
-    ).populate('leader', 'username walletAddress country')
-     .populate('members', 'username walletAddress country');
+    ).populate('leader', 'username walletAddress country stats')
+     .populate('members', 'username walletAddress country stats');
 
     return NextResponse.json({ 
       message: 'Clan updated successfully',

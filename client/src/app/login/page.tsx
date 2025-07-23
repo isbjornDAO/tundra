@@ -4,20 +4,124 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
+import { useAccount } from 'wagmi';
+import { COUNTRIES } from '@/types/countries';
 
 export default function LoginPage() {
-  const { ready, authenticated, login, user } = usePrivy();
+  const { ready, authenticated, login, user, logout } = usePrivy();
+  const { address, isConnected } = useAccount();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showSignupForm, setShowSignupForm] = useState(false);
+  const [checkingUser, setCheckingUser] = useState(false);
+  
+  // Signup form state
+  const [formData, setFormData] = useState({
+    username: '',
+    country: ''
+  });
+  const [signupLoading, setSignupLoading] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [checkingUsername, setCheckingUsername] = useState(false);
 
-  // If user is already authenticated, redirect them
+  // Check if user exists when wallet connects
   useEffect(() => {
-    if (ready && authenticated && user?.wallet?.address) {
-      console.log('User already authenticated, redirecting...');
-      router.push('/');
+    const checkUser = async () => {
+      const walletAddress = address || user?.wallet?.address;
+      if (!walletAddress || checkingUser) return;
+      
+      setCheckingUser(true);
+      try {
+        const response = await fetch(`/api/users?walletAddress=${walletAddress}`);
+        const data = await response.json();
+        
+        if (data.user && data.user.username && data.user.country) {
+          // User exists, redirect to home
+          router.push('/');
+        } else {
+          // User doesn't exist, show signup form
+          setShowSignupForm(true);
+        }
+      } catch (error) {
+        console.error('Error checking user:', error);
+        setShowSignupForm(true);
+      } finally {
+        setCheckingUser(false);
+      }
+    };
+
+    if (ready && authenticated && (address || user?.wallet?.address)) {
+      checkUser();
     }
-  }, [ready, authenticated, user?.wallet?.address, router]);
+  }, [ready, authenticated, address, user?.wallet?.address, router, checkingUser]);
+
+  // Check username availability
+  useEffect(() => {
+    const checkUsername = async () => {
+      if (!formData.username || formData.username.length < 3) {
+        setUsernameAvailable(null);
+        return;
+      }
+
+      setCheckingUsername(true);
+      try {
+        const response = await fetch(`/api/users/check-username?username=${encodeURIComponent(formData.username)}`);
+        const data = await response.json();
+        
+        if (response.ok) {
+          setUsernameAvailable(data.available);
+          setError(data.available ? '' : 'Username is already taken');
+        } else {
+          setError(data.error || 'Failed to check username');
+          setUsernameAvailable(false);
+        }
+      } catch (err) {
+        console.error('Error checking username:', err);
+      } finally {
+        setCheckingUsername(false);
+      }
+    };
+
+    const timer = setTimeout(checkUsername, 500);
+    return () => clearTimeout(timer);
+  }, [formData.username]);
+
+  const handleSignupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!usernameAvailable || checkingUsername) return;
+
+    const walletAddress = address || user?.wallet?.address;
+    if (!walletAddress) return;
+
+    setSignupLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress,
+          username: formData.username.toLowerCase(),
+          country: formData.country
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create account');
+      }
+
+      // Success - redirect to home
+      router.push('/');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSignupLoading(false);
+    }
+  };
 
   const handleLogin = async (isSignUp = false) => {
     console.log('handleLogin called', { ready, authenticated, isSignUp });
@@ -170,69 +274,178 @@ export default function LoginPage() {
             <div className="space-y-6">
               <div className="text-center mb-8">
                 <h2 className="text-2xl font-bold text-white mb-3">Welcome to Tundra</h2>
-                <p className="text-gray-400">Sign in to your account or create a new one</p>
+                <p className="text-gray-400">
+                  {showSignupForm ? 'Complete your account setup to get started' : 'Sign in to your account or create a new one'}
+                </p>
               </div>
               
-              <div className="space-y-3">
-                <button
-                  onClick={() => handleLogin(false)}
-                  disabled={isLoading}
-                  className="w-full bg-red-500 text-white font-bold py-5 px-6 rounded-xl hover:bg-red-600 transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                >
-                  {isLoading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Connecting...
-                    </span>
-                  ) : (
-                    <div className="flex items-center justify-center gap-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                      </svg>
-                      Sign In
+              {showSignupForm ? (
+                <>
+                  {/* Connected wallet info */}
+                  <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-400 text-sm font-medium">Connected:</span>
+                      <span className="text-green-400 text-sm font-mono">
+                        {(address || user?.wallet?.address || '').slice(0, 6)}...{(address || user?.wallet?.address || '').slice(-4)}
+                      </span>
                     </div>
-                  )}
-                </button>
-                <p className="text-gray-400 text-sm text-center">Already have an account? Sign in with your wallet</p>
-              </div>
-              
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-white/20"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-black text-gray-400">or</span>
-                </div>
-              </div>
-              
-              <div className="space-y-3">
-                <button
-                  onClick={() => handleLogin(true)}
-                  disabled={isLoading}
-                  className="w-full bg-white/10 border border-white/20 text-white font-bold py-5 px-6 rounded-xl hover:bg-white/20 hover:border-white/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Connecting...
-                    </span>
-                  ) : (
-                    <div className="flex items-center justify-center gap-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                      </svg>
-                      Sign Up
+                    <button
+                      onClick={async () => {
+                        await logout();
+                        setShowSignupForm(false);
+                      }}
+                      className="text-green-400 hover:text-green-300 text-sm font-medium transition-colors"
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+
+                  {/* Signup form */}
+                  <form onSubmit={handleSignupSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">Username</label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={formData.username}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (/^[a-zA-Z0-9_]*$/.test(value) || value === '') {
+                              setFormData({ ...formData, username: value });
+                            }
+                          }}
+                          className={`w-full px-4 py-3 bg-white/5 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors ${
+                            formData.username.length >= 3 && !checkingUsername
+                              ? usernameAvailable
+                                ? 'border-green-500/50'
+                                : 'border-red-500/50'
+                              : 'border-white/10'
+                          }`}
+                          placeholder="Choose a unique username"
+                          required
+                          minLength={3}
+                          maxLength={20}
+                        />
+                        {formData.username.length >= 3 && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            {checkingUsername ? (
+                              <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                            ) : usernameAvailable ? (
+                              <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">
+                        3-20 characters, letters, numbers, and underscores only
+                      </p>
                     </div>
-                  )}
-                </button>
-                <p className="text-gray-400 text-sm text-center">New to Tundra? Create your account to get started</p>
-              </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">Country</label>
+                      <select
+                        value={formData.country}
+                        onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors"
+                        required
+                      >
+                        <option value="" className="bg-gray-900">Select your country</option>
+                        {COUNTRIES.map((country) => (
+                          <option key={country.code} value={country.code} className="bg-gray-900">
+                            {country.flag} {country.name}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Note: Country cannot be changed later
+                      </p>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full bg-red-500 text-white font-bold py-4 px-6 rounded-xl hover:bg-red-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={
+                        signupLoading || 
+                        !formData.username || 
+                        !formData.country ||
+                        checkingUsername ||
+                        (formData.username.length >= 3 && !usernameAvailable)
+                      }
+                    >
+                      {signupLoading ? 'Creating Account...' : 'Create Account'}
+                    </button>
+                  </form>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => handleLogin(false)}
+                      disabled={isLoading}
+                      className="w-full bg-red-500 text-white font-bold py-5 px-6 rounded-xl hover:bg-red-600 transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    >
+                      {isLoading ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Connecting...
+                        </span>
+                      ) : (
+                        <div className="flex items-center justify-center gap-2">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                          </svg>
+                          Sign In
+                        </div>
+                      )}
+                    </button>
+                    <p className="text-gray-400 text-sm text-center">Already have an account? Sign in with your wallet</p>
+                  </div>
+                  
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-white/20"></div>
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="px-2 bg-black text-gray-400">or</span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => handleLogin(true)}
+                      disabled={isLoading}
+                      className="w-full bg-white/10 border border-white/20 text-white font-bold py-5 px-6 rounded-xl hover:bg-white/20 hover:border-white/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isLoading ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Connecting...
+                        </span>
+                      ) : (
+                        <div className="flex items-center justify-center gap-2">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                          </svg>
+                          Sign Up
+                        </div>
+                      )}
+                    </button>
+                    <p className="text-gray-400 text-sm text-center">New to Tundra? Create your account to get started</p>
+                  </div>
+                </>
+              )}
             </div>
           </motion.div>
         </div>

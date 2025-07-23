@@ -144,6 +144,7 @@ export async function GET(request: Request) {
     // Populate team/clan data for each match
     const teamsCol = db.collection("teams");
     const clansCol = db.collection("clans");
+    const usersCol = db.collection("users");
     
     for (let match of matches) {
       // Handle new format: clan1/clan2
@@ -160,11 +161,24 @@ export async function GET(request: Request) {
         }
         
         if (clan1) {
+          // Populate members with user data
+          const memberUsers = await usersCol.find({ 
+            _id: { $in: (clan1.members || []).map((m: any) => {
+              try { return new ObjectId(m.toString()); } 
+              catch { return m; }
+            })}
+          }).toArray();
+          
           match.clan1 = {
             _id: clan1._id,
             name: clan1.name,
             tag: clan1.tag,
-            leader: clan1.leader
+            leader: clan1.leader,
+            members: memberUsers.map(user => ({
+              _id: user._id,
+              username: user.username,
+              displayName: user.displayName
+            }))
           };
         }
       }
@@ -182,11 +196,24 @@ export async function GET(request: Request) {
         }
         
         if (clan2) {
+          // Populate members with user data
+          const memberUsers = await usersCol.find({ 
+            _id: { $in: (clan2.members || []).map((m: any) => {
+              try { return new ObjectId(m.toString()); } 
+              catch { return m; }
+            })}
+          }).toArray();
+          
           match.clan2 = {
             _id: clan2._id,
             name: clan2.name,
             tag: clan2.tag,
-            leader: clan2.leader
+            leader: clan2.leader,
+            members: memberUsers.map(user => ({
+              _id: user._id,
+              username: user.username,
+              displayName: user.displayName
+            }))
           };
         }
       }

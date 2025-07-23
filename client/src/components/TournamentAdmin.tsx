@@ -78,6 +78,9 @@ export function TournamentAdmin() {
   // Team1 Host Dashboard state
   const [hostTournaments, setHostTournaments] = useState<Tournament[]>([]);
   const [submitting, setSubmitting] = useState<string | null>(null);
+  const [cleaningDuplicates, setCleaningDuplicates] = useState<string | null>(null);
+  const [fixingFinals, setFixingFinals] = useState<string | null>(null);
+  const [forceDeleting, setForceDeleting] = useState<string | null>(null);
   
   
   // Schedule management state
@@ -165,29 +168,38 @@ export function TournamentAdmin() {
     }
   };
 
-  const handleResolveConflict = async (matchId: string, winnerId: string) => {
+  const handleResolveConflict = async (matchId: string, resolutionData: {
+    clan1Score: number;
+    clan2Score: number;
+    playerPerformances: any[];
+  }) => {
     if (!address) return;
     
     setSubmitting(matchId);
     
     try {
+      const requestData = {
+        matchId,
+        walletAddress: address,
+        resolveConflict: true,
+        resolutionData,
+        completedAt: new Date().toISOString()
+      };
+      
+      console.log('Sending conflict resolution request:', requestData);
+      
       const response = await fetch('/api/tournaments/matches/admin', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          matchId,
-          winnerId,
-          walletAddress: address,
-          resolveConflict: true,
-          completedAt: new Date().toISOString()
-        }),
+        body: JSON.stringify(requestData),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to resolve conflict');
+        console.error('Server error response:', errorData);
+        throw new Error(errorData.details || errorData.error || 'Failed to resolve conflict');
       }
 
       await response.json();
@@ -197,9 +209,138 @@ export function TournamentAdmin() {
       
     } catch (error) {
       console.error('Error resolving conflict:', error);
+      console.error('Full error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
       alert(`Error resolving conflict: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setSubmitting(null);
+    }
+  };
+
+  const handleFixFinals = async (tournamentId: string) => {
+    if (!address) return;
+    
+    setFixingFinals(tournamentId);
+    
+    try {
+      const response = await fetch('/api/tournaments/fix-finals', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tournamentId
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fix finals');
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        alert(`Success: ${result.message}\n\nFinals: ${result.finalsMatch.clan1} vs ${result.finalsMatch.clan2}`);
+        // Refresh tournaments to show updated results
+        await fetchHostTournaments();
+      } else {
+        alert(result.message || 'Failed to fix finals');
+      }
+      
+    } catch (error) {
+      console.error('Error fixing finals:', error);
+      alert(`Error fixing finals: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setFixingFinals(null);
+    }
+  };
+
+  const handleCleanupDuplicates = async (tournamentId: string) => {
+    if (!address) return;
+    
+    setCleaningDuplicates(tournamentId);
+    
+    try {
+      const response = await fetch('/api/tournaments/cleanup-finals', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tournamentId
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to cleanup duplicates');
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        alert(`Success: ${result.message}`);
+        // Refresh tournaments to show updated results
+        await fetchHostTournaments();
+      } else {
+        alert(result.message || 'No duplicates found');
+      }
+      
+    } catch (error) {
+      console.error('Error cleaning up duplicates:', error);
+      alert(`Error cleaning up duplicates: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setCleaningDuplicates(null);
+    }
+  };
+
+  const handleForceDelete = async (tournamentId: string, tournamentName: string) => {
+    if (!address) return;
+    
+    const confirmed = confirm(`⚠️ FORCE DELETE WARNING ⚠️\n\nThis will permanently delete the "${tournamentName}" tournament and ALL related data:\n- Tournament record\n- Bracket data\n- All matches\n- All registrations\n\nThis action CANNOT be undone.\n\nAre you absolutely sure?`);
+    
+    if (!confirmed) return;
+    
+    // Double confirmation for safety
+    const doubleConfirmed = confirm(`Final confirmation: Delete "${tournamentName}" tournament forever?`);
+    if (!doubleConfirmed) return;
+    
+    setForceDeleting(tournamentId);
+    
+    try {
+      const response = await fetch('/api/tournaments/delete-by-id', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tournamentId
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to force delete tournament');
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        alert(`✅ Success: ${result.message}\n\nDeleted:\n- Tournament: ${result.deletedData.tournament}\n- Bracket: ${result.deletedData.bracket}\n- Matches: ${result.deletedData.matches}\n- Registrations: ${result.deletedData.registrations}`);
+        // Refresh tournaments to show updated list
+        refetch();
+      } else {
+        alert('Failed to delete tournament');
+      }
+      
+    } catch (error) {
+      console.error('Error force deleting tournament:', error);
+      alert(`Error force deleting tournament: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setForceDeleting(null);
     }
   };
 
@@ -431,8 +572,14 @@ export function TournamentAdmin() {
                   tournament={tournament}
                   onGenerateBracket={handleGenerateBracket}
                   onDeleteTournament={handleDeleteTournament}
+                  onCleanupDuplicates={handleCleanupDuplicates}
+                  onFixFinals={handleFixFinals}
+                  onForceDelete={handleForceDelete}
                   generateBracketPending={generateBracket.isPending}
                   deleteTournamentPending={deleteTournament.isPending}
+                  cleaningDuplicates={cleaningDuplicates === tournament._id}
+                  fixingFinals={fixingFinals === tournament._id}
+                  forceDeleting={forceDeleting === tournament._id}
                 />
               ))}
               
@@ -489,20 +636,11 @@ export function TournamentAdmin() {
                               )}
                               
                               {match.status === 'results_conflict' && (
-                                <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 mb-3">
-                                  <div className="text-red-400 text-sm font-medium mb-2">
-                                    ⚠️ RESULTS CONFLICT DETECTED
-                                  </div>
-                                  <div className="text-gray-300 text-xs mb-2">
-                                    Both teams submitted different scores. Admin resolution required.
-                                  </div>
-                                  {match.conflictData && (
-                                    <div className="text-xs text-gray-400 space-y-1">
-                                      <div>📊 Submission 1: {match.conflictData.submission1?.score?.clan1Score || 0} - {match.conflictData.submission1?.score?.clan2Score || 0}</div>
-                                      <div>📊 Submission 2: {match.conflictData.submission2?.score?.clan1Score || 0} - {match.conflictData.submission2?.score?.clan2Score || 0}</div>
-                                    </div>
-                                  )}
-                                </div>
+                                <ConflictResolutionInterface 
+                                  match={match}
+                                  onResolveConflict={handleResolveConflict}
+                                  submitting={submitting === match._id}
+                                />
                               )}
                               
                               {match.status === 'results_pending' && (
@@ -544,27 +682,6 @@ export function TournamentAdmin() {
                               </div>
                             )}
                             
-                            {match.status === 'results_conflict' && match.team1 && match.team2 && (
-                              <div className="flex flex-col gap-2 ml-4">
-                                <div className="text-xs text-red-400 font-medium mb-1">RESOLVE CONFLICT:</div>
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={() => handleResolveConflict(match._id, match.team1!.id)}
-                                    disabled={submitting === match._id}
-                                    className="px-3 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
-                                  >
-                                    {submitting === match._id ? 'Resolving...' : `Award to ${match.team1.name}`}
-                                  </button>
-                                  <button
-                                    onClick={() => handleResolveConflict(match._id, match.team2!.id)}
-                                    disabled={submitting === match._id}
-                                    className="px-3 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
-                                  >
-                                    {submitting === match._id ? 'Resolving...' : `Award to ${match.team2.name}`}
-                                  </button>
-                                </div>
-                              </div>
-                            )}
                           </div>
                         </div>
                       ))}
@@ -668,11 +785,17 @@ interface TournamentCardProps {
   tournament: any;
   onGenerateBracket: (tournamentId: string) => void;
   onDeleteTournament: (tournamentId: string, tournamentName: string) => void;
+  onCleanupDuplicates: (tournamentId: string) => void;
+  onFixFinals: (tournamentId: string) => void;
+  onForceDelete: (tournamentId: string, tournamentName: string) => void;
   generateBracketPending: boolean;
   deleteTournamentPending: boolean;
+  cleaningDuplicates: boolean;
+  fixingFinals: boolean;
+  forceDeleting: boolean;
 }
 
-function TournamentCard({ tournament, onGenerateBracket, onDeleteTournament, generateBracketPending, deleteTournamentPending }: TournamentCardProps) {
+function TournamentCard({ tournament, onGenerateBracket, onDeleteTournament, onCleanupDuplicates, onFixFinals, onForceDelete, generateBracketPending, deleteTournamentPending, cleaningDuplicates, fixingFinals, forceDeleting }: TournamentCardProps) {
   const { data: teamsData } = useTeams(tournament._id);
   const teams = teamsData?.teams || [];
 
@@ -746,6 +869,20 @@ function TournamentCard({ tournament, onGenerateBracket, onDeleteTournament, gen
         </div>
       )}
 
+      {/* Force Delete Button - Always available for admins */}
+      <div className="mb-4">
+        <button
+          onClick={() => onForceDelete(tournament._id, tournament.game)}
+          disabled={forceDeleting}
+          className="py-2 px-4 bg-red-800 hover:bg-red-900 disabled:bg-red-900 disabled:cursor-not-allowed text-white font-medium rounded-md transition-colors border-2 border-red-600"
+        >
+          {forceDeleting ? "Force Deleting..." : "⚠️ Force Delete"}
+        </button>
+        <div className="text-xs text-red-400 mt-1">
+          Permanently deletes tournament and all data
+        </div>
+      </div>
+
       {tournament.status === "full" && !tournament.bracketId && (
         <button
           onClick={() => onGenerateBracket(tournament._id)}
@@ -757,7 +894,7 @@ function TournamentCard({ tournament, onGenerateBracket, onDeleteTournament, gen
       )}
 
       {tournament.bracketId && (
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
           <span className="text-green-400 text-sm font-medium">✓ Bracket Generated</span>
           <button
             onClick={() => window.open(`/tournaments/bracket?tournamentId=${tournament._id}`, "_blank")}
@@ -765,6 +902,24 @@ function TournamentCard({ tournament, onGenerateBracket, onDeleteTournament, gen
           >
             View Bracket
           </button>
+          {(tournament.status === "active" || tournament.status === "full") && (
+            <>
+              <button
+                onClick={() => onCleanupDuplicates(tournament._id)}
+                disabled={cleaningDuplicates}
+                className="py-1 px-3 bg-orange-600 hover:bg-orange-700 disabled:bg-orange-800 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
+              >
+                {cleaningDuplicates ? "Cleaning..." : "🧹 Fix Duplicates"}
+              </button>
+              <button
+                onClick={() => onFixFinals(tournament._id)}
+                disabled={fixingFinals}
+                className="py-1 px-3 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
+              >
+                {fixingFinals ? "Fixing..." : "🎯 Fix Finals"}
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -785,6 +940,270 @@ function TournamentCard({ tournament, onGenerateBracket, onDeleteTournament, gen
             ))}
           </div>
         </details>
+      )}
+    </div>
+  );
+}
+
+interface ConflictResolutionProps {
+  match: any;
+  onResolveConflict: (matchId: string, resolutionData: {
+    clan1Score: number;
+    clan2Score: number;
+    playerPerformances: any[];
+  }) => void;
+  submitting: boolean;
+}
+
+function ConflictResolutionInterface({ match, onResolveConflict, submitting }: ConflictResolutionProps) {
+  const [showResolutionForm, setShowResolutionForm] = useState(false);
+  const [clan1Score, setClan1Score] = useState(0);
+  const [clan2Score, setClan2Score] = useState(0);
+  const [playerPerformances, setPlayerPerformances] = useState<any[]>([]);
+
+  useEffect(() => {
+    // Initialize form with data from one of the submissions
+    if (match.resultsSubmissions?.clan1?.score) {
+      setClan1Score(match.resultsSubmissions.clan1.score.clan1Score || 0);
+      setClan2Score(match.resultsSubmissions.clan1.score.clan2Score || 0);
+    } else if (match.conflictData?.submission1?.score) {
+      setClan1Score(match.conflictData.submission1.score.clan1Score || 0);
+      setClan2Score(match.conflictData.submission1.score.clan2Score || 0);
+    }
+
+    // Initialize player performances from both submissions
+    const allPlayers = [];
+    const submission1 = match.resultsSubmissions?.clan1 || match.conflictData?.submission1;
+    const submission2 = match.resultsSubmissions?.clan2 || match.conflictData?.submission2;
+    
+    if (submission1?.playerPerformances) {
+      submission1.playerPerformances.forEach((perf: any) => {
+        allPlayers.push({
+          userId: perf.userId,
+          username: perf.username,
+          clanId: match.team1?.id || match.clan1,
+          clanName: match.team1?.name || 'Team 1',
+          kills: perf.kills || 0,
+          deaths: perf.deaths || 0,
+          assists: perf.assists || 0,
+          score: perf.score || 0,
+          mvp: perf.mvp || false
+        });
+      });
+    }
+    
+    if (submission2?.playerPerformances) {
+      submission2.playerPerformances.forEach((perf: any) => {
+        allPlayers.push({
+          userId: perf.userId,
+          username: perf.username,
+          clanId: match.team2?.id || match.clan2,
+          clanName: match.team2?.name || 'Team 2',
+          kills: perf.kills || 0,
+          deaths: perf.deaths || 0,
+          assists: perf.assists || 0,
+          score: perf.score || 0,
+          mvp: perf.mvp || false
+        });
+      });
+    }
+    
+    setPlayerPerformances(allPlayers);
+  }, [match.conflictData, match.resultsSubmissions, match.team1, match.team2, match.clan1, match.clan2]);
+
+  const updatePlayerPerformance = (index: number, field: string, value: any) => {
+    const updated = [...playerPerformances];
+    updated[index] = { ...updated[index], [field]: value };
+    setPlayerPerformances(updated);
+  };
+
+  const handleSubmitResolution = () => {
+    onResolveConflict(match._id, {
+      clan1Score,
+      clan2Score,
+      playerPerformances
+    });
+    setShowResolutionForm(false);
+  };
+
+  if (!match.conflictData && !match.resultsSubmissions) return null;
+
+  // Use detailed resultsSubmissions if available, otherwise fall back to conflictData
+  const submission1 = match.resultsSubmissions?.clan1 || match.conflictData?.submission1;
+  const submission2 = match.resultsSubmissions?.clan2 || match.conflictData?.submission2;
+
+  return (
+    <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 mb-3">
+      <div className="text-red-400 text-sm font-medium mb-3 flex items-center gap-2">
+        ⚠️ RESULTS CONFLICT DETECTED
+        <button
+          onClick={() => setShowResolutionForm(!showResolutionForm)}
+          className="ml-auto px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded-md transition-colors"
+        >
+          {showResolutionForm ? 'Hide Resolution' : 'Resolve Conflict'}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        {/* Submission 1 */}
+        <div className="bg-black/20 border border-white/10 rounded-lg p-3">
+          <div className="text-white font-medium mb-2">
+            {match.team1?.name || 'Team 1'} Submission
+          </div>
+          <div className="text-sm text-gray-300 mb-2">
+            Score: {submission1?.score?.clan1Score || 0} - {submission1?.score?.clan2Score || 0}
+          </div>
+          <div className="text-xs text-gray-400 mb-2">
+            Submitted: {submission1?.submittedAt ? new Date(submission1.submittedAt).toLocaleString() : 'Unknown'}
+          </div>
+          {submission1?.playerPerformances && (
+            <div className="space-y-1">
+              <div className="text-xs text-gray-400 font-medium">Player Performances:</div>
+              {submission1.playerPerformances.map((perf: any, idx: number) => (
+                <div key={idx} className="text-xs text-gray-300">
+                  {perf.username || `Player ${idx + 1}`}: {perf.kills || 0}K/{perf.deaths || 0}D/{perf.assists || 0}A (Score: {perf.score || 0})
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Submission 2 */}
+        <div className="bg-black/20 border border-white/10 rounded-lg p-3">
+          <div className="text-white font-medium mb-2">
+            {match.team2?.name || 'Team 2'} Submission
+          </div>
+          <div className="text-sm text-gray-300 mb-2">
+            Score: {submission2?.score?.clan1Score || 0} - {submission2?.score?.clan2Score || 0}
+          </div>
+          <div className="text-xs text-gray-400 mb-2">
+            Submitted: {submission2?.submittedAt ? new Date(submission2.submittedAt).toLocaleString() : 'Unknown'}
+          </div>
+          {submission2?.playerPerformances && (
+            <div className="space-y-1">
+              <div className="text-xs text-gray-400 font-medium">Player Performances:</div>
+              {submission2.playerPerformances.map((perf: any, idx: number) => (
+                <div key={idx} className="text-xs text-gray-300">
+                  {perf.username || `Player ${idx + 1}`}: {perf.kills || 0}K/{perf.deaths || 0}D/{perf.assists || 0}A (Score: {perf.score || 0})
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {showResolutionForm && (
+        <div className="bg-black/30 border border-white/20 rounded-lg p-4">
+          <div className="text-white font-medium mb-4">Enter Correct Results</div>
+          
+          {/* Score Input */}
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm text-gray-300 mb-1">
+                {match.team1?.name || 'Team 1'} Score
+              </label>
+              <input
+                type="number"
+                value={clan1Score}
+                onChange={(e) => setClan1Score(parseInt(e.target.value) || 0)}
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-300 mb-1">
+                {match.team2?.name || 'Team 2'} Score
+              </label>
+              <input
+                type="number"
+                value={clan2Score}
+                onChange={(e) => setClan2Score(parseInt(e.target.value) || 0)}
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+          </div>
+
+          {/* Player Performances */}
+          {playerPerformances.length > 0 && (
+            <div className="mb-6">
+              <div className="text-white font-medium mb-3">Correct Player Performances</div>
+              <div className="space-y-3">
+                {playerPerformances.map((player, index) => (
+                  <div key={index} className="bg-black/20 border border-white/10 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="text-white font-medium">
+                        {player.username} ({player.clanName})
+                      </div>
+                      <label className="flex items-center gap-2 text-sm text-yellow-400">
+                        <input
+                          type="checkbox"
+                          checked={player.mvp}
+                          onChange={(e) => updatePlayerPerformance(index, 'mvp', e.target.checked)}
+                          className="rounded"
+                        />
+                        MVP
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1">Kills</label>
+                        <input
+                          type="number"
+                          value={player.kills}
+                          onChange={(e) => updatePlayerPerformance(index, 'kills', parseInt(e.target.value) || 0)}
+                          className="w-full px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1">Deaths</label>
+                        <input
+                          type="number"
+                          value={player.deaths}
+                          onChange={(e) => updatePlayerPerformance(index, 'deaths', parseInt(e.target.value) || 0)}
+                          className="w-full px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1">Assists</label>
+                        <input
+                          type="number"
+                          value={player.assists}
+                          onChange={(e) => updatePlayerPerformance(index, 'assists', parseInt(e.target.value) || 0)}
+                          className="w-full px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1">Score</label>
+                        <input
+                          type="number"
+                          value={player.score}
+                          onChange={(e) => updatePlayerPerformance(index, 'score', parseInt(e.target.value) || 0)}
+                          className="w-full px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <button
+              onClick={handleSubmitResolution}
+              disabled={submitting}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md transition-colors"
+            >
+              {submitting ? 'Resolving...' : 'Submit Resolution'}
+            </button>
+            <button
+              onClick={() => setShowResolutionForm(false)}
+              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-md transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

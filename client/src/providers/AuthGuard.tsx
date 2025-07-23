@@ -5,7 +5,6 @@ import { useAccount } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
 import { ConnectWallet } from '@/components/ConnectWallet';
 import { useRouter, usePathname } from 'next/navigation';
-import { UserSignupModal } from '@/components/UserSignupModal';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -196,19 +195,22 @@ export function AuthGuard({ children }: AuthGuardProps) {
     return <>{children}</>;
   }
 
-  // Needs signup
-  if (needsSignup) {
-    const walletAddress = address || privyUser?.wallet?.address;
+  // Still loading user data
+  if (loading) {
     return (
-      <>
-        {children}
-        <UserSignupModal
-          isOpen={needsSignup && isWalletConnected && !!walletAddress}
-          walletAddress={walletAddress || ''}
-          onSignupComplete={handleSignupComplete}
-          onClose={() => {}}
-        />
-      </>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg text-white">Loading user data...</div>
+      </div>
+    );
+  }
+
+  // Needs signup - redirect to login page
+  if (needsSignup) {
+    router.push('/login');
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg text-white">Redirecting to complete signup...</div>
+      </div>
     );
   }
 

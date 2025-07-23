@@ -228,12 +228,15 @@ export default function RecentMatches({ clanId }: RecentMatchesProps) {
                             const perfClanId = perf.clanId?.toString();
                             return perfClanId === userClan?._id?.toString();
                           })
+                          .filter((perf: any, index: number, arr: any[]) => 
+                            arr.findIndex(p => p.userId?._id === perf.userId?._id) === index
+                          )
                           .sort((a: any, b: any) => (b.kills || 0) - (a.kills || 0))
                           .slice(0, 2)
                           .map((perf: any, idx: number) => {
                             const kd = perf.deaths > 0 ? (perf.kills / perf.deaths).toFixed(1) : perf.kills;
                             return (
-                              <div key={idx} className="flex justify-between items-center text-gray-400">
+                              <div key={perf.userId?._id || idx} className="flex justify-between items-center text-gray-400">
                                 <button
                                   onClick={() => openUserProfile(perf.userId)}
                                   className="truncate mr-2 hover:text-blue-400 transition-colors cursor-pointer text-left"
@@ -259,12 +262,15 @@ export default function RecentMatches({ clanId }: RecentMatchesProps) {
                             const perfClanId = perf.clanId?.toString();
                             return perfClanId === opponent?._id?.toString();
                           })
+                          .filter((perf: any, index: number, arr: any[]) => 
+                            arr.findIndex(p => p.userId?._id === perf.userId?._id) === index
+                          )
                           .sort((a: any, b: any) => (b.kills || 0) - (a.kills || 0))
                           .slice(0, 2)
                           .map((perf: any, idx: number) => {
                             const kd = perf.deaths > 0 ? (perf.kills / perf.deaths).toFixed(1) : perf.kills;
                             return (
-                              <div key={idx} className="flex justify-between items-center text-gray-400">
+                              <div key={perf.userId?._id || idx} className="flex justify-between items-center text-gray-400">
                                 <button
                                   onClick={() => openUserProfile(perf.userId)}
                                   className="truncate mr-2 hover:text-blue-400 transition-colors cursor-pointer text-left"

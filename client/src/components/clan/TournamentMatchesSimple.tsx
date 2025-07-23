@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 
 interface TournamentMatchesProps {
   userAddress: string;
@@ -9,7 +9,10 @@ interface TournamentMatchesProps {
 }
 
 export default function TournamentMatchesSimple({ userAddress, clanId, isClanLeader }: TournamentMatchesProps) {
+  console.log('TournamentMatchesSimple component mounted with:', { userAddress, clanId, isClanLeader });
+  
   const [matches, setMatches] = useState<any[]>([]);
+  const fetchedRef = useRef<string>(''); // Track what we've fetched to prevent duplicates
   
   const [timeProposals, setTimeProposals] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
@@ -79,9 +82,18 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
         setLoading(false);
         return;
       }
+      
+      // Create a unique key for this fetch
+      const fetchKey = `${clanId}-${userAddress}`;
+      
+      // Prevent re-fetching the same data
+      if (fetchedRef.current === fetchKey) {
+        return;
+      }
 
       try {
         setLoading(true);
+        fetchedRef.current = fetchKey; // Mark as fetched
         
         // Fetch tournaments
         const tournamentsResponse = await fetch('/api/tournaments/mongo');
@@ -142,6 +154,7 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
             }
           }
           
+          console.log('Setting matches:', clanMatches.length, clanMatches);
           setMatches(clanMatches);
           
           // Fetch rosters for each match
@@ -163,6 +176,7 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
           rosterResults.forEach(result => {
             rostersMap[result.matchId] = result.rosters;
           });
+          console.log('Fetched match rosters:', rostersMap);
           setMatchRosters(rostersMap);
           
           // Fetch time proposals for each match (only one proposal per match)
@@ -302,9 +316,9 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
       });
 
       if (response.ok) {
-        const actionPast = action === 'accept' ? 'accepted' : 'rejected';
+        const actionPast = action === 'accepted' ? 'accepted' : 'rejected';
         setSuccessMessage(`Time proposal ${actionPast} successfully!`);
-        setSuccessDetails(action === 'accept' 
+        setSuccessDetails(action === 'accepted' 
           ? 'The match is now scheduled. Both teams will be notified of the confirmed time.'
           : 'The proposed time has been declined. Your opponent can propose a new time.'
         );
@@ -397,6 +411,8 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
   };
 
 
+  console.log('TournamentMatchesSimple render state:', { loading, matchesLength: matches.length });
+
   if (loading) {
     return (
       <div className="card mb-8">
@@ -419,26 +435,80 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
         )}
       </h2>
 
-      {matches.length === 0 ? (
-        <div className="text-center py-8">
-          <div className="text-gray-400 mb-2">No active tournament matches</div>
-          <div className="text-sm text-gray-500">
-            {isClanLeader 
-              ? 'Register your clan for tournaments to see active matches here'
-              : 'Your clan leader can register for tournaments'
+      {(() => {
+        // Filter out matches that can't be rendered properly
+        const renderableMatches = matches.filter((match: any) => {
+          console.log('Filtering match:', match._id, {
+            hasClan1: !!match.clan1,
+            hasClan2: !!match.clan2,
+            hasTeam1: !!match.team1, 
+            hasTeam2: !!match.team2,
+            clan1Id: match.clan1?._id,
+            clan2Id: match.clan2?._id,
+            userClanId: clanId,
+            clan1Leader: match.clan1?.leader,
+            clan2Leader: match.clan2?.leader,
+            userAddress: userAddress
+          });
+          
+          if (!match || !match._id || (!match.clan1 && !match.clan2 && !match.team1 && !match.team2)) {
+            console.log('Match filtered out: missing basic data');
+            return false;
+          }
+          
+          // Check if we can determine user clan and opponent
+          const isClan1 = match.clan1?._id?.toString() === clanId?.toString() || match.clan1?.leader?.toLowerCase() === userAddress?.toLowerCase();
+          const isClan2 = match.clan2?._id?.toString() === clanId?.toString() || match.clan2?.leader?.toLowerCase() === userAddress?.toLowerCase();
+          const isTeam1 = match.team1?.organizer?.toLowerCase() === userAddress?.toLowerCase();
+          const isTeam2 = match.team2?.organizer?.toLowerCase() === userAddress?.toLowerCase();
+          
+          const isUserMatch = isClan1 || isClan2 || isTeam1 || isTeam2;
+          console.log('Match user check:', { isClan1, isClan2, isTeam1, isTeam2, isUserMatch });
+          
+          // Additional check: make sure we have both clans/teams for proper rendering
+          if (isUserMatch) {
+            const hasValidOpponent = (match.clan1 && match.clan2) || (match.team1 && match.team2);
+            console.log('Opponent check:', { hasValidOpponent });
+            if (!hasValidOpponent) {
+              console.log('Match filtered out: missing opponent data');
+              return false;
             }
-          </div>
-          <div className="text-xs text-gray-600 mt-2">
-            Completed matches are shown in the "Recent Matches" section below
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {matches.map((match: any, index: number) => {
-            // Early return if match is null/undefined
-            if (!match) {
-              return null;
-            }
+          }
+          
+          return isUserMatch;
+        });
+        
+        console.log('Renderable matches count:', renderableMatches.length);
+        
+        if (renderableMatches.length === 0) {
+          return (
+            <div className="text-center py-8">
+              <div className="text-gray-400 mb-2">No current matches</div>
+              <div className="text-sm text-gray-500">
+                {isClanLeader 
+                  ? 'Register your clan for tournaments to see active matches here'
+                  : 'Your clan leader can register for tournaments'
+                }
+              </div>
+            </div>
+          );
+        }
+        
+        return (
+          <div className="space-y-6">
+            {renderableMatches.map((match: any, index: number) => {
+            try {
+              // Early return if match is null/undefined or missing essential data
+              if (!match || !match._id) {
+                console.warn('Skipping match with no ID:', match);
+                return null;
+              }
+              
+              // Check for essential match data
+              if (!match.clan1 && !match.clan2 && !match.team1 && !match.team2) {
+                console.warn('Skipping match with no teams/clans:', match._id);
+                return null;
+              }
             
             // Support both old (team1/team2) and new (clan1/clan2) formats
             let opponent, userClan, isUserClan1;
@@ -456,6 +526,12 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
               isUserClan1 = isUserTeam1; // Use the same variable name for consistency
             }
             
+            // Safety check - if we can't determine opponent or user clan, skip this match
+            if (!opponent || !userClan) {
+              console.warn('Unable to determine opponent or user clan for match:', match._id);
+              return null;
+            }
+            
             // Only one proposal at a time - get the most recent pending one
             const matchProposals = timeProposals?.[match?._id] || [];
             const activeProposal = matchProposals.find((p: any) => p.status === 'pending') || null;
@@ -467,8 +543,18 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
             const needsResponse = match?.status === 'scheduling' && activeProposal && !isMyProposal;
             const waitingForResponse = match?.status === 'scheduling' && activeProposal && isMyProposal;
             // Check if match is live (active status or ready with passed time)
-            const isLive = match?.status === 'active' || (match?.scheduledAt && new Date(match.scheduledAt) <= new Date() && match?.status === 'ready');
-            const needsResults = match?.status === 'active' || (match?.scheduledAt && new Date(match.scheduledAt) <= new Date() && (match?.status === 'ready' || match?.status === 'active')) && match?.status !== 'completed';
+            const isLive = match?.status === 'active' || (
+              match?.scheduledAt && 
+              match?.status === 'ready' &&
+              !isNaN(new Date(match.scheduledAt).getTime()) &&
+              new Date(match.scheduledAt) <= new Date()
+            );
+            const needsResults = match?.status === 'active' || (
+              match?.scheduledAt && 
+              !isNaN(new Date(match.scheduledAt).getTime()) &&
+              new Date(match.scheduledAt) <= new Date() && 
+              (match?.status === 'ready' || match?.status === 'active')
+            ) && match?.status !== 'completed';
             const isResultsPending = match?.status === 'results_pending';
             const isResultsConflict = match?.status === 'results_conflict';
             const hasUserClanSubmitted = match?.resultsSubmissions?.[isUserClan1 ? 'clan1' : 'clan2']?.submitted || false;
@@ -481,10 +567,25 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
             const canSubmitResults = ((needsResults || isResultsPending || isLegacyCompletedMatch) && !hasUserClanSubmitted && !(submittedResults?.[match?._id]) && (!isMatchFinalized || isLegacyCompletedMatch));
             
             
-            // Roster management
+            // Roster management - use match rosters if set, otherwise use all clan members
             const matchRoster = matchRosters?.[match?._id] || { clan1: [], clan2: [] };
-            const userClanRoster = isUserClan1 ? matchRoster.clan1 : matchRoster.clan2;
-            const opponentClanRoster = isUserClan1 ? matchRoster.clan2 : matchRoster.clan1;
+            let userClanRoster = isUserClan1 ? matchRoster.clan1 : matchRoster.clan2;
+            let opponentClanRoster = isUserClan1 ? matchRoster.clan2 : matchRoster.clan1;
+            
+            // If no roster set, use all clan members as fallback for results submission
+            if ((!userClanRoster || userClanRoster.length === 0) && userClan?.members && Array.isArray(userClan.members)) {
+              userClanRoster = userClan.members.map((member: any) => ({
+                userId: member?._id || member,
+                username: member?.username || member?.displayName || 'Unknown'
+              })).filter(Boolean);
+            }
+            if ((!opponentClanRoster || opponentClanRoster.length === 0) && opponent?.members && Array.isArray(opponent.members)) {
+              opponentClanRoster = opponent.members.map((member: any) => ({
+                userId: member?._id || member,
+                username: member?.username || member?.displayName || 'Unknown'
+              })).filter(Boolean);
+            }
+            
             const hasUserRoster = userClanRoster && userClanRoster.length > 0;
             const hasOpponentRoster = opponentClanRoster && opponentClanRoster.length > 0;
             
@@ -601,8 +702,42 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
                       </div>
                 )}
                 
+                {/* Results Being Reviewed Display */}
+                {isResultsConflict && (
+                  <div className="mb-4 p-4 rounded-xl border bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-500/30">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></div>
+                          <span className="font-semibold text-yellow-400">
+                            Results being reviewed
+                          </span>
+                        </div>
+                        <div className="text-white font-medium text-base">
+                          {new Date(match.scheduledAt).toLocaleDateString('en-US', { 
+                            weekday: 'short',
+                            month: 'short', 
+                            day: 'numeric' 
+                          })} at{' '}
+                          {new Date(match.scheduledAt).toLocaleTimeString([], {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true
+                          })}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-gray-400">Status</div>
+                        <div className="text-sm font-medium text-yellow-400">
+                          Admin Review Required
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Confirmed Time Display */}
-                {match.scheduledAt && !needsResults && match.status !== 'completed' && (
+                {match.scheduledAt && !needsResults && !isResultsConflict && match.status !== 'completed' && (
                       <div className={`mb-4 p-4 rounded-xl border ${isLive 
                         ? 'bg-gradient-to-r from-red-500/10 to-orange-500/10 border-red-500/30' 
                         : 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/30'}`}>
@@ -1136,9 +1271,22 @@ export default function TournamentMatchesSimple({ userAddress, clanId, isClanLea
                 </div>
               </div>
             );
-          })}
-        </div>
-      )}
+            } catch (error) {
+              console.error('Error rendering match:', match?._id, error);
+              console.error('Match data:', match);
+              console.error('User address:', userAddress);
+              console.error('Clan ID:', clanId);
+              return (
+                <div key={`error-${match?._id || index}`} className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+                  <p className="text-red-400 text-sm">Error loading match data: {error.message}</p>
+                  <p className="text-red-300 text-xs mt-1">Match ID: {match?._id}</p>
+                </div>
+              );
+            }
+            })}
+          </div>
+        );
+      })()}
 
       {/* Success Modal */}
       {showSuccessModal && (

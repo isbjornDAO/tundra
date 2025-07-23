@@ -894,7 +894,7 @@ function ClanContent() {
         <div className="card mb-8">
           <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
             <span className="text-purple-400">⭐</span>
-            Clan Members XP
+            Clan Members
           </h2>
           <div className="space-y-3">
             {Array.isArray(user.clan.members) && user.clan.members.length > 0 ? (
@@ -917,7 +917,7 @@ function ClanContent() {
                     <div className="text-right">
                       {/* XP Display */}
                       <div className="text-purple-400 font-semibold text-sm mb-1">
-                        {member.xp ? `${member.xp.toLocaleString()} XP` : 'No XP'}
+                        {member.stats?.xp ? `${member.stats.xp.toLocaleString()} XP` : 'No XP'}
                       </div>
                       {member._id === user.clan.leader && (
                         <span className="status-badge status-warning text-xs">Leader</span>

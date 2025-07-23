@@ -76,6 +76,51 @@ export default function BracketEnhanced() {
     }
   }, [selectedGame, tournaments]);
 
+  // Auto-refresh matches every 30 seconds to update live status
+  useEffect(() => {
+    if (tournaments.length > 0) {
+      const interval = setInterval(async () => {
+        // Refresh all matches
+        const allTournamentMatches: Match[] = [];
+        for (const tournament of tournaments) {
+          if (tournament.bracketId && tournament.status !== 'completed') {
+            try {
+              const response = await fetch(`/api/tournaments/matches?bracketId=${tournament.bracketId}`);
+              const data = await response.json();
+              if (data.matches) {
+                allTournamentMatches.push(...data.matches);
+              }
+            } catch (error) {
+              console.error(`Error fetching matches for tournament ${tournament.game}:`, error);
+            }
+          }
+        }
+        setAllMatches(allTournamentMatches);
+
+        // Refresh current game matches
+        if (selectedGame) {
+          const currentTournament = tournaments.find(t => 
+            t.game === selectedGame && 
+            (t.status === 'active' || t.status === 'full' || t.status === 'open') &&
+            t.status !== 'completed'
+          );
+          
+          if (currentTournament?.bracketId) {
+            try {
+              const response = await fetch(`/api/tournaments/matches?bracketId=${currentTournament.bracketId}`);
+              const data = await response.json();
+              setMatches(data.matches || []);
+            } catch (error) {
+              console.error('Error fetching matches:', error);
+            }
+          }
+        }
+      }, 30000); // 30 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [selectedGame, tournaments]);
+
   const fetchTournaments = async () => {
     try {
       const response = await fetch('/api/tournaments/mongo');
@@ -458,10 +503,13 @@ function EnhancedMatchCard({ match, userAddress }: { match: Match; userAddress: 
               <div className="space-y-1">
                 {match.playerPerformances
                   .filter(perf => perf.clanId === match.clan1?._id)
+                  .filter((perf, index, arr) => 
+                    arr.findIndex(p => p.userId._id === perf.userId._id) === index
+                  )
                   .sort((a, b) => b.kills - a.kills)
                   .slice(0, 3)
                   .map((perf, idx) => (
-                    <div key={idx} className="flex justify-between items-center text-sm">
+                    <div key={perf.userId._id} className="flex justify-between items-center text-sm">
                       <span className="text-gray-300 flex items-center gap-1">
                         {perf.mvp && <span className="text-yellow-400">👑</span>}
                         {perf.userId.username}
@@ -484,10 +532,13 @@ function EnhancedMatchCard({ match, userAddress }: { match: Match; userAddress: 
               <div className="space-y-1">
                 {match.playerPerformances
                   .filter(perf => perf.clanId === match.clan2?._id)
+                  .filter((perf, index, arr) => 
+                    arr.findIndex(p => p.userId._id === perf.userId._id) === index
+                  )
                   .sort((a, b) => b.kills - a.kills)
                   .slice(0, 3)
                   .map((perf, idx) => (
-                    <div key={idx} className="flex justify-between items-center text-sm">
+                    <div key={perf.userId._id} className="flex justify-between items-center text-sm">
                       <span className="text-gray-300 flex items-center gap-1">
                         {perf.mvp && <span className="text-yellow-400">👑</span>}
                         {perf.userId.username}

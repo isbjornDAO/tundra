@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
           },
           {
             path: 'members',
-            select: 'username displayName walletAddress country avatar'
+            select: 'username displayName walletAddress country avatar stats'
           }
         ]
       });
@@ -295,7 +295,7 @@ export async function PUT(request: NextRequest) {
         },
         {
           path: 'members',
-          select: 'username displayName walletAddress country avatar'
+          select: 'username displayName walletAddress country avatar stats'
         }
       ]
     });
