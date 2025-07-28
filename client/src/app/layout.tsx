@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Web3Provider } from "@/providers/Web3Provider";
-import { QueryProvider } from "@/providers/QueryProvider";
 import { PageProvider } from "@/contexts/PageContext";
 import { AuthGuard } from "@/providers/AuthGuard";
 
@@ -31,7 +30,6 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <QueryProvider>
           <Web3Provider>
             <AuthGuard>
               <PageProvider>
@@ -39,7 +37,6 @@ export default function RootLayout({
               </PageProvider>
             </AuthGuard>
           </Web3Provider>
-        </QueryProvider>
       </body>
     </html>
   );

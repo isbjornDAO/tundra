@@ -54,7 +54,7 @@ export default function LoginPage() {
     if (ready && authenticated && (address || user?.wallet?.address)) {
       checkUser();
     }
-  }, [ready, authenticated, address, user?.wallet?.address, router, checkingUser]);
+  }, [ready, authenticated, address, user?.wallet?.address]);
 
   // Check username availability
   useEffect(() => {

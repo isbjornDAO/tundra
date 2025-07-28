@@ -23,26 +23,63 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
 
+  const createUser = async (userData: any) => {
+    const response = await fetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userData)
+    });
+    if (response.ok) {
+      const newUser = await response.json();
+      setUser(newUser);
+      setNeedsSignup(false);
+      return newUser;
+    } else {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to create user');
+    }
+  };
+
+  const handleSignupComplete = (newUser: any) => {
+    if (newUser && newUser.username && newUser.country) {
+      setUser(newUser);
+      setNeedsSignup(false);
+      setTimeout(() => {
+        if (address) {
+          fetch(`/api/users?walletAddress=${address}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.user && data.user.username && data.user.country) {
+                setUser(data.user);
+                setNeedsSignup(false);
+              }
+            })
+            .catch(console.error);
+        }
+      }, 100);
+    }
+  };
+
   useEffect(() => {
     setMounted(true);
     // Give wallet time to connect before considering it disconnected
     const timer = setTimeout(() => {
       setIsCheckingWallet(false);
     }, 2000); // Wait 2 seconds for wallet to connect
-    
+
     return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
     // Wait for Privy to be ready before checking
     if (!ready) return;
-    
+
     // Get wallet address from either Wagmi or Privy
     const walletAddress = address || privyUser?.wallet?.address;
     const isWalletConnected = isConnected || (authenticated && privyUser?.wallet?.address);
-    
+
     console.log('AuthGuard check:', { ready, authenticated, address, privyAddress: privyUser?.wallet?.address, isWalletConnected, pathname });
-    
+
     if (isWalletConnected && walletAddress) {
       setLoading(true);
       fetch(`/api/users?walletAddress=${walletAddress}`)
@@ -75,7 +112,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
       setIsLoadingAdmin(false);
       return;
     }
-    
+
     try {
       const response = await fetch(`/api/admin/check?walletAddress=${walletAddress}`);
       const data = await response.json();
@@ -116,42 +153,12 @@ export function AuthGuard({ children }: AuthGuardProps) {
     }
   }, [isConnected, authenticated, privyUser?.wallet?.address]);
 
-  const createUser = async (userData: any) => {
-    const response = await fetch('/api/users', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(userData)
-    });
-    if (response.ok) {
-      const newUser = await response.json();
-      setUser(newUser);
-      setNeedsSignup(false);
-      return newUser;
-    } else {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to create user');
+  // Needs signup - redirect to login page (move router.push to useEffect)
+  useEffect(() => {
+    if (needsSignup) {
+      router.push('/login');
     }
-  };
-
-  const handleSignupComplete = (newUser: any) => {
-    if (newUser && newUser.username && newUser.country) {
-      setUser(newUser);
-      setNeedsSignup(false);
-      setTimeout(() => {
-        if (address) {
-          fetch(`/api/users?walletAddress=${address}`)
-            .then(res => res.json())
-            .then(data => {
-              if (data.user && data.user.username && data.user.country) {
-                setUser(data.user);
-                setNeedsSignup(false);
-              }
-            })
-            .catch(console.error);
-        }
-      }, 100);
-    }
-  };
+  }, [needsSignup, router]);
 
   // SSR/CSR guard
   if (!mounted) {
@@ -204,9 +211,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
     );
   }
 
-  // Needs signup - redirect to login page
+  // Needs signup - show loading UI only
   if (needsSignup) {
-    router.push('/login');
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-lg text-white">Redirecting to complete signup...</div>
