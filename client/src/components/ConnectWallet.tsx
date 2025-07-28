@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { useDisconnect, useAccount } from 'wagmi';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from "@/providers/AuthGuard";
 
 function ConnectWalletContent() {
   const [showDropdown, setShowDropdown] = useState(false);
@@ -13,9 +13,10 @@ function ConnectWalletContent() {
   const { disconnect } = useDisconnect();
   const { address, isConnected } = useAccount();
   const router = useRouter();
-  const { user, refetchUser } = useAuth();
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const { user, adminData } = useAuth(); // Use adminData from context
 
+  // Use adminData from context to determine super admin
+  const isSuperAdmin = adminData?.role === 'admin';
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -27,40 +28,20 @@ function ConnectWalletContent() {
     if (showDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
     }
-    
+
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showDropdown]);
 
-  useEffect(() => {
-    if (address) {
-      checkAdminStatus();
-    }
-  }, [address]);
-
-  const checkAdminStatus = async () => {
-    try {
-      const response = await fetch(`/api/admin/check?walletAddress=${address}`);
-      const data = await response.json();
-      setIsSuperAdmin(data.role === 'admin');
-    } catch (error) {
-      console.error('Error checking admin status:', error);
-    }
-  };
-
   const handleLogout = async () => {
     setShowDropdown(false);
     try {
-      // Disconnect wallet first
-      await disconnect();
-      // Then logout from Privy
+      disconnect();
       await logout();
-      // Redirect directly to login to avoid AuthGuard redirects
       router.push('/login');
     } catch (error) {
       console.error('Error during logout:', error);
-      // Even if logout fails, redirect to login
       router.push('/login');
     }
   };
@@ -88,17 +69,14 @@ function ConnectWalletContent() {
   return (
     <div className="relative" ref={dropdownRef}>
       <button
-        onClick={() => {
-          console.log('Main button clicked, showDropdown:', showDropdown);
-          setShowDropdown(!showDropdown);
-        }}
+        onClick={() => setShowDropdown(!showDropdown)}
         type="button"
         className="flex items-center gap-2 bg-black border border-white/20 rounded-full px-3 py-2 hover:border-white/30 transition-colors"
       >
         {user?.avatar ? (
-          <img 
-            src={user.avatar} 
-            alt="Profile" 
+          <img
+            src={user.avatar}
+            alt="Profile"
             className="w-6 h-6 rounded-full object-cover border border-white/20"
           />
         ) : (
@@ -124,8 +102,7 @@ function ConnectWalletContent() {
       </button>
 
       {showDropdown && (
-        <div className="absolute right-0 mt-2 w-56 bg-black/95 backdrop-blur-sm border border-white/20 rounded-lg shadow-xl py-2" style={{zIndex: 999999}}>
-          {/* Show connected wallet address */}
+        <div className="absolute right-0 mt-2 w-56 bg-black/95 backdrop-blur-sm border border-white/20 rounded-lg shadow-xl py-2" style={{ zIndex: 999999 }}>
           <div className="px-4 py-2 border-b border-white/10 mb-2">
             <p className="text-xs text-gray-400 mb-1">Connected Wallet</p>
             <p className="text-xs font-mono text-white/80">{address?.slice(0, 6)}...{address?.slice(-4)}</p>
@@ -134,7 +111,6 @@ function ConnectWalletContent() {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              console.log('Profile clicked!');
               setShowDropdown(false);
               setTimeout(() => router.push('/profile'), 50);
             }}
@@ -149,7 +125,6 @@ function ConnectWalletContent() {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              console.log('Clan clicked!');
               setShowDropdown(false);
               setTimeout(() => router.push('/clan'), 50);
             }}
@@ -165,7 +140,6 @@ function ConnectWalletContent() {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Admin clicked!');
                 setShowDropdown(false);
                 setTimeout(() => router.push('/admin'), 50);
               }}

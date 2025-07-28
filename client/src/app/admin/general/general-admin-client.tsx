@@ -5,6 +5,7 @@ import { useAccount } from 'wagmi';
 import { useRouter } from 'next/navigation';
 import { Layout } from '@/components/Layout';
 import { COUNTRY_CODE_TO_NAME, COUNTRY_NAME_TO_CODE } from '@/types/countries';
+import { useAuth } from "@/providers/AuthGuard";
 
 interface User {
   _id: string;
@@ -98,7 +99,7 @@ const getCountryDisplayName = (country: string): string => {
 };
 
 export default function GeneralAdminClient() {
-  const { address } = useAccount();
+  const { address, adminData } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -114,25 +115,14 @@ export default function GeneralAdminClient() {
 
   useEffect(() => {
     if (address) {
-      checkAuthorization();
+      setIsAuthorized(!!adminData?.isAdmin);
       fetchData();
+      setLoading(false);
     }
-  }, [address]);
+  }, [address, adminData]);
 
   const handleTabChange = (tab: 'users' | 'clans' | 'whitelist') => {
     setActiveTab(tab);
-  };
-
-  const checkAuthorization = async () => {
-    try {
-      const response = await fetch(`/api/admin/check?walletAddress=${address}`);
-      const data = await response.json();
-      setIsAuthorized(data.isAdmin);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error checking authorization:', error);
-      setLoading(false);
-    }
   };
 
   const fetchData = async () => {

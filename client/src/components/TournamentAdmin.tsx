@@ -4,15 +4,7 @@ import { useState, useEffect } from "react";
 import { useAccount } from 'wagmi';
 import { useTournaments, useCreateTournament, useGenerateBracket, useDeleteTournament, useTeams } from "@/hooks/useTournaments";
 import { SUPPORTED_GAMES, type Game } from "@/types/tournament";
-
-interface AdminData {
-  isAdmin: boolean;
-  isClanLeader: boolean;
-  isHost: boolean;
-  role: 'admin' | 'host' | null;
-  regions: string[];
-}
-
+import { useAuth } from "@/providers/AuthGuard";
 
 interface Team {
   _id: string;
@@ -63,7 +55,8 @@ interface Tournament {
 }
 
 export function TournamentAdmin() {
-  const { address } = useAccount();
+  // const { address } = useAccount();
+  const { adminData, address } = useAuth();
   const { data: tournamentsData, refetch } = useTournaments();
   const createTournament = useCreateTournament();
   const generateBracket = useGenerateBracket();
@@ -71,7 +64,7 @@ export function TournamentAdmin() {
   
   const [selectedGame, setSelectedGame] = useState<Game | "">("");
   const [maxTeams, setMaxTeams] = useState(16);
-  const [adminData, setAdminData] = useState<AdminData | null>(null);
+  // const [adminData, setAdminData] = useState<AdminData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'tournaments' | 'matches' | 'schedule'>('tournaments');
   
@@ -92,24 +85,11 @@ export function TournamentAdmin() {
   
   useEffect(() => {
     if (address) {
-      fetchAdminData();
       if (activeTab === 'matches' || activeTab === 'schedule') {
         fetchHostTournaments();
       }
     }
   }, [address, activeTab]);
-
-  const fetchAdminData = async () => {
-    try {
-      const response = await fetch(`/api/admin/check?walletAddress=${address}`);
-      const data = await response.json();
-      setAdminData(data);
-    } catch (error) {
-      console.error('Error fetching admin data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchHostTournaments = async () => {
     try {
