@@ -20,24 +20,6 @@ const wagmiConfig = createConfig({
 const queryClient = new QueryClient();
 
 export function Web3Provider({ children }: { children: React.ReactNode }) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    // Debug Privy configuration
-    console.log('Privy App ID:', process.env.NEXT_PUBLIC_PRIVY_APP_ID);
-    console.log('WalletConnect Project ID:', process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID);
-  }, []);
-
-  // Don't render provider during SSR
-  if (!mounted || typeof window === 'undefined') {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg text-white">Loading Web3...</div>
-      </div>
-    );
-  }
-
   return (
     <QueryClientProvider client={queryClient}>
       <PrivyProvider

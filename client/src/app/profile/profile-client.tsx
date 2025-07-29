@@ -72,21 +72,5 @@ function ProfileContent() {
 }
 
 export default function ProfileClient() {
-  const [mounted, setMounted] = useState(false);
-  
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-  
-  if (!mounted) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-lg text-white">Loading...</div>
-        </div>
-      </Layout>
-    );
-  }
-
   return <ProfileContent />;
 }

@@ -53,7 +53,6 @@ interface TopClan {
 }
 
 export default function ResultsEnhanced() {
-  const [mounted, setMounted] = useState(false);
   const [selectedGame, setSelectedGame] = useState<string>('all');
   const [completedTournaments, setCompletedTournaments] = useState<CompletedTournament[]>([]);
   const [topPerformers, setTopPerformers] = useState<TopPerformer[]>([]);
@@ -64,7 +63,6 @@ export default function ResultsEnhanced() {
   const [profileWindowOpen, setProfileWindowOpen] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     fetchCompletedTournaments();
     fetchTopPerformers();
     fetchTopClans();
@@ -331,16 +329,6 @@ export default function ResultsEnhanced() {
       console.error('Error fetching top clans:', error);
     }
   };
-
-  if (!mounted || loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-lg text-white">Loading tournament results...</div>
-        </div>
-      </Layout>
-    );
-  }
 
   return (
     <Layout>

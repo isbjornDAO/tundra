@@ -30,7 +30,6 @@ interface User {
 
 // Create a safe version that doesn't use wagmi hooks directly
 export function useAuth() {
-  const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [needsSignup, setNeedsSignup] = useState(false);
@@ -41,19 +40,14 @@ export function useAuth() {
 
   const { logout, login, authenticated } = usePrivy();
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Use wagmi hooks only after mounting - but we need to call them always to follow hooks rules
   const wagmiAccount = useAccount();
   
   useEffect(() => {
-    if (mounted) {
-      setAddress(wagmiAccount.address);
-      setIsConnected(wagmiAccount.isConnected);
-    }
-  }, [mounted, wagmiAccount.address, wagmiAccount.isConnected]);
+    setAddress(wagmiAccount.address);
+    setIsConnected(wagmiAccount.isConnected);
+  }, [ wagmiAccount.address, wagmiAccount.isConnected]);
 
   const fetchUser = useCallback(async (walletAddress: string) => {
     setLoading(true);
@@ -187,15 +181,15 @@ export function useAuth() {
 
   // Initial load only
   useEffect(() => {
-    if (mounted && isConnected && address && !prevAddressRef.current) {
+    if (isConnected && address && !prevAddressRef.current) {
       prevAddressRef.current = address;
       fetchUser(address);
     }
-  }, [mounted, isConnected, address, fetchUser]);
+  }, [isConnected, address, fetchUser]);
 
   // Listen to MetaMask account changes directly
   useEffect(() => {
-    if (!mounted || typeof window === 'undefined') return;
+    if (typeof window === 'undefined') return;
 
     // Type guard for ethereum provider
     const ethereum = (window as any).ethereum;
@@ -238,7 +232,7 @@ export function useAuth() {
         ethereum.removeListener('accountsChanged', handleAccountsChanged);
       }
     };
-  }, [mounted, fetchUser]);
+  }, [fetchUser]);
 
   const refetchUser = useCallback(() => {
     if (address) {

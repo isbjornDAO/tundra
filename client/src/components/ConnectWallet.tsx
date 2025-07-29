@@ -173,19 +173,5 @@ function ConnectWalletContent() {
 }
 
 export function ConnectWallet() {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <button className="btn btn-primary opacity-50">
-        Connect Wallet
-      </button>
-    );
-  }
-
   return <ConnectWalletContent />;
 }

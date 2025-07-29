@@ -34,7 +34,6 @@ interface Tournament {
 }
 
 function ResultsContent() {
-  const [mounted, setMounted] = useState(false);
   const { address } = useTeam1Auth();
   const [selectedGame, setSelectedGame] = useState('all');
   const [submitting, setSubmitting] = useState(false);
@@ -53,10 +52,6 @@ function ResultsContent() {
     
     return relevantTournaments;
   };
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Submit match results
   const handleSubmitResults = async (matchId: string, team1Score: number, team2Score: number) => {
@@ -88,16 +83,6 @@ function ResultsContent() {
       setSubmitting(false);
     }
   };
-
-  if (!mounted || tournamentsLoading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-lg text-white">Loading...</div>
-        </div>
-      </Layout>
-    );
-  }
 
   const displayTournaments = getMatchesForDisplay();
 

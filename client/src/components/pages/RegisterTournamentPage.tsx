@@ -38,7 +38,6 @@ interface ClanMember {
 type Step = 'game' | 'team' | 'players' | 'confirm';
 
 export default function RegisterTournamentPage() {
-  const [mounted, setMounted] = useState(false);
   const [currentStep, setCurrentStep] = useState<Step>('game');
   const [selectedGame, setSelectedGame] = useState<Game | ''>('');
   const [selectedTournament, setSelectedTournament] = useState<any>(null);
@@ -56,7 +55,6 @@ export default function RegisterTournamentPage() {
 
   // Save form data to localStorage whenever it changes
   useEffect(() => {
-    if (mounted) {
       const formData = {
         currentStep,
         selectedGame,
@@ -65,12 +63,12 @@ export default function RegisterTournamentPage() {
         players
       };
       localStorage.setItem('tournamentRegistration', JSON.stringify(formData));
-    }
-  }, [currentStep, selectedGame, selectedTournament, selectedClan, players, mounted]);
+
+  }, [currentStep, selectedGame, selectedTournament, selectedClan, players]);
 
   // Load form data from localStorage on mount
   useEffect(() => {
-    if (mounted) {
+
       const savedData = localStorage.getItem('tournamentRegistration');
       if (savedData) {
         try {
@@ -86,8 +84,8 @@ export default function RegisterTournamentPage() {
           console.error('Error loading saved form data:', error);
         }
       }
-    }
-  }, [mounted]);
+    
+  }, []);
   
   const { data: tournamentsData, isLoading } = useTournaments();
   const allTournaments = tournamentsData?.tournaments || [];
@@ -96,9 +94,6 @@ export default function RegisterTournamentPage() {
   const tournaments = allTournaments.filter(tournament => tournament.status !== 'completed');
   const { address } = useAccount();
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (address) {
@@ -167,14 +162,6 @@ export default function RegisterTournamentPage() {
       )
     );
   };
-
-  if (!mounted || loading) {
-    return (
-      <Layout>
-        <div className="text-white text-center py-8">Loading...</div>
-      </Layout>
-    );
-  }
 
   if (error) {
     return (

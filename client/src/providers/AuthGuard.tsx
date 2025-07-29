@@ -112,42 +112,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
     if (needsSignup) router.push('/login');
   }, [needsSignup, router]);
 
-  // Loading and redirect screens
-  function getContent() {
-    if (isCheckingWallet && !isWalletConnected && pathname !== '/login') {
-      return (
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-lg text-white">Checking wallet connection...</div>
-        </div>
-      );
-    }
-    if (!isWalletConnected && pathname !== '/login') {
-      return (
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-lg text-white">Redirecting to login...</div>
-        </div>
-      );
-    }
-    if (loading) {
-      return (
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-lg text-white">Loading user data...</div>
-        </div>
-      );
-    }
-    if (needsSignup) {
-      return (
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-lg text-white">Redirecting to complete signup...</div>
-        </div>
-      );
-    }
-    return children;
-  }
-
   return (
     <AuthContext.Provider value={{ user, adminData, address, isConnected }}>
-      {getContent()}
+      {children}
     </AuthContext.Provider>
   );
 }

@@ -53,7 +53,6 @@ interface Tournament {
 }
 
 export default function BracketEnhanced() {
-  const [mounted, setMounted] = useState(false);
   const { address } = useTeam1Auth();
   const [selectedGame, setSelectedGame] = useState('Off the Grid');
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
@@ -63,7 +62,6 @@ export default function BracketEnhanced() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     fetchTournaments();
   }, []);
 
@@ -208,17 +206,6 @@ export default function BracketEnhanced() {
       setSubmitting(false);
     }
   };
-
-  if (!mounted || loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-lg text-white">Loading...</div>
-        </div>
-      </Layout>
-    );
-  }
-
 
   return (
     <Layout>
