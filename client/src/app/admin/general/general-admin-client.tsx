@@ -5,7 +5,7 @@ import { useAccount } from 'wagmi';
 import { useRouter } from 'next/navigation';
 import { Layout } from '@/components/Layout';
 import { COUNTRY_CODE_TO_NAME, COUNTRY_NAME_TO_CODE } from '@/types/countries';
-import { useAuth } from "@/providers/AuthGuard";
+import { useAuthGuard } from "@/providers/AuthGuard";
 
 interface User {
   _id: string;
@@ -99,7 +99,7 @@ const getCountryDisplayName = (country: string): string => {
 };
 
 export default function GeneralAdminClient() {
-  const { address, adminData } = useAuth();
+  const { address, adminData } = useAuthGuard();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTeam1Auth } from "@/hooks/useTeam1Auth";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuthGuard } from "@/providers/AuthGuard";
 
 interface ClanTournamentRegistrationProps {
   tournamentId: string;
@@ -19,7 +19,7 @@ interface ClanMember {
 
 export function ClanTournamentRegistration({ tournamentId, game, onSuccess }: ClanTournamentRegistrationProps) {
   const { address } = useTeam1Auth();
-  const { user } = useAuth();
+  const { user } = useAuthGuard();
   const [clanMembers, setClanMembers] = useState<ClanMember[]>([]);
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);

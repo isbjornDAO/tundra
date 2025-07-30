@@ -20,11 +20,11 @@ const LiveSnowstormStream = dynamic(() => import('@/components/LiveSnowstormStre
 });
 import { PageRouter } from '@/components/PageRouter';
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
+import { useAuthGuard } from '@/providers/AuthGuard';
 
 export default function Home() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuthGuard();
   const router = useRouter();
   const [stats, setStats] = useState({
     totalGames: 0,

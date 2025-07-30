@@ -3,13 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
-import { useAuth } from "@/providers/AuthGuard";
+import { useAuthGuard } from "@/providers/AuthGuard";
 
 export function Navigation() {
   const pathname = usePathname();
   const [showTournamentDropdown, setShowTournamentDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { adminData } = useAuth();
+  const { adminData } = useAuthGuard();
 
   const isAdmin = !!adminData?.isAdmin;
   const isClanLeader = !!adminData?.isClanLeader;

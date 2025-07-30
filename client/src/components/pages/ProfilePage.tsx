@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { usePlayerProfile } from '@/hooks/usePlayerProfile';
-import { useAccount } from 'wagmi';
 import { COUNTRY_CODE_TO_NAME } from '@/types/countries';
+import { useAuthGuard } from '@/providers/AuthGuard';
 
 interface ProfilePageProps {
   walletAddress?: string;
@@ -125,7 +125,7 @@ export function ProfilePage({ walletAddress, displayName, onProfileUpdate, user,
   const [activeTab, setActiveTab] = useState<'overview' | 'achievements' | 'activity' | 'tournaments'>('overview');
   const [tournamentHistory, setTournamentHistory] = useState<any>(null);
   const [loadingTournaments, setLoadingTournaments] = useState(false);
-  const { address } = useAccount();
+  const { address } = useAuthGuard();
 
   // Debug logging
   useEffect(() => {

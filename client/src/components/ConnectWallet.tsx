@@ -2,18 +2,17 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
-import { useDisconnect, useAccount } from 'wagmi';
+import { useDisconnect } from 'wagmi';
 import { useRouter } from 'next/navigation';
-import { useAuth } from "@/providers/AuthGuard";
+import { useAuthGuard } from "@/providers/AuthGuard";
 
 function ConnectWalletContent() {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { ready, authenticated, login, logout, user: privyUser } = usePrivy();
   const { disconnect } = useDisconnect();
-  const { address, isConnected } = useAccount();
   const router = useRouter();
-  const { user, adminData } = useAuth(); // Use adminData from context
+  const { user, adminData, address } = useAuthGuard(); // Use adminData from context
 
   // Use adminData from context to determine super admin
   const isSuperAdmin = adminData?.role === 'admin';
@@ -39,10 +38,10 @@ function ConnectWalletContent() {
     try {
       disconnect();
       await logout();
-      router.push('/login');
+      // router.push('/login');
     } catch (error) {
       console.error('Error during logout:', error);
-      router.push('/login');
+      // router.push('/login');
     }
   };
 

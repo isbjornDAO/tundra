@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
 import { Layout } from '@/components/Layout';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthGuard } from '@/providers/AuthGuard';
 import TournamentMatchesSimple from '@/components/clan/TournamentMatchesSimple';
 import RecentMatches from '@/components/clan/RecentMatches';
 
@@ -79,8 +78,7 @@ const getCountryNameFromCode = (countryCode: string): string => {
 };
 
 function ClanContent() {
-  const { address, isConnected } = useAccount();
-  const { user, refetchUser } = useAuth();
+  const { user, refetchUser, address, isConnected } = useAuthGuard();
   const [localClans, setLocalClans] = useState<Clan[]>([]);
   const [globalClans, setGlobalClans] = useState<Clan[]>([]);
   const [loading, setLoading] = useState(true);

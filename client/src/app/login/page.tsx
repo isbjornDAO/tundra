@@ -4,12 +4,12 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
-import { useAccount } from 'wagmi';
 import { COUNTRIES } from '@/types/countries';
+import { useAuthGuard } from '@/providers/AuthGuard';
 
 export default function LoginPage() {
   const { ready, authenticated, login, user, logout } = usePrivy();
-  const { address, isConnected } = useAccount();
+  const { address, refetchUser, createUser } = useAuthGuard();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -98,21 +98,11 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          walletAddress,
-          username: formData.username.toLowerCase(),
-          country: formData.country
-        })
+      await createUser({
+        walletAddress,
+        username: formData.username.toLowerCase(),
+        country: formData.country
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create account');
-      }
 
       // Success - redirect to home
       router.push('/');

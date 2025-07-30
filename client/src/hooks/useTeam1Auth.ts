@@ -1,10 +1,10 @@
 'use client';
 
-import { useAccount } from 'wagmi';
+import { useAuthGuard } from '@/providers/AuthGuard';
 import { useState, useEffect } from 'react';
 
 export function useTeam1Auth() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useAuthGuard();
   const [hasTeam1NFT, setHasTeam1NFT] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 

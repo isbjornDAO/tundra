@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
 import { Layout } from '@/components/Layout';
 import { ProfilePage } from '@/components/pages/ProfilePage';
+import { useAuthGuard } from '@/providers/AuthGuard';
 
 function ProfileContent() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useAuthGuard();
   const [user, setUser] = useState(null);
 
   useEffect(() => {

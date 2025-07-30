@@ -126,7 +126,7 @@ export function UserSignupModal({ isOpen, walletAddress, onSignupComplete, onClo
               await disconnect();
               // Then logout from Privy
               await logout();
-              // Finally redirect to login
+              // Finally redirect to home
               router.push('/login');
             } catch (error) {
               console.error('Error disconnecting:', error);

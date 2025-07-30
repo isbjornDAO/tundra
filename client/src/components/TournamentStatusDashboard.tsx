@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
 import { useTournaments } from '@/hooks/useTournaments';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthGuard } from '@/providers/AuthGuard';
 
 interface TournamentStatus {
   _id: string;
@@ -25,8 +24,7 @@ interface TournamentStatus {
 }
 
 export function TournamentStatusDashboard() {
-  const { address } = useAccount();
-  const { user } = useAuth();
+  const { user, address } = useAuthGuard();
   const { data: tournamentsData, isLoading } = useTournaments();
   const [userTournaments, setUserTournaments] = useState<TournamentStatus[]>([]);
   const [loading, setLoading] = useState(true);

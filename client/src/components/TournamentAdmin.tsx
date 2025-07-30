@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAccount } from 'wagmi';
 import { useTournaments, useCreateTournament, useGenerateBracket, useDeleteTournament, useTeams } from "@/hooks/useTournaments";
 import { SUPPORTED_GAMES, type Game } from "@/types/tournament";
-import { useAuth } from "@/providers/AuthGuard";
+import { useAuthGuard } from "@/providers/AuthGuard";
 
 interface Team {
   _id: string;
@@ -55,8 +54,7 @@ interface Tournament {
 }
 
 export function TournamentAdmin() {
-  // const { address } = useAccount();
-  const { adminData, address } = useAuth();
+  const { adminData, address } = useAuthGuard();
   const { data: tournamentsData, refetch } = useTournaments();
   const createTournament = useCreateTournament();
   const generateBracket = useGenerateBracket();

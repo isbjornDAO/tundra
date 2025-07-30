@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthGuard } from '@/providers/AuthGuard';
 
 interface Match {
   _id: string;
@@ -36,7 +36,7 @@ interface Match {
 }
 
 export default function MatchResultsConfirmation() {
-  const { user } = useAuth();
+  const { user } = useAuthGuard();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState<string | null>(null);

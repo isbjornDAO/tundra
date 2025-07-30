@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
 import { Layout } from '@/components/Layout';
 import { useTournaments } from '@/hooks/useTournaments';
 import { REGIONS, type Game, type Region, type Player } from '@/types/tournament';
+import { useAuthGuard } from '@/providers/AuthGuard';
 
 interface User {
   _id: string;
@@ -38,6 +38,7 @@ interface ClanMember {
 type Step = 'game' | 'team' | 'players' | 'confirm';
 
 export default function RegisterTournamentPage() {
+  const { address } = useAuthGuard();
   const [currentStep, setCurrentStep] = useState<Step>('game');
   const [selectedGame, setSelectedGame] = useState<Game | ''>('');
   const [selectedTournament, setSelectedTournament] = useState<any>(null);
@@ -91,8 +92,7 @@ export default function RegisterTournamentPage() {
   const allTournaments = tournamentsData?.tournaments || [];
   
   // Filter out completed tournaments
-  const tournaments = allTournaments.filter(tournament => tournament.status !== 'completed');
-  const { address } = useAccount();
+  const tournaments = allTournaments.filter(tournament => tournament.status !== 'completed')
 
 
   useEffect(() => {
