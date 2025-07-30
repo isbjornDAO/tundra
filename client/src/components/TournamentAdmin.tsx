@@ -54,7 +54,7 @@ interface Tournament {
 }
 
 export function TournamentAdmin() {
-  const { adminData, address } = useAuthGuard();
+  const { adminData, address, isLoadingAdmin } = useAuthGuard();
   const { data: tournamentsData, refetch } = useTournaments();
   const createTournament = useCreateTournament();
   const generateBracket = useGenerateBracket();
@@ -63,7 +63,7 @@ export function TournamentAdmin() {
   const [selectedGame, setSelectedGame] = useState<Game | "">("");
   const [maxTeams, setMaxTeams] = useState(16);
   // const [adminData, setAdminData] = useState<AdminData | null>(null);
-  const [loading, setLoading] = useState(true);
+  // const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'tournaments' | 'matches' | 'schedule'>('tournaments');
   
   // Team1 Host Dashboard state
@@ -422,7 +422,7 @@ export function TournamentAdmin() {
     }
   };
 
-  if (loading) {
+  if (isLoadingAdmin) {
     return (
       <div className="max-w-4xl mx-auto p-6">
         <div className="text-white text-center">Loading admin permissions...</div>

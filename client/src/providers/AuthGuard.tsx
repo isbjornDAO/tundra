@@ -27,6 +27,7 @@ interface AuthContextType {
   updateUser: (updates: any) => Promise<any>;
   refetchUser: () => void;
   adminData: AdminData | null;
+  isLoadingAdmin: boolean;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -242,7 +243,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
       createUser,
       updateUser,
       refetchUser,
-      adminData
+      adminData,
+      isLoadingAdmin
     }}>
       {children}
     </AuthContext.Provider>
