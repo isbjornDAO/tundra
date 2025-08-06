@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-dark-4: oklch(0.15 0 0); /* Very dark gray */
+  --color-dark-3: oklch(0.2 0 0); /* Dark gray */
+  --color-dark-2: oklch(0.25 0 0); /* Dark medium gray */
+  --color-dark-1: oklch(0.35 0 0); /* Medium dark gray */
+
+  --color-light-4: oklch(0.65 0 0); /* Medium gray */
+  --color-light-3: oklch(0.75 0 0); /* Light medium gray */
+  --color-light-2: oklch(0.85 0 0); /* Light gray */
+  --color-light-1: oklch(0.95 0 0); /* Very light gray */
+
+  --color-bitcoin-orange: rgb(247, 147, 26);
+
+  --color-cash-green: rgb(96, 212, 63);
+
+  --color-ava-red: rgb(255, 57, 74);
+  --color-ava-blue: rgb(48, 85, 179);
+  --color-secondary-blue: rgb(5, 138, 255);
+  --color-secondary-blue-hover: rgb(80, 173, 255);
+
+  --color-error-red: rgb(255, 73, 74);
+
+  --color-lfj-purple: rgb(132, 112, 252);
+  --color-lfj-purple-hover: rgb(169, 155, 253);
+
+  --color-pharaoh-red: rgb(185, 58, 44);
+  --color-pharaoh-red-hover: rgb(206, 117, 107);
+
+  --color-pangolin-yellow: rgb(245, 204, 40);
+  --color-pangolin-yellow-hover: rgb(248, 219, 105);
+  --color-pangolin-gray: rgb(28, 28, 28);
+
+  --color-uniswap-pink: rgb(234, 73, 197);
+  --color-uniswap-pink-hover: rgb(240, 128, 214);
+  --color-uniswap-purple: rgb(46, 29, 49);
+
+  --color-arena-orange: rgb(235, 84, 10);
+  --color-arena-orange-hover: rgb(241, 135, 84);
+
+  --text-xxs: 0.625rem;
+  --text-xxs--line-height: calc(1 / 0.625);
+  --text-xxxs: 0.5rem;
+  --text-xxxs--line-height: calc(1 / 0.5);
+
+  --font-mono: "Courier New", monospace;
+}
+
+body {
+  @apply bg-white dark:bg-dark-3 transition-colors;
+}
+
+.topbar-container {
+  @apply w-full bg-white dark:bg-dark-4 shadow-md flex justify-center transition-colors;
+}
+
+.topbar {
+  @apply flex flex-row justify-between items-center h-[80px] w-full px-3 sm:px-6 relative;
+}
+
+.logo {
+  @apply font-bold flex items-center gap-2 pr-6;
+  /* Responsive text sizes */
+  @apply text-base sm:text-lg md:text-xl lg:text-2xl;
+}
+
+.logo .rounded-md {
+  /* Responsive logo container sizes */
+  @apply p-1.5 sm:p-2;
+  @apply h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8;
+}
+
+.topbar-links {
+  @apply hidden lg:flex flex-row gap-4;
+  @apply absolute left-1/2 transform -translate-x-1/2;
+}
+
+.topbar-link {
+  @apply text-sm font-medium relative cursor-pointer;
+}
+
+.topbar-link.active {
+  @apply font-semibold underline;
+}
+
+.connect-and-theme-button-wrapper {
+  @apply flex flex-row gap-4 justify-end;
+}
+
+.bottombar-container {
+  @apply w-full bg-white dark:bg-dark-3 flex justify-center px-4 transition-colors z-10;
+}
+
+.bottombar {
+  @apply flex justify-between items-center h-[120px] w-full px-6;
+}
+
+.bottom-bar-social-link {
+  @apply hover:scale-125 transition-transform duration-300 z-10;
+}
+
+.connect-wallet-button {
+  @apply px-4 py-2 rounded-xl text-base font-semibold border-none bg-secondary-blue transform hover:scale-105 transition-transform duration-300 text-white drop-shadow-md;
+}
+
+.connect-wallet-button-invalid-network {
+  @apply px-4 py-2 rounded-xl text-base font-semibold border-none bg-error-red transform hover:scale-105 transition-transform duration-300 text-white drop-shadow-md flex flex-row items-center gap-2;
+}
+
+.connect-network-switch {
+  @apply px-2 py-2 bg-white dark:bg-dark-2 rounded-xl font-semibold flex flex-row gap-1 drop-shadow-md transform hover:scale-105 transition-transform duration-300 text-xs sm:text-base;
+}
+
+.connect-account-display {
+  @apply pl-1 md:pl-2 pr-1 py-1 bg-white dark:bg-dark-2 rounded-xl font-semibold flex flex-row items-center gap-1 drop-shadow-md transform hover:scale-103 transition-transform duration-300;
+}
+
+.connect-account-address {
+  @apply px-2 py-1 md:ml-1 bg-light-1 dark:bg-dark-1 rounded-xl flex flex-row items-center gap-1 text-sm sm:text-base;
+}
+
+.btn {
+  @apply px-4 py-2 rounded-xl text-base font-semibold border-none bg-secondary-blue transform hover:scale-105 transition-transform duration-300 text-white drop-shadow-md;
+}
+
+.theme-toggle {
+  @apply py-1 px-3 rounded-full hover:bg-light-2 dark:hover:bg-dark-1 text-dark-1 dark:text-light-2 transition-all;
+}

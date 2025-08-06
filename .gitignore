@@ -11,3 +11,6 @@ client/src/scripts/detailed-tournament-stats.js
 client/src/scripts/list-tournament-participants.js
 client/AVAX_REBRANDING_FINAL.md
 client/AVAX_REBRANDING.md
+
+
+vite/node_modules
