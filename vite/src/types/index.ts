@@ -32,6 +32,14 @@ export interface User {
   updatedAt?: Date;
 }
 
+export interface AdminData {
+  isAdmin: boolean;
+  isClanLeader: boolean;
+  isTeam1Host: boolean;
+  role: "super_admin" | "regional_admin" | "team1_host" | null;
+  regions: string[];
+}
+
 export interface UserProfile extends Omit<User, "username"> {
   bio: string;
   favoriteGame: string;

@@ -7,7 +7,7 @@ import {
 } from "react";
 import { useAccount } from "wagmi";
 import { usePrivy } from "@privy-io/react-auth";
-import { AdminData, User } from "@/types/user";
+import { AdminData, User } from "@/types";
 
 interface IContextType {
     user: User | null;
