@@ -1,6 +1,5 @@
 import * as React from "react";
 import { useState, useEffect } from "react";
-import { useTheme } from "next-themes";
 import { PrivyProvider } from "@privy-io/react-auth";
 import { WagmiProvider, createConfig, http } from "wagmi";
 import { avalanche, avalancheFuji } from "wagmi/chains";
@@ -32,7 +31,6 @@ export const web3Config = createConfig({
 });
 
 export function Web3Provider({ children }: { children: React.ReactNode }) {
-    const { resolvedTheme } = useTheme();
     const [queryClient] = useState(() => new QueryClient());
 
     return (
@@ -41,7 +39,7 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
             config={{
                 // Appearance configuration
                 appearance: {
-                    theme: resolvedTheme === 'dark' ? 'dark' : 'light',
+                    theme: 'dark',
                     accentColor: '#676FFF',
                     logo: '/assets/vite.svg', // Optional: your app logo
                 },

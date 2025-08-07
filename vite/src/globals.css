@@ -3,129 +3,245 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-dark-4: oklch(0.15 0 0); /* Very dark gray */
-  --color-dark-3: oklch(0.2 0 0); /* Dark gray */
-  --color-dark-2: oklch(0.25 0 0); /* Dark medium gray */
-  --color-dark-1: oklch(0.35 0 0); /* Medium dark gray */
-
-  --color-light-4: oklch(0.65 0 0); /* Medium gray */
-  --color-light-3: oklch(0.75 0 0); /* Light medium gray */
-  --color-light-2: oklch(0.85 0 0); /* Light gray */
-  --color-light-1: oklch(0.95 0 0); /* Very light gray */
-
-  --color-bitcoin-orange: rgb(247, 147, 26);
-
-  --color-cash-green: rgb(96, 212, 63);
-
-  --color-ava-red: rgb(255, 57, 74);
-  --color-ava-blue: rgb(48, 85, 179);
-  --color-secondary-blue: rgb(5, 138, 255);
-  --color-secondary-blue-hover: rgb(80, 173, 255);
-
-  --color-error-red: rgb(255, 73, 74);
-
-  --color-lfj-purple: rgb(132, 112, 252);
-  --color-lfj-purple-hover: rgb(169, 155, 253);
-
-  --color-pharaoh-red: rgb(185, 58, 44);
-  --color-pharaoh-red-hover: rgb(206, 117, 107);
-
-  --color-pangolin-yellow: rgb(245, 204, 40);
-  --color-pangolin-yellow-hover: rgb(248, 219, 105);
-  --color-pangolin-gray: rgb(28, 28, 28);
-
-  --color-uniswap-pink: rgb(234, 73, 197);
-  --color-uniswap-pink-hover: rgb(240, 128, 214);
-  --color-uniswap-purple: rgb(46, 29, 49);
-
-  --color-arena-orange: rgb(235, 84, 10);
-  --color-arena-orange-hover: rgb(241, 135, 84);
-
-  --text-xxs: 0.625rem;
-  --text-xxs--line-height: calc(1 / 0.625);
-  --text-xxxs: 0.5rem;
-  --text-xxxs--line-height: calc(1 / 0.5);
-
-  --font-mono: "Courier New", monospace;
+  /* Color System */
+  --color-background: #ffffff;
+  --color-foreground: #171717;
+  --color-background-dark: #0a0a0a;
+  --color-foreground-dark: #ededed;
+  
+  /* Primary Brand Colors */
+  --color-primary: rgb(232, 65, 66);
+  --color-primary-hover: rgb(214, 48, 49);
+  --color-primary-focus: rgba(232, 65, 66, 0.3);
+  
+  /* Gradient Colors */
+  --color-gradient-start: #E84142;
+  --color-gradient-end: #ff6b6b;
+  
+  /* Status Colors */
+  --color-success: rgb(34, 197, 94);
+  --color-success-light: rgb(74, 222, 128);
+  --color-error: rgb(239, 68, 68);
+  --color-error-light: rgb(248, 113, 113);
+  --color-info: rgb(59, 130, 246);
+  --color-info-light: rgb(96, 165, 250);
+  --color-neutral: rgb(156, 163, 175);
+  
+  /* Text Colors */
+  --color-text-body: rgb(209, 213, 219);
+  --color-text-muted: rgb(156, 163, 175);
+  
+  /* Font Families */
+  --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+  
+  /* Custom Spacing */
+  --spacing-container: 2rem;
+  --spacing-section: 4rem;
+  --spacing-section-tight: 3rem;
 }
 
 body {
-  @apply bg-white dark:bg-dark-3 transition-colors;
+  @apply bg-background-dark text-foreground-dark transition-colors;
+  font-family: var(--font-sans);
+  font-feature-settings: "rlig" 1, "calt" 1;
+  line-height: 1.5;
 }
 
-.topbar-container {
-  @apply w-full bg-white dark:bg-dark-4 shadow-md flex justify-center transition-colors;
+/* Layout System */
+.container-main {
+  @apply max-w-screen-2xl mx-auto px-8;
 }
 
-.topbar {
-  @apply flex flex-row justify-between items-center h-[80px] w-full px-3 sm:px-6 relative;
+.section {
+  @apply mb-16;
 }
 
-.logo {
-  @apply font-bold flex items-center gap-2 pr-6;
-  /* Responsive text sizes */
-  @apply text-base sm:text-lg md:text-xl lg:text-2xl;
+.section-tight {
+  @apply mb-12;
 }
 
-.logo .rounded-md {
-  /* Responsive logo container sizes */
-  @apply p-1.5 sm:p-2;
-  @apply h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8;
+/* Card System */
+.card {
+  @apply bg-white/[0.03] border border-white/10 rounded-lg p-8 transition-all duration-200;
 }
 
-.topbar-links {
-  @apply hidden lg:flex flex-row gap-4;
-  @apply absolute left-1/2 transform -translate-x-1/2;
+.card-compact {
+  @apply bg-white/[0.03] border border-white/10 rounded-lg p-6 transition-all duration-200;
 }
 
-.topbar-link {
-  @apply text-sm font-medium relative cursor-pointer;
+.card-interactive {
+  @apply bg-white/[0.03] border border-white/10 rounded-lg p-8 transition-all duration-200 cursor-pointer;
 }
 
-.topbar-link.active {
-  @apply font-semibold underline;
+.card-interactive:hover {
+  @apply border-white/15 bg-white/[0.05] shadow-xl shadow-black/20;
 }
 
-.connect-and-theme-button-wrapper {
-  @apply flex flex-row gap-4 justify-end;
+.card-selected {
+  @apply border-primary/50 bg-primary/5 shadow-xl shadow-primary/10;
 }
 
-.bottombar-container {
-  @apply w-full bg-white dark:bg-dark-3 flex justify-center px-4 transition-colors z-10;
-}
-
-.bottombar {
-  @apply flex justify-between items-center h-[120px] w-full px-6;
-}
-
-.bottom-bar-social-link {
-  @apply hover:scale-125 transition-transform duration-300 z-10;
-}
-
-.connect-wallet-button {
-  @apply px-4 py-2 rounded-xl text-base font-semibold border-none bg-secondary-blue transform hover:scale-105 transition-transform duration-300 text-white drop-shadow-md;
-}
-
-.connect-wallet-button-invalid-network {
-  @apply px-4 py-2 rounded-xl text-base font-semibold border-none bg-error-red transform hover:scale-105 transition-transform duration-300 text-white drop-shadow-md flex flex-row items-center gap-2;
-}
-
-.connect-network-switch {
-  @apply px-2 py-2 bg-white dark:bg-dark-2 rounded-xl font-semibold flex flex-row gap-1 drop-shadow-md transform hover:scale-105 transition-transform duration-300 text-xs sm:text-base;
-}
-
-.connect-account-display {
-  @apply pl-1 md:pl-2 pr-1 py-1 bg-white dark:bg-dark-2 rounded-xl font-semibold flex flex-row items-center gap-1 drop-shadow-md transform hover:scale-103 transition-transform duration-300;
-}
-
-.connect-account-address {
-  @apply px-2 py-1 md:ml-1 bg-light-1 dark:bg-dark-1 rounded-xl flex flex-row items-center gap-1 text-sm sm:text-base;
-}
-
+/* Button System */
 .btn {
-  @apply px-4 py-2 rounded-xl text-base font-semibold border-none bg-secondary-blue transform hover:scale-105 transition-transform duration-300 text-white drop-shadow-md;
+  @apply inline-flex items-center justify-center font-medium text-sm transition-all duration-150 outline-none rounded-lg px-6 py-3;
 }
 
-.theme-toggle {
-  @apply py-1 px-3 rounded-full hover:bg-light-2 dark:hover:bg-dark-1 text-dark-1 dark:text-light-2 transition-all;
+.btn:focus {
+  @apply outline-2 outline-primary/30 outline-offset-2;
+}
+
+.btn:active {
+  @apply scale-[0.98];
+}
+
+.btn-primary {
+  @apply bg-primary text-white shadow-lg shadow-primary/25;
+}
+
+.btn-primary:hover {
+  @apply bg-primary-hover shadow-xl shadow-primary/35;
+}
+
+.btn-secondary {
+  @apply bg-white/8 text-white border border-white/15;
+}
+
+.btn-secondary:hover {
+  @apply bg-white/12 border-white/25;
+}
+
+.btn-outline {
+  @apply border border-white/25 text-white;
+}
+
+.btn-outline:hover {
+  @apply bg-white/8 border-white/35;
+}
+
+.btn-sm {
+  @apply px-4 py-2 text-xs;
+}
+
+/* Input System */
+.input-field {
+  @apply w-full bg-white/5 border border-white/15 text-white rounded-lg px-4 py-3 text-sm transition-all duration-150 outline-none placeholder-gray-400;
+}
+
+.input-field:focus {
+  @apply outline-2 outline-primary/30 outline-offset-2 border-primary/50 bg-white/8;
+}
+
+.form-group {
+  @apply flex flex-col gap-3;
+}
+
+.form-label {
+  @apply block text-white text-sm font-medium mb-2;
+}
+
+/* Typography */
+.heading-xl {
+  @apply text-4xl font-bold text-white tracking-tight;
+}
+
+.heading-lg {
+  @apply text-3xl font-bold text-white tracking-tight;
+}
+
+.heading-md {
+  @apply text-2xl font-semibold text-white tracking-tight;
+}
+
+.heading-sm {
+  @apply text-xl font-semibold text-white;
+}
+
+.text-body {
+  @apply text-text-body leading-relaxed;
+}
+
+.text-muted {
+  @apply text-text-muted text-sm;
+}
+
+.text-gradient {
+  @apply bg-gradient-to-r from-gradient-start to-gradient-end bg-clip-text text-transparent font-bold;
+}
+
+/* Navigation */
+.nav-link {
+  @apply text-text-muted font-medium text-sm py-2.5 px-4 rounded-lg transition-all duration-200 no-underline border border-transparent min-w-fit;
+}
+
+.nav-link:hover {
+  @apply text-white bg-white/8;
+}
+
+.nav-link-active {
+  @apply text-white bg-white/12 border-white/20 font-medium;
+}
+
+/* Status System */
+.status-badge {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border;
+}
+
+.status-open {
+  @apply bg-success/10 text-success-light border-success/30;
+}
+
+.status-full {
+  @apply bg-error/10 text-error-light border-error/30;
+}
+
+.status-active {
+  @apply bg-info/10 text-info-light border-info/30;
+}
+
+.status-pending {
+  @apply bg-neutral/10 text-neutral border-neutral/30;
+}
+
+.status-completed {
+  @apply bg-success/10 text-success-light border-success/30;
+}
+
+/* Progress System */
+.progress-bar {
+  @apply w-full bg-white/10 rounded-full h-2 overflow-hidden;
+}
+
+.progress-fill {
+  @apply h-full bg-gradient-to-r from-gradient-start to-gradient-end transition-all duration-500;
+}
+
+/* Grid System */
+.grid-2 {
+  @apply grid gap-6 md:grid-cols-2;
+}
+
+.grid-3 {
+  @apply grid gap-6 md:grid-cols-2 lg:grid-cols-3;
+}
+
+.grid-4 {
+  @apply grid gap-6 md:grid-cols-2 lg:grid-cols-4;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-white/20 rounded-sm;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-white/30;
 }
