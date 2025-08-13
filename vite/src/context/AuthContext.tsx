@@ -14,7 +14,6 @@ interface IContextType {
     address: string | undefined;
     isConnected: boolean;
     loading: boolean;
-    needsSignup: boolean;
     createUser: (userData: User) => Promise<void>;
     updateUser: (userData: User) => Promise<void>;
     refetchUser: () => void;
@@ -27,7 +26,6 @@ const INITIAL_STATE: IContextType = {
     address: undefined,
     isConnected: false,
     loading: false,
-    needsSignup: false,
     createUser: async () => { },
     updateUser: async () => { },
     refetchUser: () => { },
@@ -51,7 +49,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const address = wagmiAddress || privyUser?.wallet?.address;
     const isConnected = wagmiConnected || (authenticated && !!privyUser?.wallet?.address);
-    const needsSignup = !user && isConnected && !loading;
 
     const fetchUser = useCallback(async (walletAddress: string) => {
         setLoading(true);
@@ -125,7 +122,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         address,
         isConnected,
         loading,
-        needsSignup,
         createUser,
         updateUser,
         refetchUser,
